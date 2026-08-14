@@ -50,6 +50,9 @@
     font-family:inherit; font-size:14px; padding:8px 10px;
     border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink);
   }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  input[type=number]{ -moz-appearance:textfield; }
   button{
     font-family:inherit; font-size:13px; padding:9px 16px; border-radius:6px;
     border:none; background:var(--brand); color:#fff; cursor:pointer; letter-spacing:1px;
@@ -310,10 +313,27 @@
       </div>
 
       <div class="card">
+        <h2>🗓️ 週考期別管理</h2>
+        <div class="msg">先建立「週考1」「週考2」這樣的期別，設定起訖日期，等這個期別所有小考都考完後按「結算」，名次就會永久封存，之後刪改小考也不會影響已結算的紀錄。</div>
+        <div class="row" style="margin-top:8px;margin-bottom:10px;">
+          <input id="newPeriodName" placeholder="期別名稱，如：週考1">
+          <label>起始</label><input type="date" id="newPeriodStart">
+          <label>結束</label><input type="date" id="newPeriodEnd">
+          <button onclick="addQuizPeriod()">建立期別</button>
+        </div>
+        <table>
+          <thead><tr><th>期別</th><th>日期區間</th><th>狀態</th><th>操作</th></tr></thead>
+          <tbody id="periodTable"></tbody>
+        </table>
+        <div class="msg" id="periodMsg"></div>
+      </div>
+
+      <div class="card">
         <h2>🗂️ 全部小考歷史紀錄</h2>
         <div class="row" style="margin-bottom:8px;">
           <label>篩選科目：</label>
           <select id="quizHistoryFilter" onchange="renderQuizHistoryTable()"><option value="">全部</option></select>
+          <label><input type="checkbox" id="showArchivedChk" style="width:auto;" onchange="renderQuizHistoryTable()"> 顯示已封存</label>
         </div>
         <table>
           <thead><tr><th>科目</th><th>日期</th><th>名稱</th><th>已登記人數</th><th>操作</th></tr></thead>
@@ -460,6 +480,36 @@ function downloadCSV(filename, rows){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+function enableArrowNav(tableEl){
+  if (!tableEl) return;
+  tableEl.querySelectorAll('input[type=number]').forEach(inp=>{
+    inp.addEventListener('keydown', e=>{
+      if (e.key === 'ArrowDown' || e.key === 'Enter'){
+        e.preventDefault();
+        const td = inp.closest('td'); const tr = td.closest('tr');
+        const nextTr = tr.nextElementSibling;
+        if (nextTr){
+          const idx = Array.from(tr.children).indexOf(td);
+          const nextInput = nextTr.children[idx] ? nextTr.children[idx].querySelector('input') : null;
+          if (nextInput) nextInput.focus();
+        }
+      } else if (e.key === 'ArrowUp'){
+        e.preventDefault();
+        const td = inp.closest('td'); const tr = td.closest('tr');
+        const prevTr = tr.previousElementSibling;
+        if (prevTr){
+          const idx = Array.from(tr.children).indexOf(td);
+          const prevInput = prevTr.children[idx] ? prevTr.children[idx].querySelector('input') : null;
+          if (prevInput) prevInput.focus();
+        }
+      }
+    });
+  });
+}
+function confirmDeleteText(message){
+  const input = window.prompt(message + "\n\n請輸入「刪除」兩個字以確認：");
+  return input === "刪除";
+}
 
 /* ---------- 路由 ---------- */
 const params = new URLSearchParams(location.search);
@@ -509,6 +559,7 @@ let examsCache = {};
 let quizzesCache = {};
 let quizScoresCache = {};
 let teachersCache = {};
+let quizPeriodsCache = {};
 
 function initAdmin(){
   db.ref("students").on("value", snap=>{
@@ -533,6 +584,10 @@ function initAdmin(){
   db.ref("subjectTeachers").on("value", snap=>{
     teachersCache = snap.val() || {};
     renderTeacherList();
+  });
+  db.ref("quizPeriods").on("value", snap=>{
+    quizPeriodsCache = snap.val() || {};
+    renderPeriodTable();
   });
 
   const sel1 = document.getElementById("adminQuizSubject");
@@ -568,7 +623,8 @@ function addStudent(){
   });
 }
 function removeStudent(key){
-  if(!confirm("確定要刪除這位學生嗎？")) return;
+  const s = studentsCache[key];
+  if(!confirmDeleteText(`確定要刪除學生「${s?s.name:''}」嗎？`)) return;
   db.ref("students/"+key).remove();
 }
 function renderStudentTable(){
@@ -628,6 +684,7 @@ function renderScoreEntryTable(){
   });
   html += "</tbody></table>";
   area.innerHTML = html;
+  enableArrowNav(area.querySelector("table"));
 }
 function loadExamForEntry(){
   const examKey = document.getElementById("examSelect").value;
@@ -721,6 +778,7 @@ function openQuizEntry(key, areaId, saveBtnId, hasExisting){
   html += "</tbody></table>";
   area.innerHTML = html;
   document.getElementById(saveBtnId).classList.remove("hidden");
+  enableArrowNav(area.querySelector("table"));
   if (hasExisting){
     const data = quizScoresCache[key] || {};
     Object.entries(data).forEach(([stuKey, val])=>{
@@ -756,26 +814,44 @@ function renderQuizHistoryTable(){
   const tbody = document.getElementById("quizHistoryTable");
   if (!tbody) return;
   const filter = document.getElementById("quizHistoryFilter").value;
+  const showArchived = document.getElementById("showArchivedChk").checked;
   tbody.innerHTML = "";
   Object.entries(quizzesCache)
     .filter(([k,q])=> !filter || q.subject===filter)
+    .filter(([k,q])=> showArchived ? !!q.archived : !q.archived)
     .sort((a,b)=> b[1].date.localeCompare(a[1].date))
     .forEach(([key,q])=>{
       const cnt = Object.keys(quizScoresCache[key]||{}).length;
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${q.subject}</td><td>${q.date}</td><td>${q.name}</td><td>${cnt}/${Object.keys(studentsCache).length}</td>
-        <td>
-          <button class="ghost small" onclick="reopenAdminQuiz('${key}')">開啟編輯</button>
-          <button class="ghost small" onclick="exportQuizCSV('${key}')">匯出CSV</button>
-          <button class="danger small" onclick="deleteQuiz('${key}')">刪除</button>
-        </td>`;
+      const actionsHtml = q.archived
+        ? `<button class="ghost small" onclick="unarchiveQuiz('${key}')">取消封存</button>
+           <button class="danger small" onclick="deleteQuiz('${key}')">刪除</button>`
+        : `<button class="ghost small" onclick="reopenAdminQuiz('${key}')">開啟編輯</button>
+           <button class="ghost small" onclick="exportQuizCSV('${key}')">匯出CSV</button>
+           <button class="ghost small" onclick="archiveQuiz('${key}')">封存</button>
+           <button class="danger small" onclick="deleteQuiz('${key}')">刪除</button>`;
+      tr.innerHTML = `<td>${q.subject}</td><td>${q.date}</td><td>${q.name}${q.archived?' <span class="tag">已封存</span>':''}</td><td>${cnt}/${Object.keys(studentsCache).length}</td>
+        <td>${actionsHtml}</td>`;
       tbody.appendChild(tr);
     });
+  if (tbody.children.length===0){
+    tbody.innerHTML = "<tr><td colspan='5' style='color:var(--muted);'>沒有符合條件的紀錄</td></tr>";
+  }
+}
+function archiveQuiz(key){
+  db.ref("quizzes/"+key+"/archived").set(true).then(()=> showMsg("adminQuizMsg","已封存，家長端與統計報表不會再顯示這筆資料"));
+}
+function unarchiveQuiz(key){
+  db.ref("quizzes/"+key+"/archived").set(false).then(()=> showMsg("adminQuizMsg","已取消封存"));
 }
 function deleteQuiz(key){
   const q = quizzesCache[key];
   if (!q) return;
-  if (!confirm(`確定要刪除「${q.subject} - ${q.name}（${q.date}）」這筆小考紀錄嗎？此動作無法復原。`)) return;
+  const inClosedPeriod = Object.values(quizPeriodsCache).some(p=> p.closed && q.date >= p.start && q.date <= p.end);
+  const warnText = inClosedPeriod
+    ? `這筆小考屬於已結算鎖定的週考期別，該期別的名次紀錄已封存不受影響，但原始成績會被刪除，確定要刪除「${q.subject} - ${q.name}（${q.date}）」嗎？`
+    : `確定要刪除「${q.subject} - ${q.name}（${q.date}）」這筆小考紀錄嗎？此動作無法復原，且若這筆資料所屬的週考期別尚未結算，會影響之後的統計結果。`;
+  if (!confirmDeleteText(warnText)) return;
   db.ref().update({
     ["quizzes/"+key]: null,
     ["quizScores/"+key]: null
@@ -843,6 +919,7 @@ function collectReportData(){
   const includeMajor = document.getElementById("reportIncludeMajor").checked;
   const items = [];
   Object.entries(quizzesCache).forEach(([k,q])=>{
+    if (q.archived) return;
     if (q.date >= start && q.date <= end){
       items.push({ key:k, subject:q.subject, name:q.name, date:q.date, scores: quizScoresCache[k] || {} });
     }
@@ -963,6 +1040,84 @@ function exportFullBackup(){
   });
 }
 
+/* ---- 週考期別管理 ---- */
+function addQuizPeriod(){
+  const name = document.getElementById("newPeriodName").value.trim();
+  const start = document.getElementById("newPeriodStart").value;
+  const end = document.getElementById("newPeriodEnd").value;
+  if (!name){ showMsg("periodMsg","請輸入期別名稱", true); return; }
+  if (!start || !end){ showMsg("periodMsg","請設定起訖日期", true); return; }
+  const key = "p"+Date.now();
+  db.ref("quizPeriods/"+key).set({ name, start, end, closed:false, createdAt: Date.now() }).then(()=>{
+    document.getElementById("newPeriodName").value="";
+    showMsg("periodMsg","已建立期別「"+name+"」");
+  });
+}
+function renderPeriodTable(){
+  const tbody = document.getElementById("periodTable");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  Object.entries(quizPeriodsCache).sort((a,b)=>(a[1].start||'').localeCompare(b[1].start||'')).forEach(([key,p])=>{
+    const tr = document.createElement("tr");
+    const statusHtml = p.closed
+      ? `<span class="tag gold">已結算</span>`
+      : `<span class="tag">進行中</span>`;
+    const actionHtml = p.closed
+      ? `<button class="ghost small" onclick="reopenPeriod('${key}')">重新開放</button>`
+      : `<button onclick="closePeriod('${key}')">結算並鎖定</button>`;
+    tr.innerHTML = `<td>${p.name}</td><td>${p.start} ～ ${p.end}</td><td>${statusHtml}</td><td>${actionHtml}
+      <button class="danger small" onclick="deletePeriod('${key}')">刪除期別</button></td>`;
+    tbody.appendChild(tr);
+  });
+  if (Object.keys(quizPeriodsCache).length===0){
+    tbody.innerHTML = "<tr><td colspan='4' style='color:var(--muted);'>尚未建立任何週考期別</td></tr>";
+  }
+}
+function closePeriod(key){
+  const period = quizPeriodsCache[key];
+  if (!period) return;
+  if (!confirm(`確定要結算「${period.name}」嗎？結算後會把目前每位同學的相對位置永久封存，之後即使刪改小考成績也不會再變動這筆紀錄。`)) return;
+
+  Promise.all([ db.ref("quizzes").once("value"), db.ref("quizScores").once("value"), db.ref("students").once("value") ])
+    .then(([qSnap, qsSnap, stuSnap])=>{
+      const quizzes = qSnap.val() || {};
+      const quizScores = qsSnap.val() || {};
+      const students = stuSnap.val() || {};
+      const inPeriod = Object.entries(quizzes).filter(([k,q])=> !q.archived && q.date >= period.start && q.date <= period.end);
+      const totals = {};
+      inPeriod.forEach(([qKey])=>{
+        const scores = quizScores[qKey] || {};
+        Object.entries(scores).forEach(([stu,val])=>{ totals[stu] = (totals[stu]||0) + val; });
+      });
+      const list = Object.entries(totals).map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);
+      const results = {};
+      Object.entries(students).forEach(([stuKey])=>{
+        const idx = list.findIndex(x=>x.k===stuKey);
+        if (idx < 0) return;
+        const band = percentileBand(idx+1, list.length);
+        if (band===null) return;
+        results[stuKey] = { band, computedAt: Date.now() };
+      });
+      db.ref().update({
+        ["quizPeriodResults/"+key]: results,
+        ["quizPeriods/"+key+"/closed"]: true,
+        ["quizPeriods/"+key+"/closedAt"]: Date.now()
+      }).then(()=> showMsg("periodMsg","「"+period.name+"」已結算並鎖定"));
+    });
+}
+function reopenPeriod(key){
+  if (!confirmDeleteText("重新開放後，之前封存的名次紀錄會被清除，改回即時計算，確定嗎？")) return;
+  db.ref().update({
+    ["quizPeriods/"+key+"/closed"]: false,
+    ["quizPeriodResults/"+key]: null
+  });
+}
+function deletePeriod(key){
+  const period = quizPeriodsCache[key];
+  if (!confirmDeleteText(`確定要刪除期別「${period?period.name:''}」嗎？（不會刪除底下的小考成績，只是移除這個分組標籤）`)) return;
+  db.ref().update({ ["quizPeriods/"+key]: null, ["quizPeriodResults/"+key]: null });
+}
+
 /* ---- 密碼修改 ---- */
 function toggleSettingsPanel(which){
   document.getElementById("adminPassPanel").classList.toggle("hidden");
@@ -1002,7 +1157,8 @@ function addSubjectTeacher(){
   });
 }
 function removeTeacher(key){
-  if(!confirm("確定要刪除這個小老師帳號嗎？")) return;
+  const t = teachersCache[key];
+  if(!confirmDeleteText(`確定要刪除小老師帳號「${t?t.name:''}」嗎？`)) return;
   db.ref("subjectTeachers/"+key).remove();
 }
 function renderTeacherList(){
@@ -1084,7 +1240,7 @@ function renderMonitorHistoryTable(){
   if (!tbody || !currentMonitorTeacher) return;
   tbody.innerHTML = "";
   Object.entries(quizzesCache)
-    .filter(([k,q])=> currentMonitorTeacher.subjects.includes(q.subject))
+    .filter(([k,q])=> currentMonitorTeacher.subjects.includes(q.subject) && !q.archived)
     .sort((a,b)=> b[1].date.localeCompare(a[1].date))
     .forEach(([key,q])=>{
       const cnt = Object.keys(quizScoresCache[key]||{}).length;
@@ -1130,15 +1286,19 @@ function loadParentView(token){
       db.ref("homework").once("value"),
       db.ref("quizzes").once("value"),
       db.ref("quizScores").once("value"),
-    ]).then(([examSnap, scoreSnap, stuSnap, hwSnap, quizSnap, quizScoreSnap])=>{
+      db.ref("quizPeriods").once("value"),
+      db.ref("quizPeriodResults").once("value"),
+    ]).then(([examSnap, scoreSnap, stuSnap, hwSnap, quizSnap, quizScoreSnap, periodSnap, periodResultSnap])=>{
       const exams = examSnap.val() || {};
       const allScores = scoreSnap.val() || {};
       const homework = hwSnap.val() || {};
       const quizzes = quizSnap.val() || {};
       const quizScores = quizScoreSnap.val() || {};
+      const quizPeriods = periodSnap.val() || {};
+      const quizPeriodResults = periodResultSnap.val() || {};
 
       renderPosition(stuKey, exams, allScores);
-      renderTrend(stuKey, exams, allScores, quizzes, quizScores);
+      renderTrend(stuKey, exams, allScores, quizzes, quizScores, quizPeriods, quizPeriodResults);
       renderHomework(stuKey, homework);
     });
   });
@@ -1202,15 +1362,15 @@ function renderPosition(stuKey, exams, allScores){
   });
 }
 
-function renderTrend(stuKey, exams, allScores, quizzes, quizScores){
-  window._trendData = { stuKey, exams, allScores, quizzes, quizScores };
+function renderTrend(stuKey, exams, allScores, quizzes, quizScores, quizPeriods, quizPeriodResults){
+  window._trendData = { stuKey, exams, allScores, quizzes, quizScores, quizPeriods, quizPeriodResults };
   showTrend('exam');
 }
 
 let currentTrendChart = null;
 
 function showTrend(type){
-  const { stuKey, exams, allScores, quizzes, quizScores } = window._trendData;
+  const { stuKey, exams, allScores, quizzes, quizScores, quizPeriods, quizPeriodResults } = window._trendData;
   document.getElementById("btnExamTrend").className = type==='exam' ? "" : "ghost";
   document.getElementById("btnQuizTrend").className = type==='quiz' ? "" : "ghost";
 
@@ -1220,7 +1380,7 @@ function showTrend(type){
   if (type === 'exam'){
     renderExamTrendChart(stuKey, exams, allScores);
   } else {
-    renderQuizTrendChart(stuKey, exams, quizzes, quizScores);
+    renderQuizTrendChart(stuKey, quizPeriods, quizPeriodResults);
   }
 }
 
@@ -1244,50 +1404,25 @@ function renderExamTrendChart(stuKey, exams, allScores){
   drawTrendChart(labels, bandData, "段考相對位置");
 }
 
-function renderQuizTrendChart(stuKey, exams, quizzes, quizScores){
-  // 依段考日期把週考切成區間，同一區間內的週考合併算一個代表點
-  const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].date||'').localeCompare(b[1].date||''));
-  if (majorExams.length === 0){
-    document.getElementById("trendMsg").textContent = "尚未建立任何段考，無法區分週考所屬區間，請先在段考分頁建立段考日期";
-    return;
-  }
-  const buckets = [];
-  let prevDate = "0000-01-01";
-  majorExams.forEach(([k,e])=>{
-    buckets.push({ label: e.name, start: prevDate, end: e.date || "9999-12-31" });
-    prevDate = e.date || prevDate;
-  });
-  // 最後一次段考之後，如果還有週考，額外開一個「最新」區間
-  buckets.push({ label: "最新", start: prevDate, end: "9999-12-31" });
+function renderQuizTrendChart(stuKey, quizPeriods, quizPeriodResults){
+  const closedPeriods = Object.entries(quizPeriods)
+    .filter(([k,p])=> p.closed)
+    .sort((a,b)=> (a[1].start||'').localeCompare(b[1].start||''));
 
   const labels = [];
   const bandData = [];
-  buckets.forEach(bucket=>{
-    // 找出這個區間內的所有週考
-    const inBucket = Object.entries(quizzes).filter(([k,q])=> q.date > bucket.start && q.date <= bucket.end);
-    if (inBucket.length === 0) return;
-    // 計算每個學生在這個區間內的小考總分（所有科目合計）
-    const totals = {};
-    inBucket.forEach(([qKey])=>{
-      const scores = quizScores[qKey] || {};
-      Object.entries(scores).forEach(([stu, val])=>{
-        totals[stu] = (totals[stu]||0) + val;
-      });
-    });
-    if (totals[stuKey] === undefined) return;
-    const list = Object.entries(totals).map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);
-    const idx = list.findIndex(x=>x.k===stuKey);
-    const band = percentileBand(idx+1, list.length);
-    if (band===null) return;
-    labels.push(bucket.label);
-    bandData.push(4-band);
+  closedPeriods.forEach(([key, p])=>{
+    const result = (quizPeriodResults[key]||{})[stuKey];
+    if (!result) return;
+    labels.push(p.name);
+    bandData.push(4 - result.band);
   });
 
   if (labels.length < 2){
-    document.getElementById("trendMsg").textContent = "目前週考資料還不夠累積成趨勢，隨著段考區間增加會自動顯示";
+    document.getElementById("trendMsg").textContent = "已結算的週考期別還不足兩次，老師結算更多期別後會自動顯示趨勢圖";
     return;
   }
-  drawTrendChart(labels, bandData, "週考相對位置（依段考區間彙整）");
+  drawTrendChart(labels, bandData, "週考相對位置（已結算期別）");
 }
 
 function drawTrendChart(labels, bandData, label){
