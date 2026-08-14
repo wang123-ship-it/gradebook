@@ -109,6 +109,15 @@
   .arrow-down{color:#c62828; font-weight:700;}
   .arrow-flat{color:var(--muted);}
 
+  .band-badge{
+    display:inline-block; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; color:#fff;
+  }
+  .band-0{background:#e53935;}  /* 前10% 紅 */
+  .band-1{background:#fb8c00;}  /* 前11~20% 橘 */
+  .band-2{background:#1e88e5;}  /* 前21~40% 藍 */
+  .band-3{background:#43a047;}  /* 前41~60% 綠 */
+  .band-4{background:#78909c;}  /* 60%以後 灰 */
+
   .teacher-item{
     display:flex; justify-content:space-between; align-items:center;
     border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin-bottom:6px; font-size:13px;
@@ -780,7 +789,7 @@ function createHwEntry(){
   let html = `<input type="hidden" id="hwCurrentDate" value="${date}"><input type="hidden" id="hwCurrentName" value="${name}">
     <table><thead><tr><th>座號</th><th>姓名</th><th>是否繳交</th></tr></thead><tbody>`;
   Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
-    html += `<tr><td>${s.no}</td><td>${s.name}</td><td><select data-stu="${key}" class="hwStatus"><option value="submitted">已交</option><option value="missing">未交</option></select></td></tr>`;
+    html += `<tr><td>${s.no}</td><td>${s.name}</td><td><select data-stu="${key}" class="hwStatus"><option value="submitted">已交</option><option value="missing">缺交</option></select></td></tr>`;
   });
   html += "</tbody></table>";
   area.innerHTML = html;
@@ -855,6 +864,17 @@ function calcItemRank(item, stuKey){
   const idx = list.findIndex(x=>x.k===stuKey);
   return idx>=0 ? (idx+1)+"/"+list.length : "-";
 }
+function bandBadgeHtml(rank, total){
+  const band = percentileBand(rank, total);
+  if (band===null) return "-";
+  return `<span class="band-badge band-${band}">${BAND_LABELS[band]}</span>`;
+}
+function calcItemBandBadge(item, stuKey){
+  const list = Object.entries(item.scores).map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);
+  const idx = list.findIndex(x=>x.k===stuKey);
+  if (idx<0) return "-";
+  return bandBadgeHtml(idx+1, list.length);
+}
 function generateTeacherReport(){
   showMsg("reportMsg","產生中...");
   collectReportData().then(grouped=>{
@@ -899,7 +919,7 @@ function generateStudentReports(){
         if (myItems.length===0) return;
         html += `<table><thead><tr><th class="subj-block-title" colspan="3">${subj}</th></tr><tr><th>日期</th><th>名稱</th><th>成績（班排）</th></tr></thead><tbody>`;
         let sum=0;
-        myItems.forEach(it=>{ const val=it.scores[stuKey]; sum+=val; html += `<tr><td>${it.date}</td><td>${it.name}</td><td>${val}（${calcItemRank(it,stuKey)}）</td></tr>`; });
+        myItems.forEach(it=>{ const val=it.scores[stuKey]; sum+=val; html += `<tr><td>${it.date}</td><td>${it.name}</td><td>${val}　${calcItemBandBadge(it,stuKey)}</td></tr>`; });
         html += `<tr><td colspan="2" style="text-align:right;font-weight:600;">小計/平均</td><td style="font-weight:600;">${(sum/myItems.length).toFixed(1)}</td></tr></tbody></table>`;
       });
       html += "</div>";
@@ -1146,8 +1166,7 @@ function renderPosition(stuKey, exams, allScores){
     const val = myLatest[subj];
     if (val===undefined) return;
     const {rank, total} = calcSubjRank(subj, latestScores, stuKey);
-    const band = percentileBand(rank, total);
-    const bandLabel = band!==null ? BAND_LABELS[band] : "-";
+    const bandLabelHtml = bandBadgeHtml(rank, total);
 
     let changeHtml = "<span class='arrow-flat'>—</span>";
     if (prevScores && prevScores[stuKey] && prevScores[stuKey][subj]!==undefined){
@@ -1164,7 +1183,7 @@ function renderPosition(stuKey, exams, allScores){
       }
     }
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${subj}</td><td>${val}</td><td>${bandLabel}</td><td>${changeHtml}</td>`;
+    tr.innerHTML = `<td>${subj}</td><td>${val}</td><td>${bandLabelHtml}</td><td>${changeHtml}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -1228,7 +1247,7 @@ function renderHomework(stuKey, homework){
   });
   rows.sort((a,b)=> b.date.localeCompare(a.date));
   rows.slice(0,15).forEach(r=>{
-    const tag = r.status==="submitted" ? '<span class="tag">已交</span>' : '<span class="tag warn">未交</span>';
+    const tag = r.status==="submitted" ? '<span class="tag">已交</span>' : '<span class="tag warn">缺交</span>';
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${r.date}</td><td>${r.name}</td><td>${tag}</td>`;
     tbody.appendChild(tr);
