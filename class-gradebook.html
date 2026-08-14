@@ -220,6 +220,22 @@
   <div id="adminView" class="hidden">
 
     <div class="card">
+      <h2>⚙️ 系統設定（修改密碼）</h2>
+      <div class="row" style="margin-bottom:10px;">
+        <label style="width:110px;">老師後台密碼</label>
+        <input type="password" id="newAdminPassInput" placeholder="輸入新的後台密碼">
+        <button onclick="changeAdminPassword()">更新密碼</button>
+      </div>
+      <div class="row">
+        <label style="width:110px;">小老師密碼</label>
+        <input type="password" id="newMonitorPassInput" placeholder="輸入新的小老師密碼">
+        <button onclick="changeMonitorPassword()">更新密碼</button>
+      </div>
+      <div class="msg" id="settingsMsg"></div>
+      <div class="msg">※ 更新後立即生效，下次登入請用新密碼；建議避開生日、電話等好猜的組合</div>
+    </div>
+
+    <div class="card">
       <h2>👥 學生名單管理</h2>
       <div class="row">
         <input id="newStuName" placeholder="學生姓名">
@@ -390,13 +406,16 @@ if (isAdmin) {
    ======================================================== */
 function tryAdminLogin(){
   const pass = document.getElementById("adminPass").value;
-  if (pass === ADMIN_PASSWORD){
-    document.getElementById("adminLogin").classList.add("hidden");
-    document.getElementById("adminView").classList.remove("hidden");
-    initAdmin();
-  } else {
-    showMsg("adminLoginMsg", "密碼錯誤", true);
-  }
+  db.ref("settings/adminPassword").once("value").then(snap=>{
+    const currentPass = snap.val() || ADMIN_PASSWORD; // 尚未透過後台改過密碼時，使用預設值
+    if (pass === currentPass){
+      document.getElementById("adminLogin").classList.add("hidden");
+      document.getElementById("adminView").classList.remove("hidden");
+      initAdmin();
+    } else {
+      showMsg("adminLoginMsg", "密碼錯誤", true);
+    }
+  });
 }
 
 let studentsCache = {};
@@ -420,7 +439,9 @@ function initAdmin(){
   // 小老師連結與密碼顯示
   const baseUrl = location.origin + location.pathname;
   document.getElementById("monitorLinkBox").value = baseUrl + "?monitor=1";
-  document.getElementById("monitorPassDisplay").value = MONITOR_PASSWORD;
+  db.ref("settings/monitorPassword").once("value").then(snap=>{
+    document.getElementById("monitorPassDisplay").value = snap.val() || MONITOR_PASSWORD;
+  });
 
   // 科目下拉選單（小考登記用）
   const sel = document.getElementById("adminQuizSubject");
@@ -458,6 +479,26 @@ function moveSubj(idx, dir){
   if (newIdx < 0 || newIdx >= subjectOrder.length) return;
   [subjectOrder[idx], subjectOrder[newIdx]] = [subjectOrder[newIdx], subjectOrder[idx]];
   renderSubjOrderList();
+}
+
+/* ---- 密碼修改（存到 Firebase，之後登入直接比對） ---- */
+function changeAdminPassword(){
+  const val = document.getElementById("newAdminPassInput").value.trim();
+  if (!val || val.length < 4){ showMsg("settingsMsg","密碼至少需要4個字元", true); return; }
+  db.ref("settings/adminPassword").set(val).then(()=>{
+    document.getElementById("newAdminPassInput").value = "";
+    showMsg("settingsMsg","後台密碼已更新，下次登入請使用新密碼");
+  });
+}
+
+function changeMonitorPassword(){
+  const val = document.getElementById("newMonitorPassInput").value.trim();
+  if (!val || val.length < 4){ showMsg("settingsMsg","密碼至少需要4個字元", true); return; }
+  db.ref("settings/monitorPassword").set(val).then(()=>{
+    document.getElementById("newMonitorPassInput").value = "";
+    document.getElementById("monitorPassDisplay").value = val;
+    showMsg("settingsMsg","小老師密碼已更新，記得把新密碼告訴各科小老師");
+  });
 }
 
 function addStudent(){
@@ -848,13 +889,16 @@ let monitorQuizKey = null;
 
 function tryMonitorLogin(){
   const pass = document.getElementById("monitorPass").value;
-  if (pass === MONITOR_PASSWORD){
-    document.getElementById("monitorLogin").classList.add("hidden");
-    document.getElementById("monitorView").classList.remove("hidden");
-    initMonitor();
-  } else {
-    showMsg("monitorLoginMsg","密碼錯誤", true);
-  }
+  db.ref("settings/monitorPassword").once("value").then(snap=>{
+    const currentPass = snap.val() || MONITOR_PASSWORD; // 尚未透過後台改過密碼時，使用預設值
+    if (pass === currentPass){
+      document.getElementById("monitorLogin").classList.add("hidden");
+      document.getElementById("monitorView").classList.remove("hidden");
+      initMonitor();
+    } else {
+      showMsg("monitorLoginMsg","密碼錯誤", true);
+    }
+  });
 }
 
 function initMonitor(){
