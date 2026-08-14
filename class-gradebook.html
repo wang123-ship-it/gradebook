@@ -220,19 +220,27 @@
   <div id="adminView" class="hidden">
 
     <div class="card">
-      <h2>⚙️ 系統設定（修改密碼）</h2>
-      <div class="row" style="margin-bottom:10px;">
-        <label style="width:110px;">老師後台密碼</label>
-        <input type="password" id="newAdminPassInput" placeholder="輸入新的後台密碼">
-        <button onclick="changeAdminPassword()">更新密碼</button>
-      </div>
+      <h2>⚙️ 系統設定</h2>
       <div class="row">
-        <label style="width:110px;">小老師密碼</label>
-        <input type="password" id="newMonitorPassInput" placeholder="輸入新的小老師密碼">
-        <button onclick="changeMonitorPassword()">更新密碼</button>
+        <button class="ghost" onclick="toggleSettingsPanel('admin')">🔑 修改老師後台密碼</button>
+        <button class="ghost" onclick="toggleSettingsPanel('monitor')">✏️ 修改小老師密碼</button>
       </div>
-      <div class="msg" id="settingsMsg"></div>
-      <div class="msg">※ 更新後立即生效，下次登入請用新密碼；建議避開生日、電話等好猜的組合</div>
+
+      <div id="adminPassPanel" class="hidden" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px;max-width:320px;">
+        <div style="margin-bottom:8px;"><input type="password" id="adminOldPass" placeholder="輸入目前密碼" style="width:100%;"></div>
+        <div style="margin-bottom:8px;"><input type="password" id="adminNewPass1" placeholder="輸入新密碼" style="width:100%;"></div>
+        <div style="margin-bottom:8px;"><input type="password" id="adminNewPass2" placeholder="再次輸入新密碼" style="width:100%;"></div>
+        <button onclick="changeAdminPassword()">確認更新</button>
+        <div class="msg" id="adminPassMsg"></div>
+      </div>
+
+      <div id="monitorPassPanel" class="hidden" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px;max-width:320px;">
+        <div style="margin-bottom:8px;"><input type="password" id="monitorOldPass" placeholder="輸入目前密碼" style="width:100%;"></div>
+        <div style="margin-bottom:8px;"><input type="password" id="monitorNewPass1" placeholder="輸入新密碼" style="width:100%;"></div>
+        <div style="margin-bottom:8px;"><input type="password" id="monitorNewPass2" placeholder="再次輸入新密碼" style="width:100%;"></div>
+        <button onclick="changeMonitorPassword()">確認更新</button>
+        <div class="msg" id="monitorPassMsg"></div>
+      </div>
     </div>
 
     <div class="card">
@@ -482,22 +490,66 @@ function moveSubj(idx, dir){
 }
 
 /* ---- 密碼修改（存到 Firebase，之後登入直接比對） ---- */
+function toggleSettingsPanel(which){
+  const adminPanel = document.getElementById("adminPassPanel");
+  const monitorPanel = document.getElementById("monitorPassPanel");
+  if (which === "admin"){
+    adminPanel.classList.toggle("hidden");
+    monitorPanel.classList.add("hidden");
+  } else {
+    monitorPanel.classList.toggle("hidden");
+    adminPanel.classList.add("hidden");
+  }
+}
+
 function changeAdminPassword(){
-  const val = document.getElementById("newAdminPassInput").value.trim();
-  if (!val || val.length < 4){ showMsg("settingsMsg","密碼至少需要4個字元", true); return; }
-  db.ref("settings/adminPassword").set(val).then(()=>{
-    document.getElementById("newAdminPassInput").value = "";
-    showMsg("settingsMsg","後台密碼已更新，下次登入請使用新密碼");
+  const oldPass = document.getElementById("adminOldPass").value;
+  const new1 = document.getElementById("adminNewPass1").value.trim();
+  const new2 = document.getElementById("adminNewPass2").value.trim();
+
+  db.ref("settings/adminPassword").once("value").then(snap=>{
+    const currentPass = snap.val() || ADMIN_PASSWORD;
+    if (oldPass !== currentPass){
+      showMsg("adminPassMsg","目前密碼輸入錯誤", true); return;
+    }
+    if (!new1 || new1.length < 4){
+      showMsg("adminPassMsg","新密碼至少需要4個字元", true); return;
+    }
+    if (new1 !== new2){
+      showMsg("adminPassMsg","兩次輸入的新密碼不一致，請重新輸入", true); return;
+    }
+    db.ref("settings/adminPassword").set(new1).then(()=>{
+      document.getElementById("adminOldPass").value = "";
+      document.getElementById("adminNewPass1").value = "";
+      document.getElementById("adminNewPass2").value = "";
+      showMsg("adminPassMsg","後台密碼已更新，下次登入請使用新密碼");
+    });
   });
 }
 
 function changeMonitorPassword(){
-  const val = document.getElementById("newMonitorPassInput").value.trim();
-  if (!val || val.length < 4){ showMsg("settingsMsg","密碼至少需要4個字元", true); return; }
-  db.ref("settings/monitorPassword").set(val).then(()=>{
-    document.getElementById("newMonitorPassInput").value = "";
-    document.getElementById("monitorPassDisplay").value = val;
-    showMsg("settingsMsg","小老師密碼已更新，記得把新密碼告訴各科小老師");
+  const oldPass = document.getElementById("monitorOldPass").value;
+  const new1 = document.getElementById("monitorNewPass1").value.trim();
+  const new2 = document.getElementById("monitorNewPass2").value.trim();
+
+  db.ref("settings/monitorPassword").once("value").then(snap=>{
+    const currentPass = snap.val() || MONITOR_PASSWORD;
+    if (oldPass !== currentPass){
+      showMsg("monitorPassMsg","目前密碼輸入錯誤", true); return;
+    }
+    if (!new1 || new1.length < 4){
+      showMsg("monitorPassMsg","新密碼至少需要4個字元", true); return;
+    }
+    if (new1 !== new2){
+      showMsg("monitorPassMsg","兩次輸入的新密碼不一致，請重新輸入", true); return;
+    }
+    db.ref("settings/monitorPassword").set(new1).then(()=>{
+      document.getElementById("monitorOldPass").value = "";
+      document.getElementById("monitorNewPass1").value = "";
+      document.getElementById("monitorNewPass2").value = "";
+      document.getElementById("monitorPassDisplay").value = new1;
+      showMsg("monitorPassMsg","小老師密碼已更新，記得把新密碼告訴各科小老師");
+    });
   });
 }
 
