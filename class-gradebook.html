@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>703班 成績與作業查詢系統</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#1f2933;
+    --paper:#faf7f0;
+    --line:#e4ddc9;
+    --brand:#2f5d50;      /* 深墨綠 - 黑板/教室感 */
+    --brand-light:#eaf2ed;
+    --accent:#c96a3e;     /* 印章紅橙 - 用於警示/未交 */
+    --gold:#b98b2c;       /* 榜單金 - 用於排名 */
+    --ok:#3d7a5c;
+    --muted:#8a8378;
+    --card:#ffffff;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:"Noto Serif TC","PMingLiU",serif;
+    background:var(--paper); color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  .topbar{
+    background:var(--brand); color:#fff; padding:18px 20px;
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom:4px solid var(--gold);
+  }
+  .topbar h1{font-size:18px; margin:0; letter-spacing:2px; font-weight:600;}
+  .topbar .sub{font-size:12px; opacity:.85; margin-top:2px; letter-spacing:1px;}
+  .wrap{max-width:960px; margin:0 auto; padding:20px 16px 60px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:18px 18px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,.04);
+  }
+  .card h2{
+    font-size:15px; margin:0 0 12px; color:var(--brand);
+    border-bottom:2px solid var(--brand-light); padding-bottom:8px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+  label{font-size:13px; color:var(--muted);}
+  input, select{
+    font-family:inherit; font-size:14px; padding:8px 10px;
+    border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink);
+  }
+  button{
+    font-family:inherit; font-size:13px; padding:9px 16px; border-radius:6px;
+    border:none; background:var(--brand); color:#fff; cursor:pointer; letter-spacing:1px;
+  }
+  button.ghost{background:transparent; color:var(--brand); border:1px solid var(--brand);}
+  button.danger{background:var(--accent);}
+  button:hover{opacity:.9;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th, td{border:1px solid var(--line); padding:7px 8px; text-align:center;}
+  th{background:var(--brand-light); color:var(--brand); font-weight:600;}
+  td input{width:56px; padding:5px; text-align:center;}
+  .tag{
+    display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px;
+    background:var(--brand-light); color:var(--brand);
+  }
+  .tag.warn{background:#fbe9e1; color:var(--accent);}
+  .tag.gold{background:#f7edd6; color:var(--gold); font-weight:700;}
+  .rank-num{font-size:22px; font-weight:700; color:var(--gold); font-family:"Noto Serif TC";}
+  .grid2{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px;}
+  .stat-box{
+    border:1px solid var(--line); border-radius:8px; padding:12px; text-align:center; background:var(--brand-light);
+  }
+  .stat-box .label{font-size:12px; color:var(--muted); margin-bottom:4px;}
+  .msg{font-size:12px; color:var(--ok); margin-top:6px; min-height:16px;}
+  .msg.err{color:var(--accent);}
+  .hidden{display:none !important;}
+  .link-box{
+    display:flex; gap:6px; align-items:center; background:#f2efe4; padding:8px 10px; border-radius:6px; margin-top:4px;
+  }
+  .link-box input{flex:1; font-size:12px; color:var(--muted); background:transparent; border:none;}
+  a.copybtn{font-size:12px; color:var(--brand); cursor:pointer; text-decoration:underline;}
+  .footer-note{font-size:11px; color:var(--muted); text-align:center; margin-top:30px; line-height:1.8;}
+  .locked{
+    max-width:360px; margin:80px auto; text-align:center;
+  }
+  .locked input{width:100%; margin-bottom:10px;}
+  .locked button{width:100%;}
+  .subj-grid td.score{cursor:default;}
+  canvas{max-width:100%;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1 id="pageTitle">703班 成績查詢系統</h1>
+    <div class="sub" id="pageSub">請由 LINE 官方帳號取得您孩子的專屬連結</div>
+  </div>
+  <div id="topRight"></div>
+</div>
+
+<div class="wrap" id="app">
+
+  <!-- ========== 家長/學生登入卡（無token時顯示）========== -->
+  <div class="card locked hidden" id="lockedView">
+    <h2 style="justify-content:center;border:none;">🔒 尚未取得專屬連結</h2>
+    <p style="font-size:13px;color:var(--muted);">請透過導師發送的 LINE 訊息中的連結開啟本頁面，<br>每位家長只會看到自己孩子的資料。</p>
+  </div>
+
+  <!-- ========== 家長/學生檢視畫面 ========== -->
+  <div id="parentView" class="hidden">
+
+    <div class="card">
+      <h2>👦 學生資訊</h2>
+      <div class="grid2">
+        <div class="stat-box"><div class="label">姓名</div><div id="pv-name" style="font-size:18px;font-weight:700;">-</div></div>
+        <div class="stat-box"><div class="label">最近一次段考｜班排</div><div class="rank-num" id="pv-classRank">-</div></div>
+        <div class="stat-box"><div class="label">最近一次段考｜校排</div><div class="rank-num" id="pv-schoolRank">-</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📊 各科成績與班排</h2>
+      <table>
+        <thead>
+          <tr><th>考試</th><th>國文</th><th>英文</th><th>數學</th><th>自然</th><th>地理</th><th>歷史</th><th>公民</th></tr>
+        </thead>
+        <tbody id="pv-scoreTable"></tbody>
+      </table>
+      <div class="msg">※ 各科數字下方灰字為該科班排名次</div>
+    </div>
+
+    <div class="card">
+      <h2>📈 班排 / 校排趨勢（限段考）</h2>
+      <canvas id="trendChart" height="120"></canvas>
+      <div class="msg" id="trendMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>📝 作業繳交紀錄（近期）</h2>
+      <table>
+        <thead><tr><th>日期</th><th>作業</th><th>狀態</th></tr></thead>
+        <tbody id="pv-hwTable"></tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ========== 老師後台登入 ========== -->
+  <div class="card locked hidden" id="adminLogin">
+    <h2 style="justify-content:center;border:none;">🔑 老師後台登入</h2>
+    <input type="password" id="adminPass" placeholder="輸入後台密碼">
+    <button onclick="tryAdminLogin()">登入</button>
+    <div class="msg err" id="adminLoginMsg"></div>
+  </div>
+
+  <!-- ========== 老師後台主畫面 ========== -->
+  <div id="adminView" class="hidden">
+
+    <div class="card">
+      <h2>👥 學生名單管理</h2>
+      <div class="row">
+        <input id="newStuName" placeholder="學生姓名">
+        <input id="newStuNo" placeholder="座號">
+        <button onclick="addStudent()">新增學生</button>
+      </div>
+      <div class="msg" id="stuMsg"></div>
+      <table style="margin-top:10px;">
+        <thead><tr><th>座號</th><th>姓名</th><th>專屬連結</th><th>操作</th></tr></thead>
+        <tbody id="stuTable"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>✏️ 成績輸入</h2>
+      <div class="row" style="margin-bottom:10px;">
+        <select id="examSelect" onchange="loadExamForEntry()"></select>
+        <input id="newExamName" placeholder="新增考試名稱，如：第一次段考">
+        <label><input type="checkbox" id="newExamIsMajor" style="width:auto;"> 為段考(顯示校排/計入趨勢)</label>
+        <button onclick="addExam()">建立新考試</button>
+      </div>
+      <div id="scoreEntryArea"></div>
+      <div class="row" style="margin-top:10px;">
+        <button onclick="saveScores()">💾 儲存本次成績</button>
+        <div id="schoolRankEntry" class="hidden row">
+          <label>本班校排（全校排名）：</label>
+          <input type="number" id="schoolRankInput" style="width:70px;">
+        </div>
+      </div>
+      <div class="msg" id="scoreMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>📋 作業繳交登記</h2>
+      <div class="row" style="margin-bottom:10px;">
+        <input type="date" id="hwDate">
+        <input id="hwName" placeholder="作業名稱，如：數學習作P.12">
+        <button onclick="createHwEntry()">建立登記表</button>
+      </div>
+      <div id="hwEntryArea"></div>
+      <button onclick="saveHomework()" class="hidden" id="hwSaveBtn">💾 儲存作業紀錄</button>
+      <div class="msg" id="hwMsg"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="footer-note">
+  703班 成績與作業查詢系統 ｜ 資料儲存於 Firebase，僅導師可寫入<br>
+  家長／學生僅能透過專屬連結查看自己孩子的資料
+</div>
+
+<script>
+/* =========================================================
+   ⚠️ 部署前必做：把下面換成你自己的 Firebase 專案設定
+   （做法跟你的投資儀表板一樣：Firebase 主控台 -> 專案設定 -> 一般 -> 你的應用程式）
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "YOUR_PROJECT",
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ⚠️ 後台密碼，建議部署後自行修改
+const ADMIN_PASSWORD = "703class2026";
+
+const SUBJECTS = ["國文","英文","數學","自然","地理","歷史","公民"];
+
+/* ---------- 工具函式 ---------- */
+function genToken(){
+  return Math.random().toString(36).slice(2,10);
+}
+function todayStr(){
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+function showMsg(id, text, isErr){
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = "msg" + (isErr ? " err" : "");
+  setTimeout(()=>{ el.textContent=""; }, 3500);
+}
+
+/* ---------- 路由：判斷是家長模式還是老師後台模式 ---------- */
+const params = new URLSearchParams(location.search);
+const sid = params.get("sid");
+const isAdmin = params.get("admin") === "1";
+
+if (isAdmin) {
+  document.getElementById("pageTitle").textContent = "703班 老師後台";
+  document.getElementById("pageSub").textContent = "成績輸入 / 作業登記 / 學生名單管理";
+  document.getElementById("adminLogin").classList.remove("hidden");
+} else if (sid) {
+  document.getElementById("adminLogin").classList.add("hidden");
+  loadParentView(sid);
+} else {
+  document.getElementById("lockedView").classList.remove("hidden");
+}
+
+/* ========================================================
+   老師後台
+   ======================================================== */
+function tryAdminLogin(){
+  const pass = document.getElementById("adminPass").value;
+  if (pass === ADMIN_PASSWORD){
+    document.getElementById("adminLogin").classList.add("hidden");
+    document.getElementById("adminView").classList.remove("hidden");
+    initAdmin();
+  } else {
+    showMsg("adminLoginMsg", "密碼錯誤", true);
+  }
+}
+
+let studentsCache = {};
+let examsCache = {};
+
+function initAdmin(){
+  db.ref("students").on("value", snap=>{
+    studentsCache = snap.val() || {};
+    renderStudentTable();
+    renderScoreEntryTable();
+  });
+  db.ref("exams").on("value", snap=>{
+    examsCache = snap.val() || {};
+    renderExamSelect();
+  });
+}
+
+function addStudent(){
+  const name = document.getElementById("newStuName").value.trim();
+  const no = document.getElementById("newStuNo").value.trim();
+  if (!name || !no){ showMsg("stuMsg","請填寫座號與姓名", true); return; }
+  const token = genToken();
+  db.ref("students/s"+no).set({ name, no, token }).then(()=>{
+    document.getElementById("newStuName").value="";
+    document.getElementById("newStuNo").value="";
+    showMsg("stuMsg","已新增學生「"+name+"」");
+  });
+}
+
+function removeStudent(key){
+  if(!confirm("確定要刪除這位學生嗎？（歷史成績會一併留在資料庫但不會顯示）")) return;
+  db.ref("students/"+key).remove();
+}
+
+function renderStudentTable(){
+  const tbody = document.getElementById("stuTable");
+  tbody.innerHTML = "";
+  const baseUrl = location.origin + location.pathname;
+  Object.entries(studentsCache)
+    .sort((a,b)=> (a[1].no||0) - (b[1].no||0))
+    .forEach(([key, s])=>{
+      const link = baseUrl + "?sid=" + s.token;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${s.no}</td>
+        <td>${s.name}</td>
+        <td>
+          <div class="link-box">
+            <input readonly value="${link}" id="link-${key}">
+            <a class="copybtn" onclick="copyLink('link-${key}')">複製</a>
+          </div>
+        </td>
+        <td><button class="danger" onclick="removeStudent('${key}')">刪除</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+}
+
+function copyLink(id){
+  const el = document.getElementById(id);
+  el.select();
+  document.execCommand("copy");
+}
+
+/* ---- 考試管理 ---- */
+function renderExamSelect(){
+  const sel = document.getElementById("examSelect");
+  sel.innerHTML = "<option value=''>-- 選擇要輸入的考試 --</option>";
+  Object.entries(examsCache)
+    .sort((a,b)=> (b[1].createdAt||0) - (a[1].createdAt||0))
+    .forEach(([key, e])=>{
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = e.name + (e.isMajor ? "（段考）" : "");
+      sel.appendChild(opt);
+    });
+}
+
+function addExam(){
+  const name = document.getElementById("newExamName").value.trim();
+  if (!name){ showMsg("scoreMsg","請輸入考試名稱", true); return; }
+  const isMajor = document.getElementById("newExamIsMajor").checked;
+  const key = "e" + Date.now();
+  db.ref("exams/"+key).set({ name, isMajor, createdAt: Date.now() }).then(()=>{
+    document.getElementById("newExamName").value="";
+    document.getElementById("examSelect").value = key;
+    loadExamForEntry();
+    showMsg("scoreMsg","已建立考試「"+name+"」");
+  });
+}
+
+function renderScoreEntryTable(){
+  const area = document.getElementById("scoreEntryArea");
+  if (Object.keys(studentsCache).length === 0){
+    area.innerHTML = "<p style='color:var(--muted);font-size:13px;'>請先在上方新增學生名單</p>";
+    return;
+  }
+  let html = "<table class='subj-grid'><thead><tr><th>座號</th><th>姓名</th>";
+  SUBJECTS.forEach(s=> html += `<th>${s}</th>`);
+  html += "</tr></thead><tbody>";
+  Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
+    html += `<tr><td>${s.no}</td><td>${s.name}</td>`;
+    SUBJECTS.forEach(sub=>{
+      html += `<td class="score"><input type="number" data-stu="${key}" data-subj="${sub}" class="scoreInput"></td>`;
+    });
+    html += "</tr>";
+  });
+  html += "</tbody></table>";
+  area.innerHTML = html;
+}
+
+function loadExamForEntry(){
+  const examKey = document.getElementById("examSelect").value;
+  renderScoreEntryTable();
+  const schoolRankBox = document.getElementById("schoolRankEntry");
+  if (!examKey) return;
+  const exam = examsCache[examKey];
+  if (exam && exam.isMajor){
+    schoolRankBox.classList.remove("hidden");
+  } else {
+    schoolRankBox.classList.add("hidden");
+  }
+  db.ref("scores/"+examKey).once("value").then(snap=>{
+    const data = snap.val() || {};
+    Object.entries(data).forEach(([stuKey, subs])=>{
+      Object.entries(subs).forEach(([subj, val])=>{
+        const input = document.querySelector(`input[data-stu="${stuKey}"][data-subj="${subj}"]`);
+        if (input) input.value = val;
+      });
+    });
+  });
+  if (exam && exam.isMajor){
+    db.ref("schoolRank/"+examKey).once("value").then(snap=>{
+      document.getElementById("schoolRankInput").value = snap.val() || "";
+    });
+  }
+}
+
+function saveScores(){
+  const examKey = document.getElementById("examSelect").value;
+  if (!examKey){ showMsg("scoreMsg","請先選擇或建立考試", true); return; }
+  const inputs = document.querySelectorAll(".scoreInput");
+  const payload = {};
+  inputs.forEach(inp=>{
+    const stu = inp.dataset.stu, subj = inp.dataset.subj;
+    const val = inp.value;
+    if (val === "") return;
+    payload[stu] = payload[stu] || {};
+    payload[stu][subj] = Number(val);
+  });
+  const exam = examsCache[examKey];
+  const updates = { ["scores/"+examKey]: payload };
+  if (exam && exam.isMajor){
+    const sr = document.getElementById("schoolRankInput").value;
+    if (sr !== "") updates["schoolRank/"+examKey] = Number(sr);
+  }
+  db.ref().update(updates).then(()=>{
+    showMsg("scoreMsg","成績已儲存，班排將於家長端自動計算");
+  });
+}
+
+/* ---- 作業登記 ---- */
+function createHwEntry(){
+  const date = document.getElementById("hwDate").value || todayStr();
+  const name = document.getElementById("hwName").value.trim();
+  if (!name){ showMsg("hwMsg","請輸入作業名稱", true); return; }
+  const area = document.getElementById("hwEntryArea");
+  let html = `<input type="hidden" id="hwCurrentDate" value="${date}">
+              <input type="hidden" id="hwCurrentName" value="${name}">
+              <table><thead><tr><th>座號</th><th>姓名</th><th>是否繳交</th></tr></thead><tbody>`;
+  Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
+    html += `<tr><td>${s.no}</td><td>${s.name}</td>
+      <td><select data-stu="${key}" class="hwStatus">
+        <option value="submitted">已交</option>
+        <option value="missing">未交</option>
+      </select></td></tr>`;
+  });
+  html += "</tbody></table>";
+  area.innerHTML = html;
+  document.getElementById("hwSaveBtn").classList.remove("hidden");
+}
+
+function saveHomework(){
+  const date = document.getElementById("hwCurrentDate").value;
+  const name = document.getElementById("hwCurrentName").value;
+  const selects = document.querySelectorAll(".hwStatus");
+  const payload = {};
+  selects.forEach(sel=>{
+    payload[sel.dataset.stu] = { name, status: sel.value };
+  });
+  db.ref("homework/"+date).update(payload).then(()=>{
+    showMsg("hwMsg","作業紀錄已儲存");
+  });
+}
+
+/* ========================================================
+   家長 / 學生檢視
+   ======================================================== */
+function loadParentView(token){
+  db.ref("students").once("value").then(snap=>{
+    const students = snap.val() || {};
+    const entry = Object.entries(students).find(([k,s]) => s.token === token);
+    if (!entry){
+      document.getElementById("lockedView").classList.remove("hidden");
+      document.getElementById("lockedView").querySelector("h2").textContent = "⚠️ 連結無效";
+      return;
+    }
+    const [stuKey, student] = entry;
+    document.getElementById("parentView").classList.remove("hidden");
+    document.getElementById("pv-name").textContent = student.name + "（座號 " + student.no + "）";
+    document.getElementById("pageSub").textContent = student.name + " 的成績與作業查詢";
+
+    Promise.all([
+      db.ref("exams").once("value"),
+      db.ref("scores").once("value"),
+      db.ref("students").once("value"),
+      db.ref("schoolRank").once("value"),
+      db.ref("homework").once("value"),
+    ]).then(([examSnap, scoreSnap, stuSnap, schoolRankSnap, hwSnap])=>{
+      const exams = examSnap.val() || {};
+      const allScores = scoreSnap.val() || {};
+      const allStudents = stuSnap.val() || {};
+      const schoolRanks = schoolRankSnap.val() || {};
+      const homework = hwSnap.val() || {};
+
+      renderScoreTable(stuKey, exams, allScores, allStudents);
+      renderTrend(stuKey, exams, allScores, allStudents, schoolRanks);
+      renderHomework(stuKey, homework);
+      renderTopStats(stuKey, exams, allScores, allStudents, schoolRanks);
+    });
+  });
+}
+
+function calcClassRank(subj, examScores, myStuKey){
+  // examScores: { stuKey: {subj: val, ...}, ... }
+  const list = Object.entries(examScores)
+    .filter(([k,v]) => v[subj] !== undefined)
+    .map(([k,v]) => ({k, val:v[subj]}))
+    .sort((a,b)=> b.val - a.val);
+  const idx = list.findIndex(x=>x.k===myStuKey);
+  return { rank: idx>=0 ? idx+1 : null, total: list.length };
+}
+
+function calcOverallClassRank(examScores, myStuKey){
+  // 用該生所有科目總分排序
+  const list = Object.entries(examScores).map(([k,v])=>{
+    const sum = Object.values(v).reduce((a,b)=>a+b,0);
+    return {k, sum};
+  }).sort((a,b)=> b.sum - a.sum);
+  const idx = list.findIndex(x=>x.k===myStuKey);
+  return { rank: idx>=0 ? idx+1 : null, total: list.length };
+}
+
+function renderScoreTable(stuKey, exams, allScores, allStudents){
+  const tbody = document.getElementById("pv-scoreTable");
+  tbody.innerHTML = "";
+  const sortedExams = Object.entries(exams).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
+  sortedExams.forEach(([examKey, exam])=>{
+    const examScores = allScores[examKey] || {};
+    const myScores = examScores[stuKey];
+    if (!myScores) return;
+    const tr = document.createElement("tr");
+    let row = `<td style="text-align:left;font-weight:600;">${exam.name}${exam.isMajor?' <span class="tag gold">段考</span>':''}</td>`;
+    SUBJECTS.forEach(subj=>{
+      const val = myScores[subj];
+      if (val === undefined){ row += "<td>-</td>"; return; }
+      const {rank, total} = calcClassRank(subj, examScores, stuKey);
+      row += `<td>${val}<br><span style="font-size:11px;color:var(--muted);">班排 ${rank}/${total}</span></td>`;
+    });
+    tr.innerHTML = row;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderTopStats(stuKey, exams, allScores, allStudents, schoolRanks){
+  // 找最近一次「段考」
+  const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0));
+  if (majorExams.length === 0) return;
+  const [latestKey, latestExam] = majorExams[0];
+  const examScores = allScores[latestKey] || {};
+  if (!examScores[stuKey]) return;
+  const {rank} = calcOverallClassRank(examScores, stuKey);
+  document.getElementById("pv-classRank").textContent = rank ? rank+" 名" : "-";
+  document.getElementById("pv-schoolRank").textContent = schoolRanks[latestKey] ? schoolRanks[latestKey]+" 名" : "尚未公布";
+}
+
+function renderTrend(stuKey, exams, allScores, allStudents, schoolRanks){
+  const majorExams = Object.entries(exams)
+    .filter(([k,e])=>e.isMajor)
+    .sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
+
+  const labels = [];
+  const classRankData = [];
+  const schoolRankData = [];
+
+  majorExams.forEach(([examKey, exam])=>{
+    const examScores = allScores[examKey] || {};
+    if (!examScores[stuKey]) return;
+    const {rank} = calcOverallClassRank(examScores, stuKey);
+    labels.push(exam.name);
+    classRankData.push(rank);
+    schoolRankData.push(schoolRanks[examKey] || null);
+  });
+
+  if (labels.length < 2){
+    document.getElementById("trendMsg").textContent = "目前段考資料不足兩次，累積更多次段考後將自動顯示趨勢圖";
+    return;
+  }
+
+  const ctx = document.getElementById("trendChart").getContext("2d");
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "班排（名次，越低越好）",
+          data: classRankData,
+          borderColor: "#2f5d50",
+          backgroundColor: "#2f5d50",
+          tension: 0.3,
+        },
+        {
+          label: "校排（名次，越低越好）",
+          data: schoolRankData,
+          borderColor: "#c96a3e",
+          backgroundColor: "#c96a3e",
+          tension: 0.3,
+        }
+      ]
+    },
+    options: {
+      scales: { y: { reverse: true, title: {display:true, text:"名次"} } },
+      plugins: { legend: { position: "bottom" } }
+    }
+  });
+}
+
+function renderHomework(stuKey, homework){
+  const tbody = document.getElementById("pv-hwTable");
+  tbody.innerHTML = "";
+  const rows = [];
+  Object.entries(homework).forEach(([date, entries])=>{
+    const rec = entries[stuKey];
+    if (rec) rows.push({date, ...rec});
+  });
+  rows.sort((a,b)=> b.date.localeCompare(a.date));
+  rows.slice(0,15).forEach(r=>{
+    const tag = r.status === "submitted"
+      ? '<span class="tag">已交</span>'
+      : '<span class="tag warn">未交</span>';
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${r.date}</td><td>${r.name}</td><td>${tag}</td>`;
+    tbody.appendChild(tr);
+  });
+  if (rows.length === 0){
+    tbody.innerHTML = "<tr><td colspan='3' style='color:var(--muted);'>目前尚無作業紀錄</td></tr>";
+  }
+}
+</script>
+</body>
+</html>
