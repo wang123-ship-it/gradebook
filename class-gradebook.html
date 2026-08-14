@@ -168,7 +168,11 @@
     </div>
 
     <div class="card">
-      <h2>📈 相對位置趨勢（段考／週考，不顯示實際名次）</h2>
+      <h2>📈 相對位置趨勢（不顯示實際名次）</h2>
+      <div class="row no-print" style="margin-bottom:10px;">
+        <button id="btnExamTrend" onclick="showTrend('exam')">段考趨勢</button>
+        <button id="btnQuizTrend" class="ghost" onclick="showTrend('quiz')">週考趨勢</button>
+      </div>
       <canvas id="trendChart" height="130"></canvas>
       <div class="msg" id="trendMsg"></div>
     </div>
@@ -763,9 +767,19 @@ function renderQuizHistoryTable(){
         <td>
           <button class="ghost small" onclick="reopenAdminQuiz('${key}')">開啟編輯</button>
           <button class="ghost small" onclick="exportQuizCSV('${key}')">匯出CSV</button>
+          <button class="danger small" onclick="deleteQuiz('${key}')">刪除</button>
         </td>`;
       tbody.appendChild(tr);
     });
+}
+function deleteQuiz(key){
+  const q = quizzesCache[key];
+  if (!q) return;
+  if (!confirm(`確定要刪除「${q.subject} - ${q.name}（${q.date}）」這筆小考紀錄嗎？此動作無法復原。`)) return;
+  db.ref().update({
+    ["quizzes/"+key]: null,
+    ["quizScores/"+key]: null
+  }).then(()=> showMsg("adminQuizMsg","已刪除該筆小考紀錄"));
 }
 function reopenAdminQuiz(key){
   const q = quizzesCache[key];
@@ -1189,49 +1203,100 @@ function renderPosition(stuKey, exams, allScores){
 }
 
 function renderTrend(stuKey, exams, allScores, quizzes, quizScores){
-  // 段考：用總分排名的百分位
+  window._trendData = { stuKey, exams, allScores, quizzes, quizScores };
+  showTrend('exam');
+}
+
+let currentTrendChart = null;
+
+function showTrend(type){
+  const { stuKey, exams, allScores, quizzes, quizScores } = window._trendData;
+  document.getElementById("btnExamTrend").className = type==='exam' ? "" : "ghost";
+  document.getElementById("btnQuizTrend").className = type==='quiz' ? "" : "ghost";
+
+  if (currentTrendChart){ currentTrendChart.destroy(); currentTrendChart = null; }
+  document.getElementById("trendMsg").textContent = "";
+
+  if (type === 'exam'){
+    renderExamTrendChart(stuKey, exams, allScores);
+  } else {
+    renderQuizTrendChart(stuKey, exams, quizzes, quizScores);
+  }
+}
+
+function renderExamTrendChart(stuKey, exams, allScores){
   const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
-  const examLabels = [];
-  const examBandData = [];
+  const labels = [];
+  const bandData = [];
   majorExams.forEach(([examKey, exam])=>{
     const examScores = allScores[examKey] || {};
     if (!examScores[stuKey]) return;
     const {rank, total} = calcOverallClassRank(examScores, stuKey);
     const band = percentileBand(rank, total);
     if (band===null) return;
-    examLabels.push(exam.name);
-    examBandData.push(4-band); // 反轉：數值越大代表越好，方便畫圖
+    labels.push(exam.name);
+    bandData.push(4-band);
   });
-
-  if (examLabels.length < 2){
+  if (labels.length < 2){
     document.getElementById("trendMsg").textContent = "目前段考資料不足兩次，累積更多次段考後將自動顯示趨勢圖";
     return;
   }
+  drawTrendChart(labels, bandData, "段考相對位置");
+}
 
+function renderQuizTrendChart(stuKey, exams, quizzes, quizScores){
+  // 依段考日期把週考切成區間，同一區間內的週考合併算一個代表點
+  const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].date||'').localeCompare(b[1].date||''));
+  if (majorExams.length === 0){
+    document.getElementById("trendMsg").textContent = "尚未建立任何段考，無法區分週考所屬區間，請先在段考分頁建立段考日期";
+    return;
+  }
+  const buckets = [];
+  let prevDate = "0000-01-01";
+  majorExams.forEach(([k,e])=>{
+    buckets.push({ label: e.name, start: prevDate, end: e.date || "9999-12-31" });
+    prevDate = e.date || prevDate;
+  });
+  // 最後一次段考之後，如果還有週考，額外開一個「最新」區間
+  buckets.push({ label: "最新", start: prevDate, end: "9999-12-31" });
+
+  const labels = [];
+  const bandData = [];
+  buckets.forEach(bucket=>{
+    // 找出這個區間內的所有週考
+    const inBucket = Object.entries(quizzes).filter(([k,q])=> q.date > bucket.start && q.date <= bucket.end);
+    if (inBucket.length === 0) return;
+    // 計算每個學生在這個區間內的小考總分（所有科目合計）
+    const totals = {};
+    inBucket.forEach(([qKey])=>{
+      const scores = quizScores[qKey] || {};
+      Object.entries(scores).forEach(([stu, val])=>{
+        totals[stu] = (totals[stu]||0) + val;
+      });
+    });
+    if (totals[stuKey] === undefined) return;
+    const list = Object.entries(totals).map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);
+    const idx = list.findIndex(x=>x.k===stuKey);
+    const band = percentileBand(idx+1, list.length);
+    if (band===null) return;
+    labels.push(bucket.label);
+    bandData.push(4-band);
+  });
+
+  if (labels.length < 2){
+    document.getElementById("trendMsg").textContent = "目前週考資料還不夠累積成趨勢，隨著段考區間增加會自動顯示";
+    return;
+  }
+  drawTrendChart(labels, bandData, "週考相對位置（依段考區間彙整）");
+}
+
+function drawTrendChart(labels, bandData, label){
   const ctx = document.getElementById("trendChart").getContext("2d");
-  new Chart(ctx, {
+  currentTrendChart = new Chart(ctx, {
     type: "line",
-    data: {
-      labels: examLabels,
-      datasets: [{
-        label: "段考相對位置",
-        data: examBandData,
-        borderColor: "#2f5d50",
-        backgroundColor: "#2f5d50",
-        tension: 0.3,
-        stepped: false,
-      }]
-    },
+    data: { labels, datasets: [{ label, data: bandData, borderColor:"#2f5d50", backgroundColor:"#2f5d50", tension:0.3 }] },
     options: {
-      scales: {
-        y: {
-          min: 0, max: 4, ticks: {
-            stepSize: 1,
-            callback: (val)=> BAND_LABELS[4-val] || ""
-          },
-          title: {display:true, text:"班級相對位置"}
-        }
-      },
+      scales: { y: { min:0, max:4, ticks:{ stepSize:1, callback:(val)=> BAND_LABELS[4-val] || "" }, title:{display:true, text:"班級相對位置"} } },
       plugins: { legend: { display:false } }
     }
   });
