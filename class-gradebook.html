@@ -173,10 +173,10 @@
     <div class="card" id="pv-positionCard">
       <h2>🎯 我的學習位置（最近一次段考）</h2>
       <table>
-        <thead><tr><th>科目</th><th>成績</th><th>班級相對位置</th><th>名次變化</th></tr></thead>
+        <thead><tr><th>科目</th><th>成績</th><th>班級相對位置</th><th>班級內進退步-與上次段考</th></tr></thead>
         <tbody id="pv-positionTable"></tbody>
       </table>
-      <div class="msg">※ 名次變化：與上一次段考相比，正值表示進步，負值表示退步</div>
+      <div class="msg">※ 班級內進退步：與上一次段考相比，正值表示進步，負值表示退步</div>
     </div>
 
     <div class="card" id="pv-radarCard">
@@ -237,7 +237,7 @@
     <div class="card">
       <h2>📐 平時成績標準化計算器（T分數）</h2>
       <div class="row" style="margin-bottom:8px;">
-        <select id="monitorTscoreSubject"></select>
+        <select id="monitorTscoreSubject" onchange="applyCalcConfigDefaults('monitor')"></select>
         <label>起始</label><input type="date" id="monitorTscoreStart">
         <label>結束</label><input type="date" id="monitorTscoreEnd">
       </div>
@@ -298,6 +298,9 @@
           <button onclick="addStudent()">新增學生</button>
         </div>
         <div class="msg" id="stuMsg"></div>
+        <div class="row" style="margin-top:8px;">
+          <label><input type="checkbox" id="showArchivedStuChk" style="width:auto;" onchange="renderStudentTable()"> 查看已封存名單</label>
+        </div>
         <table style="margin-top:10px;">
           <thead><tr><th>座號</th><th>姓名</th><th>專屬連結</th><th>操作</th></tr></thead>
           <tbody id="stuTable"></tbody>
@@ -339,7 +342,7 @@
         <h2>📐 平時成績標準化計算器（T分數）</h2>
         <div class="msg">選一段日期區間跟科目，系統把這段期間內的小考原始平均分數，換算成標準化後的分數，方便你統一登記平時成績。</div>
         <div class="row" style="margin-top:8px;margin-bottom:8px;">
-          <select id="tscoreSubject"></select>
+          <select id="tscoreSubject" onchange="applyCalcConfigDefaults('admin')"></select>
           <label>起始</label><input type="date" id="tscoreStart">
           <label>結束</label><input type="date" id="tscoreEnd">
         </div>
@@ -476,6 +479,14 @@
 
     <!-- 設定 -->
     <div class="tab-panel" id="tab-settings">
+      <div class="card">
+        <h2>📐 各科「平時成績」計算方式設定</h2>
+        <div class="msg">這裡設定每一科的預設計算方式，會自動帶入「小考管理」分頁的T分數計算器：算術平均＝把該科所有小考分數直接加總平均；標準差法＝先算出每個學生的原始平均，再算全班平均與標準差，換算成Z分數，最後用「目標平均＋Z×目標標準差跨度」得出最終分數。</div>
+        <div id="calcMethodList" style="margin-top:8px;"></div>
+        <button onclick="saveCalcMethods()" style="margin-top:8px;">💾 儲存設定</button>
+        <div class="msg" id="calcMethodMsg"></div>
+      </div>
+
       <div class="card">
         <h2>👀 家長端可觀看資料設定</h2>
         <div class="msg">勾選家長打開專屬連結時可以看到哪些區塊。日常表現觀察紀錄屬於後台專用資料，不會出現在這份清單裡，家長永遠看不到。</div>
@@ -636,6 +647,29 @@ document.addEventListener('input', function(e){
     }
   }
 });
+/* 貼上整欄：從 Excel/Google試算表複製一整欄分數，貼在任一格會自動往下填入同一欄 */
+document.addEventListener('paste', function(e){
+  const t = e.target;
+  if (!(t.tagName==='INPUT' && t.type==='number')) return;
+  if (!(t.classList.contains('scoreInput') || t.classList.contains('schoolRankInput') || /-score$/.test(t.className))) return;
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  const values = text.split(/\r?\n/).map(v=>v.trim()).filter(v=>v!=='');
+  if (values.length <= 1) return; // 只有單一值，讓瀏覽器用預設貼上行為即可
+  e.preventDefault();
+  let currentInput = t;
+  for (let i=0; i<values.length; i++){
+    if (!currentInput) break;
+    currentInput.value = values[i];
+    currentInput.dispatchEvent(new Event('input', { bubbles:true }));
+    const td = currentInput.closest('td');
+    const tr = td ? td.closest('tr') : null;
+    if (!tr) break;
+    const nextTr = tr.nextElementSibling;
+    if (!nextTr) break;
+    const idx = Array.from(tr.children).indexOf(td);
+    currentInput = nextTr.children[idx] ? nextTr.children[idx].querySelector('input') : null;
+  }
+});
 
 /* ---------- 路由 ---------- */
 const params = new URLSearchParams(location.search);
@@ -681,6 +715,7 @@ function tryAdminLogin(){
 }
 
 let studentsCache = {};
+function activeStudents(){ return Object.entries(studentsCache).filter(([k,s])=> !s.archived); }
 let examsCache = {};
 let quizzesCache = {};
 let quizScoresCache = {};
@@ -756,6 +791,25 @@ function initAdmin(){
     document.getElementById("visRecord").checked = vis.record !== false;
   });
 
+  const calcMethodBox = document.getElementById("calcMethodList");
+  db.ref("settings/subjectCalcConfig").once("value").then(snap=>{
+    const configs = snap.val() || {};
+    calcMethodBox.innerHTML = `<div class="row" style="font-weight:600;font-size:12px;color:var(--muted);margin-bottom:4px;">
+      <span style="width:50px;">科目</span><span style="width:110px;">計算方式</span><span style="width:90px;">目標平均</span><span>標準差跨度</span></div>`;
+    SUBJECTS.forEach(s=>{
+      const c = configs[s] || { method:"average", targetMean:85, targetSpan:10 };
+      calcMethodBox.innerHTML += `<div class="row" style="margin-bottom:6px;">
+        <label style="width:50px;">${s}</label>
+        <select id="calcMethod-${s}" style="width:110px;">
+          <option value="average" ${c.method==="average"?"selected":""}>算術平均</option>
+          <option value="std" ${c.method==="std"?"selected":""}>標準差法</option>
+        </select>
+        <input type="number" id="calcMean-${s}" value="${c.targetMean}" style="width:80px;" placeholder="目標平均">
+        <input type="number" id="calcSpan-${s}" value="${c.targetSpan}" style="width:80px;" placeholder="標準差跨度">
+      </div>`;
+    });
+  });
+
   renderSubjOrderList();
   const end = todayStr();
   const start = new Date(Date.now() - 14*24*3600*1000).toISOString().slice(0,10);
@@ -780,18 +834,36 @@ function removeStudent(key){
   if(!confirmDeleteText(`確定要刪除學生「${s?s.name:''}」嗎？`)) return;
   db.ref("students/"+key).remove();
 }
+function archiveStudent(key){
+  db.ref("students/"+key+"/archived").set(true).then(()=> showMsg("stuMsg","已封存，該學生原本的專屬連結會立即失效"));
+}
+function unarchiveStudent(key){
+  db.ref("students/"+key+"/archived").set(false).then(()=> showMsg("stuMsg","已取消封存，原本的專屬連結會恢復可用"));
+}
 function renderStudentTable(){
   const tbody = document.getElementById("stuTable");
   tbody.innerHTML = "";
+  const showArchived = document.getElementById("showArchivedStuChk").checked;
   const baseUrl = location.origin + location.pathname;
-  Object.entries(studentsCache).sort((a,b)=> (a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
-    const link = baseUrl + "?sid=" + s.token;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${s.no}</td><td>${s.name}</td>
-      <td><div class="link-box"><input readonly value="${link}" id="link-${key}"><a class="copybtn" onclick="copyLink('link-${key}')">複製</a></div></td>
-      <td><button class="danger small" onclick="removeStudent('${key}')">刪除</button></td>`;
-    tbody.appendChild(tr);
-  });
+  Object.entries(studentsCache)
+    .filter(([k,s])=> showArchived ? !!s.archived : !s.archived)
+    .sort((a,b)=> (a[1].no||0)-(b[1].no||0))
+    .forEach(([key, s])=>{
+      const link = baseUrl + "?sid=" + s.token;
+      const tr = document.createElement("tr");
+      const actionsHtml = s.archived
+        ? `<button class="ghost small" onclick="unarchiveStudent('${key}')">取消封存</button>
+           <button class="danger small" onclick="removeStudent('${key}')">刪除</button>`
+        : `<button class="ghost small" onclick="archiveStudent('${key}')">封存</button>
+           <button class="danger small" onclick="removeStudent('${key}')">刪除</button>`;
+      tr.innerHTML = `<td>${s.no}</td><td>${s.name}${s.archived?' <span class="tag">已封存</span>':''}</td>
+        <td><div class="link-box"><input readonly value="${link}" id="link-${key}"><a class="copybtn" onclick="copyLink('link-${key}')">複製</a></div></td>
+        <td>${actionsHtml}</td>`;
+      tbody.appendChild(tr);
+    });
+  if (tbody.children.length===0){
+    tbody.innerHTML = "<tr><td colspan='4' style='color:var(--muted);'>沒有符合條件的學生</td></tr>";
+  }
 }
 function copyLink(id){
   const el = document.getElementById(id);
@@ -848,7 +920,7 @@ function renderScoreEntryTable(){
   SUBJECTS.forEach(s=> html += `<th>${s}</th>`);
   if (currentExamIsMajor) html += "<th>校排名（個人全校）</th>";
   html += "</tr></thead><tbody>";
-  Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
+  activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
     html += `<tr><td>${s.no}</td><td>${s.name}</td>`;
     SUBJECTS.forEach(sub=> html += `<td><input type="number" min="0" max="100" data-stu="${key}" data-subj="${sub}" class="scoreInput"></td>`);
     if (currentExamIsMajor) html += `<td><input type="number" min="1" data-stu="${key}" class="schoolRankInput" style="width:60px;"></td>`;
@@ -959,7 +1031,7 @@ function createAdminQuiz(){
 function openQuizEntry(key, areaId, saveBtnId, hasExisting){
   const area = document.getElementById(areaId);
   let html = "<table id='"+areaId+"-table'><thead><tr><th>座號</th><th>姓名</th><th>成績</th></tr></thead><tbody>";
-  Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([stuKey,s])=>{
+  activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([stuKey,s])=>{
     html += `<tr><td>${s.no}</td><td>${s.name}</td><td><input type="number" min="0" max="100" data-stu="${stuKey}" class="${areaId}-score" style="width:70px;"></td></tr>`;
   });
   html += "</tbody></table>";
@@ -991,7 +1063,7 @@ function exportQuizCSV(key){
   if (!q) return;
   const scores = quizScoresCache[key] || {};
   const rows = [["座號","姓名","科目","日期","名稱","成績"]];
-  Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([stuKey,s])=>{
+  activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([stuKey,s])=>{
     rows.push([s.no, s.name, q.subject, q.date, q.name, scores[stuKey] ?? ""]);
   });
   downloadCSV(`${q.subject}_${q.name}_${q.date}.csv`, rows);
@@ -1065,7 +1137,7 @@ function createHwEntry(){
   const area = document.getElementById("hwEntryArea");
   let html = `<input type="hidden" id="hwCurrentDate" value="${date}"><input type="hidden" id="hwCurrentName" value="${name}">
     <table><thead><tr><th>座號</th><th>姓名</th><th>是否繳交</th></tr></thead><tbody>`;
-  Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
+  activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
     html += `<tr><td>${s.no}</td><td>${s.name}</td><td><select data-stu="${key}" class="hwStatus"><option value="submitted">已交</option><option value="missing">缺交</option></select></td></tr>`;
   });
   html += "</tbody></table>";
@@ -1159,7 +1231,7 @@ function generateTeacherReport(){
   collectReportData().then(grouped=>{
     const start = document.getElementById("reportStart").value;
     const end = document.getElementById("reportEnd").value;
-    const students = Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0));
+    const students = activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0));
     const columns = [];
     subjectOrder.forEach(subj=> (grouped[subj]||[]).forEach(item=> columns.push(item)));
     if (columns.length===0){
@@ -1191,7 +1263,7 @@ function generateStudentReports(){
 
     const start = document.getElementById("reportStart").value;
     const end = document.getElementById("reportEnd").value;
-    const students = Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0));
+    const students = activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0));
     let html = "";
     students.forEach(([stuKey,s], i)=>{
       html += `<div class="report-sheet ${i<students.length-1?'page-break':''}"><h3>703班 個人成績單 － ${s.name}（座號 ${s.no}）</h3>
@@ -1347,7 +1419,25 @@ function deletePeriod(key){
 }
 
 /* ---- T分數（平時成績標準化）計算器 ---- */
+function applyCalcConfigDefaults(who){
+  const subjSel = who==="admin" ? "tscoreSubject" : "monitorTscoreSubject";
+  const meanId = who==="admin" ? "tscoreTargetMean" : "monitorTscoreTargetMean";
+  const stdId = who==="admin" ? "tscoreTargetStd" : "monitorTscoreTargetStd";
+  const subject = document.getElementById(subjSel).value;
+  if (!subject) return;
+  db.ref("settings/subjectCalcConfig/"+subject).once("value").then(snap=>{
+    const c = snap.val();
+    if (c){
+      document.getElementById(meanId).value = c.targetMean;
+      document.getElementById(stdId).value = c.targetSpan;
+      window["_calcMethod_"+who] = c.method || "average";
+    } else {
+      window["_calcMethod_"+who] = "average";
+    }
+  });
+}
 function calcTScore(outputId){
+  const who = outputId==="adminTscoreOutput" ? "admin" : "monitor";
   const subject = document.getElementById(outputId==="adminTscoreOutput" ? "tscoreSubject" : "monitorTscoreSubject").value;
   const start = document.getElementById(outputId==="adminTscoreOutput" ? "tscoreStart" : "monitorTscoreStart").value;
   const end = document.getElementById(outputId==="adminTscoreOutput" ? "tscoreEnd" : "monitorTscoreEnd").value;
@@ -1361,7 +1451,7 @@ function calcTScore(outputId){
   }
   // 每位學生：取這些小考的原始平均
   const studentAvgs = {};
-  Object.keys(studentsCache).forEach(stuKey=>{
+  Object.keys(Object.fromEntries(activeStudents())).forEach(stuKey=>{
     let sum=0, cnt=0;
     relevantQuizzes.forEach(([qKey])=>{
       const val = (quizScoresCache[qKey]||{})[stuKey];
@@ -1374,30 +1464,34 @@ function calcTScore(outputId){
   const variance = avgList.reduce((a,b)=>a+Math.pow(b-classMean,2),0)/avgList.length;
   const classStd = Math.sqrt(variance) || 1;
 
-  let html = `<table><thead><tr><th>座號</th><th>姓名</th><th>原始平均</th><th>標準化成績（平均${targetMean}／標準差${targetStd}）</th></tr></thead><tbody>`;
-  Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([stuKey,s])=>{
-    if (studentAvgs[stuKey]===undefined){ html += `<tr><td>${s.no}</td><td>${s.name}</td><td colspan="2" style="color:var(--muted);">無資料</td></tr>`; return; }
+  const method = window["_calcMethod_"+who] || "average";
+  let html = `<table><thead><tr><th>座號</th><th>姓名</th><th>原始平均</th><th>標準化成績（平均${targetMean}／標準差${targetStd}）</th><th style="background:var(--gold);color:#fff;">採用值（平時成績）</th></tr></thead><tbody>`;
+  activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([stuKey,s])=>{
+    if (studentAvgs[stuKey]===undefined){ html += `<tr><td>${s.no}</td><td>${s.name}</td><td colspan="3" style="color:var(--muted);">無資料</td></tr>`; return; }
     const raw = studentAvgs[stuKey];
     const tscore = targetMean + ((raw-classMean)/classStd)*targetStd;
-    html += `<tr><td>${s.no}</td><td>${s.name}</td><td>${raw.toFixed(1)}</td><td style="font-weight:700;color:var(--brand);">${tscore.toFixed(1)}</td></tr>`;
+    const adopted = method === "std" ? tscore : raw;
+    html += `<tr><td>${s.no}</td><td>${s.name}</td><td>${raw.toFixed(1)}</td><td>${tscore.toFixed(1)}</td><td style="font-weight:700;color:var(--brand);">${adopted.toFixed(1)}</td></tr>`;
   });
   html += "</tbody></table>";
+  html += `<div class="msg">目前科目設定的計算方式為「${method==="std"?"標準差法":"算術平均"}」，最右欄「採用值」就是建議登入正式成績單的平時成績（可到「設定」分頁調整每科的計算方式）</div>`;
   html += `<div class="row no-print" style="margin-top:8px;"><button onclick="window.print()">🖨️ 列印</button>
-    <button class="ghost" onclick="exportTScoreCSV('${subject}',${classMean.toFixed(2)},${classStd.toFixed(2)},${targetMean},${targetStd})">📤 匯出CSV</button></div>`;
+    <button class="ghost" onclick="exportTScoreCSV('${subject}',${classMean.toFixed(2)},${classStd.toFixed(2)},${targetMean},${targetStd},'${method}')">📤 匯出CSV</button></div>`;
   document.getElementById(outputId).innerHTML = html;
-  window._lastTScoreData = { subject, studentAvgs, classMean, classStd, targetMean, targetStd };
+  window._lastTScoreData = { subject, studentAvgs, classMean, classStd, targetMean, targetStd, method };
 }
 function exportTScoreCSV(){
   const d = window._lastTScoreData;
   if (!d) return;
-  const rows = [["座號","姓名","原始平均","標準化成績"]];
-  Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([stuKey,s])=>{
+  const rows = [["座號","姓名","原始平均","標準化成績","採用值(平時成績)"]];
+  activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([stuKey,s])=>{
     const raw = d.studentAvgs[stuKey];
-    if (raw===undefined){ rows.push([s.no,s.name,"",""]); return; }
+    if (raw===undefined){ rows.push([s.no,s.name,"","",""]); return; }
     const tscore = d.targetMean + ((raw-d.classMean)/d.classStd)*d.targetStd;
-    rows.push([s.no, s.name, raw.toFixed(1), tscore.toFixed(1)]);
+    const adopted = d.method === "std" ? tscore : raw;
+    rows.push([s.no, s.name, raw.toFixed(1), tscore.toFixed(1), adopted.toFixed(1)]);
   });
-  downloadCSV(`${d.subject}_平時成績標準化.csv`, rows);
+  downloadCSV(`${d.subject}_平時成績.csv`, rows);
 }
 
 /* ---- 家長端可視範圍設定 ---- */
@@ -1531,6 +1625,18 @@ function publishReportToParents(){
   db.ref("publishedReport").set({ start, end, includeMajor, subjectOrder, publishedAt: Date.now() }).then(()=>{
     showMsg("reportMsg","已發布，家長打開專屬連結即可直接看到這份成績單，不用等你列印");
   });
+}
+
+function saveCalcMethods(){
+  const configs = {};
+  SUBJECTS.forEach(s=>{
+    configs[s] = {
+      method: document.getElementById("calcMethod-"+s).value,
+      targetMean: Number(document.getElementById("calcMean-"+s).value) || 85,
+      targetSpan: Number(document.getElementById("calcSpan-"+s).value) || 10,
+    };
+  });
+  db.ref("settings/subjectCalcConfig").set(configs).then(()=> showMsg("calcMethodMsg","已儲存，下次開啟T分數計算器會自動帶入這些預設值"));
 }
 
 /* ---- 密碼修改 ---- */
@@ -1686,7 +1792,7 @@ function reopenMonitorQuiz(key){
 function loadParentView(token){
   db.ref("students").once("value").then(snap=>{
     const students = snap.val() || {};
-    const entry = Object.entries(students).find(([k,s]) => s.token === token);
+    const entry = Object.entries(students).find(([k,s]) => s.token === token && !s.archived);
     if (!entry){
       document.getElementById("lockedView").classList.remove("hidden");
       document.getElementById("lockedView").querySelector("h2").textContent = "⚠️ 連結無效";
@@ -1890,6 +1996,13 @@ function calcSubjPercentileForRadar(subj, examScores, stuKey){
   return bandedPercentile(rank, total);
 }
 
+function computeChangeHtml(prevRank, curRank){
+  if (!prevRank || !curRank) return "<span class='arrow-flat'>—</span>";
+  const changePct = ((prevRank - curRank) / prevRank * 100);
+  if (Math.abs(changePct) < 1) return "<span class='arrow-flat'>—</span>";
+  if (changePct > 0) return `<span class="arrow-up">↑ ${Math.abs(changePct).toFixed(0)}%</span>`;
+  return `<span class="arrow-down">↓ ${Math.abs(changePct).toFixed(0)}%</span>`;
+}
 function renderPosition(stuKey, exams, allScores){
   const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
   const tbody = document.getElementById("pv-positionTable");
@@ -1917,21 +2030,27 @@ function renderPosition(stuKey, exams, allScores){
     let changeHtml = "<span class='arrow-flat'>—</span>";
     if (prevScores && prevScores[stuKey] && prevScores[stuKey][subj]!==undefined){
       const prevR = calcSubjRank(subj, prevScores, stuKey);
-      if (prevR.rank && rank){
-        const changePct = ((prevR.rank - rank) / prevR.rank * 100);
-        if (Math.abs(changePct) < 1){
-          changeHtml = "<span class='arrow-flat'>—</span>";
-        } else if (changePct > 0){
-          changeHtml = `<span class="arrow-up">↑ ${Math.abs(changePct).toFixed(0)}%</span>`;
-        } else {
-          changeHtml = `<span class="arrow-down">↓ ${Math.abs(changePct).toFixed(0)}%</span>`;
-        }
-      }
+      changeHtml = computeChangeHtml(prevR.rank, rank);
     }
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${subj}</td><td>${val}</td><td>${bandLabelHtml}</td><td>${changeHtml}</td>`;
     tbody.appendChild(tr);
   });
+
+  // 總分列：用班排（全科加總排名）計算
+  const totalVal = SUBJECTS.reduce((s,subj)=> s + (myLatest[subj]!==undefined ? myLatest[subj] : 0), 0);
+  const { rank: totalRank, total: totalTotal } = calcOverallClassRank(latestScores, stuKey);
+  const totalBandHtml = bandBadgeHtml(totalRank, totalTotal);
+  let totalChangeHtml = "<span class='arrow-flat'>—</span>";
+  if (prevScores && prevScores[stuKey]){
+    const prevOverall = calcOverallClassRank(prevScores, stuKey);
+    totalChangeHtml = computeChangeHtml(prevOverall.rank, totalRank);
+  }
+  const totalTr = document.createElement("tr");
+  totalTr.style.fontWeight = "700";
+  totalTr.style.background = "var(--brand-light)";
+  totalTr.innerHTML = `<td>總分</td><td>${totalVal}</td><td>${totalBandHtml}</td><td>${totalChangeHtml}</td>`;
+  tbody.appendChild(totalTr);
 }
 
 function renderTrend(stuKey, exams, allScores, quizzes, quizScores, quizPeriods, quizPeriodResults){
