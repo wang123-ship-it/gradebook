@@ -156,12 +156,21 @@
   <!-- ========== 家長/學生檢視畫面 ========== -->
   <div id="parentView" class="hidden">
 
-    <div class="card">
+    <div class="card" id="pv-name-wrap">
       <h2>👦 學生資訊</h2>
       <div id="pv-name" style="font-size:18px;font-weight:700;">-</div>
     </div>
 
-    <div class="card">
+    <div class="card hidden" id="pv-progressCard">
+      <div id="pv-progressBadge" style="font-size:20px;font-weight:700;text-align:center;padding:14px;border-radius:10px;"></div>
+    </div>
+
+    <div class="card hidden" id="pv-recordCard">
+      <div id="pv-recordBadge" style="font-size:20px;font-weight:700;text-align:center;padding:14px;border-radius:10px;background:#fdf3d8;color:#8a6d1f;">🏆 恭喜，創紀錄，最高校排名！</div>
+    </div>
+
+
+    <div class="card" id="pv-positionCard">
       <h2>🎯 我的學習位置（最近一次段考）</h2>
       <table>
         <thead><tr><th>科目</th><th>成績</th><th>班級相對位置</th><th>名次變化</th></tr></thead>
@@ -170,7 +179,12 @@
       <div class="msg">※ 名次變化：與上一次段考相比，正值表示進步，負值表示退步</div>
     </div>
 
-    <div class="card">
+    <div class="card" id="pv-radarCard">
+      <h2>🕸️ 科目雷達圖</h2>
+      <canvas id="radarChart" height="220"></canvas>
+    </div>
+
+    <div class="card" id="pv-trendCard">
       <h2>📈 相對位置趨勢（不顯示實際名次）</h2>
       <div class="row no-print" style="margin-bottom:10px;">
         <button id="btnExamTrend" onclick="showTrend('exam')">段考趨勢</button>
@@ -180,12 +194,17 @@
       <div class="msg" id="trendMsg"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="pv-homeworkCard">
       <h2>📝 作業繳交紀錄（近期）</h2>
       <table>
         <thead><tr><th>日期</th><th>作業</th><th>狀態</th></tr></thead>
         <tbody id="pv-hwTable"></tbody>
       </table>
+    </div>
+
+    <div class="card" id="pv-commentCard">
+      <h2>📝 老師的話</h2>
+      <p id="pv-commentText" style="font-size:14px;line-height:1.8;"></p>
     </div>
 
   </div>
@@ -207,6 +226,21 @@
   </div>
 
   <div id="monitorView" class="hidden">
+    <div class="card">
+      <h2>📐 平時成績標準化計算器（T分數）</h2>
+      <div class="row" style="margin-bottom:8px;">
+        <select id="monitorTscoreSubject"></select>
+        <label>起始</label><input type="date" id="monitorTscoreStart">
+        <label>結束</label><input type="date" id="monitorTscoreEnd">
+      </div>
+      <div class="row" style="margin-bottom:8px;">
+        <label>目標平均</label><input type="number" id="monitorTscoreTargetMean" value="80" style="width:70px;">
+        <label>目標標準差</label><input type="number" id="monitorTscoreTargetStd" value="10" style="width:70px;">
+        <button onclick="calcTScore('monitorTscoreOutput')">計算</button>
+      </div>
+      <div id="monitorTscoreOutput"></div>
+    </div>
+
     <div class="card">
       <h2>✏️ 小考成績登記 <span id="monitorWhoAmI" class="tag gold"></span></h2>
       <div class="row" style="margin-bottom:10px;">
@@ -242,6 +276,7 @@
       <button class="tab-btn" data-tab="quiz" onclick="switchAdminTab('quiz')">🗒️ 小考管理</button>
       <button class="tab-btn" data-tab="report" onclick="switchAdminTab('report')">📊 成績單</button>
       <button class="tab-btn" data-tab="homework" onclick="switchAdminTab('homework')">📋 作業登記</button>
+      <button class="tab-btn" data-tab="behavior" onclick="switchAdminTab('behavior')">🌱 生活表現</button>
       <button class="tab-btn" data-tab="settings" onclick="switchAdminTab('settings')">⚙️ 設定</button>
     </div>
 
@@ -296,6 +331,22 @@
     <!-- 小考管理 -->
     <div class="tab-panel" id="tab-quiz">
       <div class="card">
+        <h2>📐 平時成績標準化計算器（T分數）</h2>
+        <div class="msg">選一段日期區間跟科目，系統把這段期間內的小考原始平均分數，換算成標準化後的分數，方便你統一登記平時成績。</div>
+        <div class="row" style="margin-top:8px;margin-bottom:8px;">
+          <select id="tscoreSubject"></select>
+          <label>起始</label><input type="date" id="tscoreStart">
+          <label>結束</label><input type="date" id="tscoreEnd">
+        </div>
+        <div class="row" style="margin-bottom:8px;">
+          <label>目標平均</label><input type="number" id="tscoreTargetMean" value="80" style="width:70px;">
+          <label>目標標準差</label><input type="number" id="tscoreTargetStd" value="10" style="width:70px;">
+          <button onclick="calcTScore('adminTscoreOutput')">計算</button>
+        </div>
+        <div id="adminTscoreOutput"></div>
+      </div>
+
+      <div class="card">
         <h2>✏️ 老師直接登記小考成績</h2>
         <div class="row" style="margin-bottom:8px;">
           <select id="adminQuizSubject"></select>
@@ -347,6 +398,10 @@
       <div class="card">
         <h2>📊 週考／段考成績單產生器</h2>
         <div class="row" style="margin-bottom:10px;">
+          <label>快速選擇已存在段考：</label>
+          <select id="quickExamSelect" onchange="applyQuickExam()"><option value="">-- 或自訂日期區間 --</option></select>
+        </div>
+        <div class="row" style="margin-bottom:10px;">
           <label>起始日期</label><input type="date" id="reportStart">
           <label>結束日期</label><input type="date" id="reportEnd">
           <label><input type="checkbox" id="reportIncludeMajor" style="width:auto;" checked> 包含此區間內的段考</label>
@@ -381,8 +436,56 @@
       </div>
     </div>
 
+    <!-- 生活表現 -->
+    <div class="tab-panel" id="tab-behavior">
+      <div class="card">
+        <h2>🌱 日常表現觀察紀錄（僅老師可見，不會出現在家長可視設定選項中）</h2>
+        <div class="row" style="margin-bottom:10px;">
+          <select id="behaviorStudentSelect"></select>
+          <button class="ghost" onclick="loadBehaviorNotes()">切換學生</button>
+        </div>
+        <div class="row" style="margin-bottom:8px;">
+          <input type="date" id="noteDate">
+          <select id="noteType"><option value="positive">👍 好的表現</option><option value="negative">⚠️ 需留意</option></select>
+          <input id="noteText" placeholder="簡短記錄，如：主動協助同學打掃" style="flex:1;min-width:200px;">
+          <button onclick="addBehaviorNote()">新增紀錄</button>
+        </div>
+        <div class="msg" id="behaviorMsg"></div>
+        <table style="margin-top:10px;">
+          <thead><tr><th>日期</th><th>類型</th><th>內容</th><th>操作</th></tr></thead>
+          <tbody id="behaviorNoteTable"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>📝 個人評語（可產生草稿，家長是否看得到由「設定」分頁控制）</h2>
+        <button onclick="draftComment()">產生評語草稿</button>
+        <textarea id="commentDraft" rows="5" style="width:100%;margin-top:10px;padding:10px;font-family:inherit;border:1px solid var(--line);border-radius:6px;" placeholder="按上方按鈕自動產生草稿，或直接手動輸入評語"></textarea>
+        <div class="row" style="margin-top:8px;">
+          <button onclick="saveComment()">💾 儲存這則評語</button>
+        </div>
+        <div class="msg" id="commentMsg"></div>
+      </div>
+    </div>
+
     <!-- 設定 -->
     <div class="tab-panel" id="tab-settings">
+      <div class="card">
+        <h2>👀 家長端可觀看資料設定</h2>
+        <div class="msg">勾選家長打開專屬連結時可以看到哪些區塊。日常表現觀察紀錄屬於後台專用資料，不會出現在這份清單裡，家長永遠看不到。</div>
+        <div class="checkbox-group" style="margin-top:8px;">
+          <label><input type="checkbox" id="visPosition" style="width:auto;"> 我的學習位置（相對位置＋名次變化）</label>
+          <label><input type="checkbox" id="visTrend" style="width:auto;"> 相對位置趨勢圖</label>
+          <label><input type="checkbox" id="visRadar" style="width:auto;"> 科目雷達圖</label>
+          <label><input type="checkbox" id="visHomework" style="width:auto;"> 作業繳交紀錄</label>
+          <label><input type="checkbox" id="visComment" style="width:auto;"> 個人評語</label>
+          <label><input type="checkbox" id="visProgress" style="width:auto;"> 段考進步／退步醒目提示（公布後顯示14天）</label>
+          <label><input type="checkbox" id="visRecord" style="width:auto;"> 創校排紀錄提示（公布後顯示14天）</label>
+        </div>
+        <button onclick="saveParentVisibility()" style="margin-top:8px;">💾 儲存設定</button>
+        <div class="msg" id="visMsg"></div>
+      </div>
+
       <div class="card">
         <h2>💾 資料備份</h2>
         <div class="msg">按下去會把資料庫「目前所有資料」（學生、成績、小考、作業、小老師帳號）打包成一個檔案下載，請妥善保存在你自己的電腦或雲端硬碟。</div>
@@ -560,6 +663,7 @@ let quizzesCache = {};
 let quizScoresCache = {};
 let teachersCache = {};
 let quizPeriodsCache = {};
+let behaviorNotesCache = {};
 
 function initAdmin(){
   db.ref("students").on("value", snap=>{
@@ -594,6 +698,10 @@ function initAdmin(){
   sel1.innerHTML = "";
   SUBJECTS.forEach(s=>{ const o=document.createElement("option"); o.value=s; o.textContent=s; sel1.appendChild(o); });
 
+  const tscoreSel = document.getElementById("tscoreSubject");
+  tscoreSel.innerHTML = "";
+  SUBJECTS.forEach(s=>{ const o=document.createElement("option"); o.value=s; o.textContent=s; tscoreSel.appendChild(o); });
+
   const filterSel = document.getElementById("quizHistoryFilter");
   SUBJECTS.forEach(s=>{ const o=document.createElement("option"); o.value=s; o.textContent=s; filterSel.appendChild(o); });
 
@@ -601,6 +709,28 @@ function initAdmin(){
   tgroup.innerHTML = "";
   SUBJECTS.forEach(s=>{
     tgroup.innerHTML += `<label><input type="checkbox" value="${s}" class="teacherSubjChk"> ${s}</label>`;
+  });
+
+  const behaviorSel = document.getElementById("behaviorStudentSelect");
+  db.ref("students").once("value").then(snap=>{
+    const students = snap.val() || {};
+    behaviorSel.innerHTML = "";
+    Object.entries(students).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([k,s])=>{
+      const o = document.createElement("option"); o.value=k; o.textContent = s.no+" "+s.name; behaviorSel.appendChild(o);
+    });
+    if (behaviorSel.value) loadBehaviorNotes();
+  });
+  document.getElementById("noteDate").value = todayStr();
+
+  db.ref("settings/parentVisibility").once("value").then(snap=>{
+    const vis = snap.val() || { position:true, trend:true, radar:true, homework:true, comment:true };
+    document.getElementById("visPosition").checked = vis.position !== false;
+    document.getElementById("visTrend").checked = vis.trend !== false;
+    document.getElementById("visRadar").checked = vis.radar !== false;
+    document.getElementById("visHomework").checked = vis.homework !== false;
+    document.getElementById("visComment").checked = vis.comment !== false;
+    document.getElementById("visProgress").checked = vis.progress !== false;
+    document.getElementById("visRecord").checked = vis.record !== false;
   });
 
   renderSubjOrderList();
@@ -649,11 +779,27 @@ function copyLink(id){
 function renderExamSelect(){
   const sel = document.getElementById("examSelect");
   sel.innerHTML = "<option value=''>-- 選擇要輸入的考試 --</option>";
+  const quickSel = document.getElementById("quickExamSelect");
+  if (quickSel) quickSel.innerHTML = "<option value=''>-- 或自訂日期區間 --</option>";
   Object.entries(examsCache).sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0)).forEach(([key, e])=>{
     const opt = document.createElement("option");
     opt.value = key; opt.textContent = e.name + (e.isMajor ? "（段考）" : "");
     sel.appendChild(opt);
+    if (quickSel && e.isMajor){
+      const qopt = document.createElement("option");
+      qopt.value = key; qopt.textContent = e.name + "（" + e.date + "）";
+      quickSel.appendChild(qopt);
+    }
   });
+}
+function applyQuickExam(){
+  const key = document.getElementById("quickExamSelect").value;
+  if (!key) return;
+  const exam = examsCache[key];
+  if (!exam) return;
+  document.getElementById("reportStart").value = exam.date;
+  document.getElementById("reportEnd").value = exam.date;
+  document.getElementById("reportIncludeMajor").checked = true;
 }
 function addExam(){
   const name = document.getElementById("newExamName").value.trim();
@@ -725,7 +871,15 @@ function saveScores(){
   const updates = { ["scores/"+examKey]: payload };
   if (exam && exam.isMajor){
     const sr = document.getElementById("schoolRankInput").value;
-    if (sr !== "") updates["schoolRank/"+examKey] = Number(sr);
+    if (sr !== ""){
+      updates["schoolRank/"+examKey] = Number(sr);
+      // 只有第一次填入校排名時才記錄時間戳記，之後修改數字不會重新啟動14天倒數
+      db.ref("schoolRankMeta/"+examKey).once("value").then(metaSnap=>{
+        if (!metaSnap.exists()){
+          db.ref("schoolRankMeta/"+examKey).set({ enteredAt: Date.now() });
+        }
+      });
+    }
   }
   db.ref().update(updates).then(()=> showMsg("scoreMsg","成績已儲存"));
 }
@@ -996,7 +1150,11 @@ function generateTeacherReport(){
 }
 function generateStudentReports(){
   showMsg("reportMsg","產生中...");
-  collectReportData().then(grouped=>{
+  Promise.all([ collectReportData(), db.ref("scores").once("value") ]).then(([grouped, scoreSnap])=>{
+    const allScores = scoreSnap.val() || {};
+    const majorExams = Object.entries(examsCache).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
+    const latestExamKey = majorExams.length>0 ? majorExams[majorExams.length-1][0] : null;
+
     const start = document.getElementById("reportStart").value;
     const end = document.getElementById("reportEnd").value;
     const students = Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0));
@@ -1004,6 +1162,11 @@ function generateStudentReports(){
     students.forEach(([stuKey,s], i)=>{
       html += `<div class="report-sheet ${i<students.length-1?'page-break':''}"><h3>703班 個人成績單 － ${s.name}（座號 ${s.no}）</h3>
         <div class="meta">區間：${start} ～ ${end}｜產生時間：${new Date().toLocaleString('zh-TW')}</div>`;
+
+      const myLatest = latestExamKey ? (allScores[latestExamKey]||{})[stuKey] : null;
+      if (myLatest){
+        html += `<div style="max-width:340px;margin:0 auto 10px;"><canvas id="radar-${i}" height="220"></canvas></div>`;
+      }
       subjectOrder.forEach(subj=>{
         const items = grouped[subj]||[];
         const myItems = items.filter(it=> it.scores[stuKey]!==undefined);
@@ -1017,6 +1180,26 @@ function generateStudentReports(){
     });
     html += `<div class="row no-print" style="margin-top:10px;"><button onclick="window.print()">🖨️ 列印全班（可剪貼聯絡簿）</button></div>`;
     document.getElementById("reportOutput").innerHTML = html;
+
+    // 逐一畫雷達圖（要在 innerHTML 插入完成之後才能抓到 canvas）
+    students.forEach(([stuKey], i)=>{
+      const examScores = latestExamKey ? (allScores[latestExamKey]||{}) : {};
+      const myLatest = examScores[stuKey];
+      const canvasEl = document.getElementById("radar-"+i);
+      if (!myLatest || !canvasEl) return;
+      const points = SUBJECTS.map(s=> myLatest[s]!==undefined ? calcSubjPercentileForRadar(s, examScores, stuKey) : {value:0,label:"-"});
+      const data = points.map(p=>p.value);
+      const labels = points.map(p=>p.label);
+      new Chart(canvasEl.getContext("2d"), {
+        type:"radar",
+        data:{ labels:SUBJECTS, datasets:[{ data, borderColor:"#2f5d50", backgroundColor:"rgba(47,93,80,0.2)", pointBackgroundColor:"#b98b2c" }] },
+        options:{
+          scales:{ r:{ min:0, max:100, ticks:{ stepSize:20 } } },
+          plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(ctx)=> SUBJECTS[ctx.dataIndex]+'：'+labels[ctx.dataIndex] } } }
+        }
+      });
+    });
+
     showMsg("reportMsg","已產生個人成績單，可直接列印");
   });
 }
@@ -1118,6 +1301,182 @@ function deletePeriod(key){
   db.ref().update({ ["quizPeriods/"+key]: null, ["quizPeriodResults/"+key]: null });
 }
 
+/* ---- T分數（平時成績標準化）計算器 ---- */
+function calcTScore(outputId){
+  const subject = document.getElementById(outputId==="adminTscoreOutput" ? "tscoreSubject" : "monitorTscoreSubject").value;
+  const start = document.getElementById(outputId==="adminTscoreOutput" ? "tscoreStart" : "monitorTscoreStart").value;
+  const end = document.getElementById(outputId==="adminTscoreOutput" ? "tscoreEnd" : "monitorTscoreEnd").value;
+  const targetMean = Number(document.getElementById(outputId==="adminTscoreOutput" ? "tscoreTargetMean" : "monitorTscoreTargetMean").value) || 80;
+  const targetStd = Number(document.getElementById(outputId==="adminTscoreOutput" ? "tscoreTargetStd" : "monitorTscoreTargetStd").value) || 10;
+
+  const relevantQuizzes = Object.entries(quizzesCache).filter(([k,q])=> !q.archived && q.subject===subject && q.date>=start && q.date<=end);
+  if (relevantQuizzes.length===0){
+    document.getElementById(outputId).innerHTML = "<p style='color:var(--muted);font-size:13px;'>這個區間內找不到符合的小考資料</p>";
+    return;
+  }
+  // 每位學生：取這些小考的原始平均
+  const studentAvgs = {};
+  Object.keys(studentsCache).forEach(stuKey=>{
+    let sum=0, cnt=0;
+    relevantQuizzes.forEach(([qKey])=>{
+      const val = (quizScoresCache[qKey]||{})[stuKey];
+      if (val!==undefined){ sum+=val; cnt++; }
+    });
+    if (cnt>0) studentAvgs[stuKey] = sum/cnt;
+  });
+  const avgList = Object.values(studentAvgs);
+  const classMean = avgList.reduce((a,b)=>a+b,0)/avgList.length;
+  const variance = avgList.reduce((a,b)=>a+Math.pow(b-classMean,2),0)/avgList.length;
+  const classStd = Math.sqrt(variance) || 1;
+
+  let html = `<table><thead><tr><th>座號</th><th>姓名</th><th>原始平均</th><th>標準化成績（平均${targetMean}／標準差${targetStd}）</th></tr></thead><tbody>`;
+  Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([stuKey,s])=>{
+    if (studentAvgs[stuKey]===undefined){ html += `<tr><td>${s.no}</td><td>${s.name}</td><td colspan="2" style="color:var(--muted);">無資料</td></tr>`; return; }
+    const raw = studentAvgs[stuKey];
+    const tscore = targetMean + ((raw-classMean)/classStd)*targetStd;
+    html += `<tr><td>${s.no}</td><td>${s.name}</td><td>${raw.toFixed(1)}</td><td style="font-weight:700;color:var(--brand);">${tscore.toFixed(1)}</td></tr>`;
+  });
+  html += "</tbody></table>";
+  html += `<div class="row no-print" style="margin-top:8px;"><button onclick="window.print()">🖨️ 列印</button>
+    <button class="ghost" onclick="exportTScoreCSV('${subject}',${classMean.toFixed(2)},${classStd.toFixed(2)},${targetMean},${targetStd})">📤 匯出CSV</button></div>`;
+  document.getElementById(outputId).innerHTML = html;
+  window._lastTScoreData = { subject, studentAvgs, classMean, classStd, targetMean, targetStd };
+}
+function exportTScoreCSV(){
+  const d = window._lastTScoreData;
+  if (!d) return;
+  const rows = [["座號","姓名","原始平均","標準化成績"]];
+  Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([stuKey,s])=>{
+    const raw = d.studentAvgs[stuKey];
+    if (raw===undefined){ rows.push([s.no,s.name,"",""]); return; }
+    const tscore = d.targetMean + ((raw-d.classMean)/d.classStd)*d.targetStd;
+    rows.push([s.no, s.name, raw.toFixed(1), tscore.toFixed(1)]);
+  });
+  downloadCSV(`${d.subject}_平時成績標準化.csv`, rows);
+}
+
+/* ---- 家長端可視範圍設定 ---- */
+function saveParentVisibility(){
+  const vis = {
+    position: document.getElementById("visPosition").checked,
+    trend: document.getElementById("visTrend").checked,
+    radar: document.getElementById("visRadar").checked,
+    homework: document.getElementById("visHomework").checked,
+    comment: document.getElementById("visComment").checked,
+    progress: document.getElementById("visProgress").checked,
+    record: document.getElementById("visRecord").checked,
+  };
+  db.ref("settings/parentVisibility").set(vis).then(()=> showMsg("visMsg","已儲存家長端可視範圍設定"));
+}
+
+/* ---- 日常表現觀察紀錄（僅老師端使用，不對家長開放） ---- */
+function loadBehaviorNotes(){
+  const stuKey = document.getElementById("behaviorStudentSelect").value;
+  if (!stuKey) return;
+  db.ref("studentNotes/"+stuKey).on("value", snap=>{
+    behaviorNotesCache = snap.val() || {};
+    renderBehaviorNoteTable(stuKey);
+  });
+}
+function renderBehaviorNoteTable(stuKey){
+  const tbody = document.getElementById("behaviorNoteTable");
+  tbody.innerHTML = "";
+  Object.entries(behaviorNotesCache).sort((a,b)=> b[1].date.localeCompare(a[1].date)).forEach(([key,n])=>{
+    const tagHtml = n.type==="positive" ? '<span class="tag">👍 好的表現</span>' : '<span class="tag warn">⚠️ 需留意</span>';
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${n.date}</td><td>${tagHtml}</td><td>${n.text}</td><td><button class="danger small" onclick="deleteBehaviorNote('${stuKey}','${key}')">刪除</button></td>`;
+    tbody.appendChild(tr);
+  });
+  if (Object.keys(behaviorNotesCache).length===0){
+    tbody.innerHTML = "<tr><td colspan='4' style='color:var(--muted);'>目前沒有紀錄</td></tr>";
+  }
+}
+function addBehaviorNote(){
+  const stuKey = document.getElementById("behaviorStudentSelect").value;
+  const date = document.getElementById("noteDate").value || todayStr();
+  const type = document.getElementById("noteType").value;
+  const text = document.getElementById("noteText").value.trim();
+  if (!stuKey){ showMsg("behaviorMsg","請先選擇學生", true); return; }
+  if (!text){ showMsg("behaviorMsg","請輸入紀錄內容", true); return; }
+  const key = "n"+Date.now();
+  db.ref("studentNotes/"+stuKey+"/"+key).set({ date, type, text }).then(()=>{
+    document.getElementById("noteText").value = "";
+    showMsg("behaviorMsg","已新增紀錄");
+  });
+}
+function deleteBehaviorNote(stuKey, key){
+  if (!confirmDeleteText("確定要刪除這筆觀察紀錄嗎？")) return;
+  db.ref("studentNotes/"+stuKey+"/"+key).remove();
+}
+
+/* ---- 評語草稿產生（不使用外部AI，純規則式組句） ---- */
+function draftComment(){
+  const stuKey = document.getElementById("behaviorStudentSelect").value;
+  if (!stuKey) return;
+  const s = studentsCache[stuKey];
+
+  Promise.all([
+    db.ref("homework").once("value"),
+    db.ref("exams").once("value"),
+    db.ref("scores").once("value"),
+  ]).then(([hwSnap, examSnap, scoreSnap])=>{
+    const homework = hwSnap.val() || {};
+    const exams = examSnap.val() || {};
+    const allScores = scoreSnap.val() || {};
+
+    // 作業繳交率
+    let submitted=0, total=0;
+    Object.values(homework).forEach(entries=>{
+      const rec = entries[stuKey];
+      if (rec){ total++; if (rec.status==="submitted") submitted++; }
+    });
+    const hwRate = total>0 ? Math.round(submitted/total*100) : null;
+
+    // 最近段考位置與變化
+    const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
+    let posSentence = "";
+    if (majorExams.length>0){
+      const [latestKey] = majorExams[majorExams.length-1];
+      const latestScores = allScores[latestKey] || {};
+      if (latestScores[stuKey]){
+        const {rank, total:t} = calcOverallClassRank(latestScores, stuKey);
+        const band = percentileBand(rank, t);
+        if (band!==null) posSentence = `近期段考整體表現落在班級${BAND_LABELS[band]}。`;
+        if (majorExams.length>=2){
+          const prevKey = majorExams[majorExams.length-2][0];
+          const prevScores = allScores[prevKey] || {};
+          if (prevScores[stuKey]){
+            const prevR = calcOverallClassRank(prevScores, stuKey);
+            if (prevR.rank && rank){
+              const changePct = (prevR.rank-rank)/prevR.rank*100;
+              if (changePct > 5) posSentence += "相較上次段考有進步的趨勢，值得肯定。";
+              else if (changePct < -5) posSentence += "相較上次段考略有退步，建議近期加強複習。";
+              else posSentence += "表現與上次段考大致持平，穩定發揮。";
+            }
+          }
+        }
+      }
+    }
+
+    let hwSentence = "";
+    if (hwRate !== null){
+      if (hwRate >= 90) hwSentence = `作業繳交狀況非常穩定（繳交率約${hwRate}%）。`;
+      else if (hwRate >= 70) hwSentence = `作業繳交狀況良好（繳交率約${hwRate}%），仍有進步空間。`;
+      else hwSentence = `作業繳交狀況需要加強（繳交率約${hwRate}%），建議家長協助關心。`;
+    }
+
+    const draft = `${s.name}同學，${posSentence}${hwSentence}`.trim();
+    document.getElementById("commentDraft").value = draft || "目前資料不足，請補齊段考成績與作業紀錄後再產生草稿，或直接手動輸入評語。";
+  });
+}
+function saveComment(){
+  const stuKey = document.getElementById("behaviorStudentSelect").value;
+  const text = document.getElementById("commentDraft").value.trim();
+  if (!stuKey){ showMsg("commentMsg","請先選擇學生", true); return; }
+  if (!text){ showMsg("commentMsg","評語內容不可空白", true); return; }
+  db.ref("studentComments/"+stuKey).set({ text, updatedAt: Date.now() }).then(()=> showMsg("commentMsg","評語已儲存"));
+}
+
 /* ---- 密碼修改 ---- */
 function toggleSettingsPanel(which){
   document.getElementById("adminPassPanel").classList.toggle("hidden");
@@ -1200,6 +1559,9 @@ function initMonitor(){
   const sel = document.getElementById("monitorSubject");
   sel.innerHTML = "";
   currentMonitorTeacher.subjects.forEach(s=>{ const o=document.createElement("option"); o.value=s; o.textContent=s; sel.appendChild(o); });
+  const tscoreSel = document.getElementById("monitorTscoreSubject");
+  tscoreSel.innerHTML = "";
+  currentMonitorTeacher.subjects.forEach(s=>{ const o=document.createElement("option"); o.value=s; o.textContent=s; tscoreSel.appendChild(o); });
   document.getElementById("monitorQuizDate").value = todayStr();
   db.ref("students").once("value").then(snap=>{ studentsCache = snap.val() || {}; });
   db.ref("quizzes").on("value", snap=>{ quizzesCache = snap.val()||{}; renderMonitorHistoryTable(); });
@@ -1288,7 +1650,11 @@ function loadParentView(token){
       db.ref("quizScores").once("value"),
       db.ref("quizPeriods").once("value"),
       db.ref("quizPeriodResults").once("value"),
-    ]).then(([examSnap, scoreSnap, stuSnap, hwSnap, quizSnap, quizScoreSnap, periodSnap, periodResultSnap])=>{
+      db.ref("settings/parentVisibility").once("value"),
+      db.ref("studentComments/"+stuKey).once("value"),
+      db.ref("schoolRank").once("value"),
+      db.ref("schoolRankMeta").once("value"),
+    ]).then(([examSnap, scoreSnap, stuSnap, hwSnap, quizSnap, quizScoreSnap, periodSnap, periodResultSnap, visSnap, commentSnap, schoolRankSnap, schoolRankMetaSnap])=>{
       const exams = examSnap.val() || {};
       const allScores = scoreSnap.val() || {};
       const homework = hwSnap.val() || {};
@@ -1296,11 +1662,120 @@ function loadParentView(token){
       const quizScores = quizScoreSnap.val() || {};
       const quizPeriods = periodSnap.val() || {};
       const quizPeriodResults = periodResultSnap.val() || {};
+      const vis = visSnap.val() || { position:true, trend:true, radar:true, homework:true, comment:true, progress:true, record:true };
+      const comment = commentSnap.val();
+      const schoolRank = schoolRankSnap.val() || {};
+      const schoolRankMeta = schoolRankMetaSnap.val() || {};
 
-      renderPosition(stuKey, exams, allScores);
-      renderTrend(stuKey, exams, allScores, quizzes, quizScores, quizPeriods, quizPeriodResults);
-      renderHomework(stuKey, homework);
+      document.getElementById("pv-positionCard").classList.toggle("hidden", vis.position===false);
+      document.getElementById("pv-trendCard").classList.toggle("hidden", vis.trend===false);
+      document.getElementById("pv-radarCard").classList.toggle("hidden", vis.radar===false);
+      document.getElementById("pv-homeworkCard").classList.toggle("hidden", vis.homework===false);
+      document.getElementById("pv-commentCard").classList.toggle("hidden", vis.comment===false || !comment);
+
+      if (vis.position !== false) renderPosition(stuKey, exams, allScores);
+      if (vis.trend !== false) renderTrend(stuKey, exams, allScores, quizzes, quizScores, quizPeriods, quizPeriodResults);
+      if (vis.radar !== false) renderRadar(stuKey, exams, allScores);
+      if (vis.homework !== false) renderHomework(stuKey, homework);
+      if (vis.comment !== false && comment) document.getElementById("pv-commentText").textContent = comment.text;
+      if (vis.progress !== false) renderProgressBadge(exams, schoolRank, schoolRankMeta);
+      if (vis.record !== false) renderRecordBadge(exams, schoolRank, schoolRankMeta);
     });
+  });
+}
+
+/* ---- 進步/退步 與 創紀錄 醒目提示（限公布後14天內顯示） ---- */
+function getRecentSchoolRankExam(exams, schoolRankMeta){
+  const TWO_WEEKS = 14*24*3600*1000;
+  const now = Date.now();
+  const candidates = Object.entries(exams)
+    .filter(([k,e])=> e.isMajor && schoolRankMeta[k] && (now - schoolRankMeta[k].enteredAt) <= TWO_WEEKS)
+    .sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0));
+  return candidates.length>0 ? candidates[0] : null;
+}
+function renderProgressBadge(exams, schoolRank, schoolRankMeta){
+  const recent = getRecentSchoolRankExam(exams, schoolRankMeta);
+  if (!recent) return;
+  const [curKey] = recent;
+  const B = schoolRank[curKey];
+  if (B===undefined) return;
+
+  const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
+  const priorRanks = majorExams.filter(([k])=> k!==curKey && (majorExams.findIndex(x=>x[0]===k) < majorExams.findIndex(x=>x[0]===curKey)) && schoolRank[k]!==undefined).map(([k])=>schoolRank[k]);
+  if (priorRanks.length===0) return; // 沒有之前的資料可比較
+
+  const A = priorRanks.reduce((a,b)=>a+b,0)/priorRanks.length;
+  const ratio = (A-B)/A;
+  const X = Math.abs(ratio*100).toFixed(0);
+
+  let label = null, bg = null, color = null;
+  if (ratio >= 0.2){ label = `🚀 超級進步：${X}%`; bg="#e8f5e9"; color="#2e7d32"; }
+  else if (ratio >= 0.1){ label = `📈 進步：${X}%`; bg="#eef6ee"; color="#3d7a5c"; }
+  else if (ratio <= -0.2){ label = `⚠️ 大退步：${X}%`; bg="#fdecea"; color="#c62828"; }
+  else if (ratio <= -0.1){ label = `📉 退步：${X}%`; bg="#fff3e0"; color="#c96a3e"; }
+
+  if (!label) return; // 變化幅度在正負10%以內，不特別提示
+
+  const card = document.getElementById("pv-progressCard");
+  const badge = document.getElementById("pv-progressBadge");
+  badge.textContent = label;
+  badge.style.background = bg;
+  badge.style.color = color;
+  card.classList.remove("hidden");
+}
+function renderRecordBadge(exams, schoolRank, schoolRankMeta){
+  const recent = getRecentSchoolRankExam(exams, schoolRankMeta);
+  if (!recent) return;
+  const [curKey] = recent;
+  const B = schoolRank[curKey];
+  if (B===undefined) return;
+
+  const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
+  const priorRanks = majorExams.filter(([k])=> k!==curKey && (majorExams.findIndex(x=>x[0]===k) < majorExams.findIndex(x=>x[0]===curKey)) && schoolRank[k]!==undefined).map(([k])=>schoolRank[k]);
+  if (priorRanks.length===0) return; // 沒有之前的紀錄可比較，不算創紀錄
+
+  const previousBest = Math.min(...priorRanks);
+  if (B < previousBest){
+    document.getElementById("pv-recordCard").classList.remove("hidden");
+  }
+}
+
+function renderRadar(stuKey, exams, allScores){
+  const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
+  if (majorExams.length===0){
+    document.getElementById("pv-radarCard").classList.add("hidden");
+    return;
+  }
+  const [latestKey] = majorExams[majorExams.length-1];
+  const examScores = allScores[latestKey] || {};
+  const myScores = examScores[stuKey];
+  if (!myScores){
+    document.getElementById("pv-radarCard").classList.add("hidden");
+    return;
+  }
+  const points = SUBJECTS.map(s=> myScores[s]!==undefined ? calcSubjPercentileForRadar(s, examScores, stuKey) : {value:0,label:"-"});
+  const data = points.map(p=>p.value);
+  const labels = points.map(p=>p.label);
+  const ctx = document.getElementById("radarChart").getContext("2d");
+  new Chart(ctx, {
+    type: "radar",
+    data: {
+      labels: SUBJECTS,
+      datasets: [{
+        label: "班級相對位置(%)",
+        data,
+        borderColor: "#2f5d50",
+        backgroundColor: "rgba(47,93,80,0.2)",
+        pointBackgroundColor: "#b98b2c",
+      }]
+    },
+    options: {
+      scales: { r: { min:0, max:100, ticks:{ stepSize:20 } } },
+      plugins: {
+        legend: { display:false },
+        tooltip: { callbacks: { label: (ctx)=> SUBJECTS[ctx.dataIndex] + '：' + labels[ctx.dataIndex] } }
+      }
+    }
   });
 }
 
@@ -1312,10 +1787,23 @@ function calcOverallClassRank(examScores, myStuKey){
   const idx = list.findIndex(x=>x.k===myStuKey);
   return { rank: idx>=0?idx+1:null, total: list.length };
 }
+function bandedPercentile(rank, total){
+  if (!rank || !total) return { value:0, label:"-" };
+  const pct = ((total - rank + 1) / total) * 100;
+  if (pct >= 70){ const r = Math.round(pct); return { value:r, label:r+"%" }; }
+  if (pct >= 60) return { value:65, label:"65%" };
+  if (pct >= 50) return { value:55, label:"55%" };
+  if (pct >= 40) return { value:45, label:"45%" };
+  return { value:35, label:"40%以下" };
+}
 function calcSubjRank(subj, examScores, myStuKey){
   const list = Object.entries(examScores).filter(([k,v])=>v[subj]!==undefined).map(([k,v])=>({k,val:v[subj]})).sort((a,b)=>b.val-a.val);
   const idx = list.findIndex(x=>x.k===myStuKey);
   return { rank: idx>=0?idx+1:null, total: list.length };
+}
+function calcSubjPercentileForRadar(subj, examScores, stuKey){
+  const { rank, total } = calcSubjRank(subj, examScores, stuKey);
+  return bandedPercentile(rank, total);
 }
 
 function renderPosition(stuKey, exams, allScores){
