@@ -181,7 +181,15 @@
 
     <div class="card" id="pv-radarCard">
       <h2>🕸️ 科目雷達圖</h2>
-      <canvas id="radarChart" height="220"></canvas>
+      <div style="max-width:230px;margin:0 auto;"><canvas id="radarChart" height="110"></canvas></div>
+      <div id="radarLegend" style="text-align:center;font-size:12px;color:var(--muted);margin-top:8px;line-height:1.8;"></div>
+    </div>
+
+    <div class="card hidden" id="pv-reportCard">
+      <h2>📄 個人成績單</h2>
+      <div class="msg" id="pv-reportMeta"></div>
+      <div id="pv-reportBody"></div>
+      <div class="row no-print" style="margin-top:8px;"><button class="ghost" onclick="window.print()">🖨️ 列印這份成績單</button></div>
     </div>
 
     <div class="card" id="pv-trendCard">
@@ -311,11 +319,8 @@
         <div id="scoreEntryArea"></div>
         <div class="row" style="margin-top:10px;">
           <button onclick="saveScores()">💾 儲存本次成績</button>
-          <div id="schoolRankEntry" class="hidden row">
-            <label>本班校排（全校排名）：</label>
-            <input type="number" id="schoolRankInput" style="width:70px;">
-          </div>
         </div>
+        <div class="msg">※ 若為段考，成績表格最右側會出現「校排名」欄位，請依教務處提供的名單逐一輸入每位學生的個人全校排名</div>
         <div class="msg" id="scoreMsg"></div>
       </div>
 
@@ -414,6 +419,7 @@
           <div style="flex:1;min-width:200px;">
             <div class="row"><button onclick="generateTeacherReport()">📋 產生老師版（全班矩陣）</button></div>
             <div class="row" style="margin-top:8px;"><button onclick="generateStudentReports()">🖨️ 產生家長／可列印個人成績單（全班）</button></div>
+            <div class="row" style="margin-top:8px;"><button onclick="publishReportToParents()">📢 發布這份區間成績給家長線上查看（免列印）</button></div>
             <div class="msg" id="reportMsg"></div>
           </div>
         </div>
@@ -613,6 +619,23 @@ function confirmDeleteText(message){
   const input = window.prompt(message + "\n\n請輸入「刪除」兩個字以確認：");
   return input === "刪除";
 }
+
+/* ---- 全域防呆：滑鼠滾輪不誤觸數字輸入框、分數上限100 ---- */
+document.addEventListener('wheel', function(e){
+  if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type === 'number'){
+    document.activeElement.blur();
+  }
+}, { passive: true });
+document.addEventListener('input', function(e){
+  const t = e.target;
+  if (t.tagName === 'INPUT' && t.type === 'number' && (t.classList.contains('scoreInput') || /-score$/.test(t.className))){
+    const v = parseFloat(t.value);
+    if (!isNaN(v)){
+      if (v > 100) t.value = 100;
+      if (v < 0) t.value = 0;
+    }
+  }
+});
 
 /* ---------- 路由 ---------- */
 const params = new URLSearchParams(location.search);
@@ -814,6 +837,7 @@ function addExam(){
     showMsg("scoreMsg","已建立考試「"+name+"」");
   });
 }
+let currentExamIsMajor = false;
 function renderScoreEntryTable(){
   const area = document.getElementById("scoreEntryArea");
   if (Object.keys(studentsCache).length === 0){
@@ -822,10 +846,12 @@ function renderScoreEntryTable(){
   }
   let html = "<table><thead><tr><th>座號</th><th>姓名</th>";
   SUBJECTS.forEach(s=> html += `<th>${s}</th>`);
+  if (currentExamIsMajor) html += "<th>校排名（個人全校）</th>";
   html += "</tr></thead><tbody>";
   Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
     html += `<tr><td>${s.no}</td><td>${s.name}</td>`;
-    SUBJECTS.forEach(sub=> html += `<td><input type="number" data-stu="${key}" data-subj="${sub}" class="scoreInput"></td>`);
+    SUBJECTS.forEach(sub=> html += `<td><input type="number" min="0" max="100" data-stu="${key}" data-subj="${sub}" class="scoreInput"></td>`);
+    if (currentExamIsMajor) html += `<td><input type="number" min="1" data-stu="${key}" class="schoolRankInput" style="width:60px;"></td>`;
     html += "</tr>";
   });
   html += "</tbody></table>";
@@ -834,13 +860,12 @@ function renderScoreEntryTable(){
 }
 function loadExamForEntry(){
   const examKey = document.getElementById("examSelect").value;
-  renderScoreEntryTable();
-  const schoolRankBox = document.getElementById("schoolRankEntry");
-  if (!examKey) return;
   const exam = examsCache[examKey];
+  currentExamIsMajor = !!(exam && exam.isMajor);
+  renderScoreEntryTable();
+  if (!examKey) return;
   document.getElementById("newExamDate").value = exam ? exam.date : todayStr();
-  document.getElementById("newExamIsMajor").checked = !!(exam && exam.isMajor);
-  if (exam && exam.isMajor) schoolRankBox.classList.remove("hidden"); else schoolRankBox.classList.add("hidden");
+  document.getElementById("newExamIsMajor").checked = currentExamIsMajor;
   db.ref("scores/"+examKey).once("value").then(snap=>{
     const data = snap.val() || {};
     Object.entries(data).forEach(([stuKey, subs])=>{
@@ -850,9 +875,13 @@ function loadExamForEntry(){
       });
     });
   });
-  if (exam && exam.isMajor){
+  if (currentExamIsMajor){
     db.ref("schoolRank/"+examKey).once("value").then(snap=>{
-      document.getElementById("schoolRankInput").value = snap.val() || "";
+      const data = snap.val() || {};
+      Object.entries(data).forEach(([stuKey, rank])=>{
+        const input = document.querySelector(`.schoolRankInput[data-stu="${stuKey}"]`);
+        if (input) input.value = rank;
+      });
     });
   }
 }
@@ -869,19 +898,23 @@ function saveScores(){
   });
   const exam = examsCache[examKey];
   const updates = { ["scores/"+examKey]: payload };
+  let hasSchoolRank = false;
   if (exam && exam.isMajor){
-    const sr = document.getElementById("schoolRankInput").value;
-    if (sr !== ""){
-      updates["schoolRank/"+examKey] = Number(sr);
-      // 只有第一次填入校排名時才記錄時間戳記，之後修改數字不會重新啟動14天倒數
+    const rankInputs = document.querySelectorAll(".schoolRankInput");
+    const rankPayload = {};
+    rankInputs.forEach(inp=>{
+      if (inp.value !== ""){ rankPayload[inp.dataset.stu] = Number(inp.value); hasSchoolRank = true; }
+    });
+    updates["schoolRank/"+examKey] = rankPayload;
+  }
+  db.ref().update(updates).then(()=>{
+    showMsg("scoreMsg","成績已儲存");
+    if (hasSchoolRank){
       db.ref("schoolRankMeta/"+examKey).once("value").then(metaSnap=>{
-        if (!metaSnap.exists()){
-          db.ref("schoolRankMeta/"+examKey).set({ enteredAt: Date.now() });
-        }
+        if (!metaSnap.exists()) db.ref("schoolRankMeta/"+examKey).set({ enteredAt: Date.now() });
       });
     }
-  }
-  db.ref().update(updates).then(()=> showMsg("scoreMsg","成績已儲存"));
+  });
 }
 function renderExamHistoryTable(){
   const tbody = document.getElementById("examHistoryTable");
@@ -927,7 +960,7 @@ function openQuizEntry(key, areaId, saveBtnId, hasExisting){
   const area = document.getElementById(areaId);
   let html = "<table id='"+areaId+"-table'><thead><tr><th>座號</th><th>姓名</th><th>成績</th></tr></thead><tbody>";
   Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([stuKey,s])=>{
-    html += `<tr><td>${s.no}</td><td>${s.name}</td><td><input type="number" data-stu="${stuKey}" class="${areaId}-score" style="width:70px;"></td></tr>`;
+    html += `<tr><td>${s.no}</td><td>${s.name}</td><td><input type="number" min="0" max="100" data-stu="${stuKey}" class="${areaId}-score" style="width:70px;"></td></tr>`;
   });
   html += "</tbody></table>";
   area.innerHTML = html;
@@ -1067,42 +1100,43 @@ function moveSubj(idx, dir){
 }
 
 /* ---- 成績單產生器 ---- */
+function buildGroupedItems(quizzesData, quizScoresData, examsData, scoresData, start, end, includeMajor, subjOrder){
+  const items = [];
+  Object.entries(quizzesData).forEach(([k,q])=>{
+    if (q.archived) return;
+    if (q.date >= start && q.date <= end){
+      items.push({ key:k, subject:q.subject, name:q.name, date:q.date, scores: quizScoresData[k] || {} });
+    }
+  });
+  if (includeMajor){
+    Object.entries(examsData).forEach(([k,e])=>{
+      const examDate = e.date || todayStr();
+      if (e.isMajor && examDate >= start && examDate <= end){
+        const examScores = scoresData[k] || {};
+        SUBJECTS.forEach(subj=>{
+          const subjScores = {};
+          Object.entries(examScores).forEach(([stuKey, subs])=>{ if (subs[subj]!==undefined) subjScores[stuKey]=subs[subj]; });
+          if (Object.keys(subjScores).length>0) items.push({ key:k+"-"+subj, subject:subj, name:e.name+"(段考)", date:examDate, scores:subjScores });
+        });
+      }
+    });
+  }
+  const grouped = {};
+  (subjOrder||SUBJECTS).forEach(s=> grouped[s]=[]);
+  items.forEach(it=>{ if(!grouped[it.subject]) grouped[it.subject]=[]; grouped[it.subject].push(it); });
+  Object.values(grouped).forEach(arr=> arr.sort((a,b)=>a.date.localeCompare(b.date)));
+  return grouped;
+}
 function collectReportData(){
   const start = document.getElementById("reportStart").value;
   const end = document.getElementById("reportEnd").value;
   const includeMajor = document.getElementById("reportIncludeMajor").checked;
-  const items = [];
-  Object.entries(quizzesCache).forEach(([k,q])=>{
-    if (q.archived) return;
-    if (q.date >= start && q.date <= end){
-      items.push({ key:k, subject:q.subject, name:q.name, date:q.date, scores: quizScoresCache[k] || {} });
-    }
-  });
   if (includeMajor){
     return db.ref("scores").once("value").then(scoreSnap=>{
-      const scores = scoreSnap.val() || {};
-      Object.entries(examsCache).forEach(([k,e])=>{
-        const examDate = e.date || todayStr();
-        if (e.isMajor && examDate >= start && examDate <= end){
-          const examScores = scores[k] || {};
-          SUBJECTS.forEach(subj=>{
-            const subjScores = {};
-            Object.entries(examScores).forEach(([stuKey, subs])=>{ if (subs[subj]!==undefined) subjScores[stuKey]=subs[subj]; });
-            if (Object.keys(subjScores).length>0) items.push({ key:k+"-"+subj, subject:subj, name:e.name+"(段考)", date:examDate, scores:subjScores });
-          });
-        }
-      });
-      return groupBySubject(items);
+      return buildGroupedItems(quizzesCache, quizScoresCache, examsCache, scoreSnap.val()||{}, start, end, true, subjectOrder);
     });
   }
-  return Promise.resolve(groupBySubject(items));
-}
-function groupBySubject(items){
-  const grouped = {};
-  subjectOrder.forEach(s=> grouped[s]=[]);
-  items.forEach(it=>{ if(!grouped[it.subject]) grouped[it.subject]=[]; grouped[it.subject].push(it); });
-  Object.values(grouped).forEach(arr=> arr.sort((a,b)=>a.date.localeCompare(b.date)));
-  return grouped;
+  return Promise.resolve(buildGroupedItems(quizzesCache, quizScoresCache, examsCache, {}, start, end, false, subjectOrder));
 }
 function calcItemRank(item, stuKey){
   const list = Object.entries(item.scores).map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);
@@ -1249,6 +1283,7 @@ function renderPeriodTable(){
       ? `<button class="ghost small" onclick="reopenPeriod('${key}')">重新開放</button>`
       : `<button onclick="closePeriod('${key}')">結算並鎖定</button>`;
     tr.innerHTML = `<td>${p.name}</td><td>${p.start} ～ ${p.end}</td><td>${statusHtml}</td><td>${actionHtml}
+      <button class="ghost small" onclick="genReportFromPeriod('${key}')">產生成績單</button>
       <button class="danger small" onclick="deletePeriod('${key}')">刪除期別</button></td>`;
     tbody.appendChild(tr);
   });
@@ -1294,6 +1329,16 @@ function reopenPeriod(key){
     ["quizPeriods/"+key+"/closed"]: false,
     ["quizPeriodResults/"+key]: null
   });
+}
+function genReportFromPeriod(key){
+  const p = quizPeriodsCache[key];
+  if (!p) return;
+  document.getElementById("reportStart").value = p.start;
+  document.getElementById("reportEnd").value = p.end;
+  document.getElementById("reportIncludeMajor").checked = false;
+  switchAdminTab("report");
+  window.scrollTo({top:0, behavior:"smooth"});
+  showMsg("reportMsg", `已帶入「${p.name}」的日期區間，請點下方按鈕產生成績單`);
 }
 function deletePeriod(key){
   const period = quizPeriodsCache[key];
@@ -1477,6 +1522,17 @@ function saveComment(){
   db.ref("studentComments/"+stuKey).set({ text, updatedAt: Date.now() }).then(()=> showMsg("commentMsg","評語已儲存"));
 }
 
+/* ---- 發布成績單給家長線上查看（不需列印） ---- */
+function publishReportToParents(){
+  const start = document.getElementById("reportStart").value;
+  const end = document.getElementById("reportEnd").value;
+  const includeMajor = document.getElementById("reportIncludeMajor").checked;
+  if (!start || !end){ showMsg("reportMsg","請先設定日期區間", true); return; }
+  db.ref("publishedReport").set({ start, end, includeMajor, subjectOrder, publishedAt: Date.now() }).then(()=>{
+    showMsg("reportMsg","已發布，家長打開專屬連結即可直接看到這份成績單，不用等你列印");
+  });
+}
+
 /* ---- 密碼修改 ---- */
 function toggleSettingsPanel(which){
   document.getElementById("adminPassPanel").classList.toggle("hidden");
@@ -1654,7 +1710,8 @@ function loadParentView(token){
       db.ref("studentComments/"+stuKey).once("value"),
       db.ref("schoolRank").once("value"),
       db.ref("schoolRankMeta").once("value"),
-    ]).then(([examSnap, scoreSnap, stuSnap, hwSnap, quizSnap, quizScoreSnap, periodSnap, periodResultSnap, visSnap, commentSnap, schoolRankSnap, schoolRankMetaSnap])=>{
+      db.ref("publishedReport").once("value"),
+    ]).then(([examSnap, scoreSnap, stuSnap, hwSnap, quizSnap, quizScoreSnap, periodSnap, periodResultSnap, visSnap, commentSnap, schoolRankSnap, schoolRankMetaSnap, publishedSnap])=>{
       const exams = examSnap.val() || {};
       const allScores = scoreSnap.val() || {};
       const homework = hwSnap.val() || {};
@@ -1666,6 +1723,7 @@ function loadParentView(token){
       const comment = commentSnap.val();
       const schoolRank = schoolRankSnap.val() || {};
       const schoolRankMeta = schoolRankMetaSnap.val() || {};
+      const published = publishedSnap.val();
 
       document.getElementById("pv-positionCard").classList.toggle("hidden", vis.position===false);
       document.getElementById("pv-trendCard").classList.toggle("hidden", vis.trend===false);
@@ -1678,10 +1736,33 @@ function loadParentView(token){
       if (vis.radar !== false) renderRadar(stuKey, exams, allScores);
       if (vis.homework !== false) renderHomework(stuKey, homework);
       if (vis.comment !== false && comment) document.getElementById("pv-commentText").textContent = comment.text;
-      if (vis.progress !== false) renderProgressBadge(exams, schoolRank, schoolRankMeta);
-      if (vis.record !== false) renderRecordBadge(exams, schoolRank, schoolRankMeta);
+      if (vis.progress !== false) renderProgressBadge(stuKey, exams, schoolRank, schoolRankMeta);
+      if (vis.record !== false) renderRecordBadge(stuKey, exams, schoolRank, schoolRankMeta);
+      renderPersonalReport(stuKey, exams, allScores, quizzes, quizScores, published);
     });
   });
+}
+
+function renderPersonalReport(stuKey, exams, allScores, quizzes, quizScores, published){
+  const card = document.getElementById("pv-reportCard");
+  if (!published){ card.classList.add("hidden"); return; }
+  const grouped = buildGroupedItems(quizzes, quizScores, exams, allScores, published.start, published.end, published.includeMajor, published.subjectOrder || SUBJECTS);
+  let html = "";
+  let hasAny = false;
+  (published.subjectOrder||SUBJECTS).forEach(subj=>{
+    const items = grouped[subj]||[];
+    const myItems = items.filter(it=> it.scores[stuKey]!==undefined);
+    if (myItems.length===0) return;
+    hasAny = true;
+    html += `<table><thead><tr><th class="subj-block-title" colspan="3">${subj}</th></tr><tr><th>日期</th><th>名稱</th><th>成績（相對位置）</th></tr></thead><tbody>`;
+    let sum=0;
+    myItems.forEach(it=>{ const val=it.scores[stuKey]; sum+=val; html += `<tr><td>${it.date}</td><td>${it.name}</td><td>${val}　${calcItemBandBadge(it,stuKey)}</td></tr>`; });
+    html += `<tr><td colspan="2" style="text-align:right;font-weight:600;">小計/平均</td><td style="font-weight:600;">${(sum/myItems.length).toFixed(1)}</td></tr></tbody></table>`;
+  });
+  if (!hasAny){ card.classList.add("hidden"); return; }
+  document.getElementById("pv-reportMeta").textContent = `區間：${published.start} ～ ${published.end}`;
+  document.getElementById("pv-reportBody").innerHTML = html;
+  card.classList.remove("hidden");
 }
 
 /* ---- 進步/退步 與 創紀錄 醒目提示（限公布後14天內顯示） ---- */
@@ -1693,15 +1774,16 @@ function getRecentSchoolRankExam(exams, schoolRankMeta){
     .sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0));
   return candidates.length>0 ? candidates[0] : null;
 }
-function renderProgressBadge(exams, schoolRank, schoolRankMeta){
+function renderProgressBadge(stuKey, exams, schoolRank, schoolRankMeta){
   const recent = getRecentSchoolRankExam(exams, schoolRankMeta);
   if (!recent) return;
   const [curKey] = recent;
-  const B = schoolRank[curKey];
+  const B = (schoolRank[curKey]||{})[stuKey];
   if (B===undefined) return;
 
   const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
-  const priorRanks = majorExams.filter(([k])=> k!==curKey && (majorExams.findIndex(x=>x[0]===k) < majorExams.findIndex(x=>x[0]===curKey)) && schoolRank[k]!==undefined).map(([k])=>schoolRank[k]);
+  const curIdx = majorExams.findIndex(x=>x[0]===curKey);
+  const priorRanks = majorExams.slice(0, curIdx).map(([k])=> (schoolRank[k]||{})[stuKey]).filter(v=>v!==undefined);
   if (priorRanks.length===0) return; // 沒有之前的資料可比較
 
   const A = priorRanks.reduce((a,b)=>a+b,0)/priorRanks.length;
@@ -1723,15 +1805,16 @@ function renderProgressBadge(exams, schoolRank, schoolRankMeta){
   badge.style.color = color;
   card.classList.remove("hidden");
 }
-function renderRecordBadge(exams, schoolRank, schoolRankMeta){
+function renderRecordBadge(stuKey, exams, schoolRank, schoolRankMeta){
   const recent = getRecentSchoolRankExam(exams, schoolRankMeta);
   if (!recent) return;
   const [curKey] = recent;
-  const B = schoolRank[curKey];
+  const B = (schoolRank[curKey]||{})[stuKey];
   if (B===undefined) return;
 
   const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
-  const priorRanks = majorExams.filter(([k])=> k!==curKey && (majorExams.findIndex(x=>x[0]===k) < majorExams.findIndex(x=>x[0]===curKey)) && schoolRank[k]!==undefined).map(([k])=>schoolRank[k]);
+  const curIdx = majorExams.findIndex(x=>x[0]===curKey);
+  const priorRanks = majorExams.slice(0, curIdx).map(([k])=> (schoolRank[k]||{})[stuKey]).filter(v=>v!==undefined);
   if (priorRanks.length===0) return; // 沒有之前的紀錄可比較，不算創紀錄
 
   const previousBest = Math.min(...priorRanks);
@@ -1756,6 +1839,7 @@ function renderRadar(stuKey, exams, allScores){
   const points = SUBJECTS.map(s=> myScores[s]!==undefined ? calcSubjPercentileForRadar(s, examScores, stuKey) : {value:0,label:"-"});
   const data = points.map(p=>p.value);
   const labels = points.map(p=>p.label);
+  document.getElementById("radarLegend").innerHTML = SUBJECTS.map((s,i)=> `${s} ${labels[i]}`).join("　");
   const ctx = document.getElementById("radarChart").getContext("2d");
   new Chart(ctx, {
     type: "radar",
