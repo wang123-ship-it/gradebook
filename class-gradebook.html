@@ -1016,15 +1016,15 @@ function copyLink(id){
 function quickSearchStudent(){
   const q = document.getElementById("quickSearchInput").value.trim();
   const box = document.getElementById("quickSearchResult");
-  box.style.fontSize = "48px"; // 原本12px的4倍
+  box.style.fontSize = "96px";
   if (!q){ box.innerHTML = ""; return; }
   const matches = Object.values(studentsCache).filter(s=>
     String(s.no)===q || s.name===q || s.name.includes(q)
   );
   if (matches.length===0){ box.innerHTML = "<span style='color:var(--accent);'>找不到符合的學生</span>"; return; }
   box.innerHTML = matches.map(s=>
-    `<div style="padding:16px 0;border-bottom:1px solid var(--line);line-height:1.5;">
-      <strong>${s.no}號 ${s.name}</strong>${s.archived?' <span class="tag" style="font-size:20px;">已封存</span>':''}<br>
+    `<div style="padding:16px 0;border-bottom:1px solid var(--line);line-height:1.5;word-wrap:break-word;">
+      <strong>${s.no}號 ${s.name}</strong>${s.archived?' <span class="tag" style="font-size:0.4em;">已封存</span>':''}<br>
       生日：${s.birthday||'未填寫'}　緊急聯絡人：${s.emergencyContact||'未填寫'}　緊急電話：${s.emergencyPhone||'未填寫'}
     </div>`
   ).join("");
