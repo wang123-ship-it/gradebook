@@ -300,10 +300,14 @@
           <button onclick="importStudents()">📥 匯入名單</button>
           <button class="ghost" onclick="exportStudentsCSV()">📤 匯出名單CSV</button>
         </div>
-        <div class="msg">匯入格式（CSV，含或不含標題列皆可）：座號,姓名,生日,緊急聯絡人,緊急電話｜生日請用西元年月日8碼，如 20130512｜座號重複者會直接更新原有資料，不會重複建立、也不會影響學生原本的專屬連結</div>
+        <div class="msg">匯入格式（CSV，含或不含標題列皆可）：座號,姓名,生日,緊急聯絡人,緊急電話｜生日請用西元年月日8碼，如 20130512｜座號重複者「不會覆蓋」原有資料，會另存成一筆新紀錄並標記「待確認」，你可以自己決定保留哪一筆</div>
         <div class="row" style="margin-top:8px;">
           <label><input type="checkbox" id="showArchivedStuChk" style="width:auto;" onchange="renderStudentTable()"> 查看已封存名單</label>
         </div>
+        <div class="row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
+          <input id="quickSearchInput" placeholder="輸入座號或姓名，查詢生日/緊急聯絡電話" style="flex:1;min-width:200px;" oninput="quickSearchStudent()">
+        </div>
+        <div class="msg" id="quickSearchResult"></div>
         <table style="margin-top:10px;">
           <thead><tr><th>座號</th><th>姓名</th><th>專屬連結</th><th>操作</th></tr></thead>
           <tbody id="stuTable"></tbody>
@@ -903,7 +907,7 @@ function renderStudentTable(){
            <button class="ghost small" onclick="openStudentDetail('${key}')">詳細資料</button>
            <button class="ghost small" onclick="archiveStudent('${key}')">封存</button>
            <button class="danger small" onclick="removeStudent('${key}')">刪除</button>`;
-      tr.innerHTML = `<td>${s.no}</td><td>${s.name}${s.archived?' <span class="tag">已封存</span>':''}</td>
+      tr.innerHTML = `<td>${s.no}</td><td>${s.name}${s.archived?' <span class="tag">已封存</span>':''}${s.needsReview?' <span class="tag warn">⚠️ 匯入待確認</span>':''}</td>
         <td><div class="link-box"><input readonly value="${link}" id="link-${key}"><a class="copybtn" onclick="copyLink('link-${key}')">複製</a></div></td>
         <td>${actionsHtml}</td>`;
       tbody.appendChild(tr);
@@ -958,7 +962,8 @@ function importStudents(){
     const firstCols = lines[0].split(",");
     if (isNaN(Number(firstCols[0]))) startIdx = 1; // 第一列若不是數字座號，視為標題列，跳過
     const updates = {};
-    let count = 0;
+    let newCount = 0;
+    const duplicates = []; // 記錄座號重複、未覆蓋、改另存的清單
     for (let i=startIdx; i<lines.length; i++){
       const cols = lines[i].split(",").map(c=>c.trim());
       const [no, name, birthday, emergencyContact, emergencyPhone] = cols;
@@ -968,19 +973,30 @@ function importStudents(){
         return;
       }
       const existing = studentsCache["s"+no];
-      updates["students/s"+no] = {
+      const record = {
         no, name,
         birthday: birthday || "",
         emergencyContact: emergencyContact || "",
         emergencyPhone: emergencyPhone || "",
-        token: existing ? existing.token : genToken(),
-        archived: existing ? !!existing.archived : false,
+        archived: false,
       };
-      count++;
+      if (existing){
+        // 座號重複：不覆蓋原有資料，改成另一筆獨立紀錄保留下來，等你自己確認後再處理
+        const dupKey = "s"+no+"_dup"+Date.now()+"_"+i;
+        updates["students/"+dupKey] = { ...record, token: genToken(), needsReview: true };
+        duplicates.push(no+" "+name);
+      } else {
+        updates["students/s"+no] = { ...record, token: genToken() };
+        newCount++;
+      }
     }
-    if (count===0){ showMsg("stuMsg","沒有解析到任何有效資料列，請確認CSV格式", true); return; }
+    if (newCount===0 && duplicates.length===0){ showMsg("stuMsg","沒有解析到任何有效資料列，請確認CSV格式", true); return; }
     db.ref().update(updates).then(()=>{
-      showMsg("stuMsg", `已匯入 ${count} 筆學生資料`);
+      let msg = `已新增 ${newCount} 筆學生資料`;
+      if (duplicates.length>0){
+        msg += `；有 ${duplicates.length} 筆座號重複（${duplicates.join("、")}），未覆蓋原有資料，已另存成新紀錄並標記「待確認」，請到列表勾選「查看已封存名單」旁確認，手動決定要保留哪一筆、或封存/刪除多餘的`;
+      }
+      showMsg("stuMsg", msg);
       fileInput.value = "";
     });
   };
@@ -996,6 +1012,21 @@ function exportStudentsCSV(){
 function copyLink(id){
   const el = document.getElementById(id);
   el.select(); document.execCommand("copy");
+}
+function quickSearchStudent(){
+  const q = document.getElementById("quickSearchInput").value.trim();
+  const box = document.getElementById("quickSearchResult");
+  if (!q){ box.innerHTML = ""; return; }
+  const matches = Object.values(studentsCache).filter(s=>
+    String(s.no)===q || s.name===q || s.name.includes(q)
+  );
+  if (matches.length===0){ box.innerHTML = "<span style='color:var(--accent);'>找不到符合的學生</span>"; return; }
+  box.innerHTML = matches.map(s=>
+    `<div style="padding:6px 0;border-bottom:1px solid var(--line);">
+      <strong>${s.no}號 ${s.name}</strong>${s.archived?' <span class="tag">已封存</span>':''}<br>
+      生日：${s.birthday||'未填寫'}　緊急聯絡人：${s.emergencyContact||'未填寫'}　緊急電話：${s.emergencyPhone||'未填寫'}
+    </div>`
+  ).join("");
 }
 
 /* ---- 段考管理 ---- */
