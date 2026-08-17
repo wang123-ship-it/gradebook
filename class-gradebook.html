@@ -1016,16 +1016,16 @@ function copyLink(id){
 function quickSearchStudent(){
   const q = document.getElementById("quickSearchInput").value.trim();
   const box = document.getElementById("quickSearchResult");
-  box.style.fontSize = "96px";
+  box.style.fontSize = "clamp(30px, 6vw, 50px)"; // 隨螢幕寬度在30~50px之間自動縮放，避免窄螢幕被迫多換行
   if (!q){ box.innerHTML = ""; return; }
   const matches = Object.values(studentsCache).filter(s=>
     String(s.no)===q || s.name===q || s.name.includes(q)
   );
   if (matches.length===0){ box.innerHTML = "<span style='color:var(--accent);'>找不到符合的學生</span>"; return; }
   box.innerHTML = matches.map(s=>
-    `<div style="padding:16px 0;border-bottom:1px solid var(--line);line-height:1.5;word-wrap:break-word;">
-      <div><strong>${s.no}號 ${s.name}</strong>　生日：${s.birthday||'未填寫'}${s.archived?' <span class="tag" style="font-size:0.4em;">已封存</span>':''}</div>
-      <div>緊急聯絡人：${s.emergencyContact||'未填寫'}　電話：${s.emergencyPhone||'未填寫'}</div>
+    `<div style="padding:16px 0;border-bottom:1px solid var(--line);line-height:1.4;">
+      <div style="white-space:nowrap;overflow-x:auto;"><strong>${s.no}號 ${s.name}</strong>　生日：${s.birthday||'未填寫'}${s.archived?' <span class="tag" style="font-size:0.4em;">已封存</span>':''}</div>
+      <div style="white-space:nowrap;overflow-x:auto;">緊急聯絡人：${s.emergencyContact||'未填寫'}　電話：${s.emergencyPhone||'未填寫'}</div>
     </div>`
   ).join("");
 }
