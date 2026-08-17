@@ -1024,8 +1024,8 @@ function quickSearchStudent(){
   if (matches.length===0){ box.innerHTML = "<span style='color:var(--accent);'>找不到符合的學生</span>"; return; }
   box.innerHTML = matches.map(s=>
     `<div style="padding:16px 0;border-bottom:1px solid var(--line);line-height:1.5;word-wrap:break-word;">
-      <strong>${s.no}號 ${s.name}</strong>${s.archived?' <span class="tag" style="font-size:0.4em;">已封存</span>':''}<br>
-      生日：${s.birthday||'未填寫'}　緊急聯絡人：${s.emergencyContact||'未填寫'}　緊急電話：${s.emergencyPhone||'未填寫'}
+      <div><strong>${s.no}號 ${s.name}</strong>　生日：${s.birthday||'未填寫'}${s.archived?' <span class="tag" style="font-size:0.4em;">已封存</span>':''}</div>
+      <div>緊急聯絡人：${s.emergencyContact||'未填寫'}　電話：${s.emergencyPhone||'未填寫'}</div>
     </div>`
   ).join("");
 }
