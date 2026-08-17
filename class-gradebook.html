@@ -295,6 +295,12 @@
           <button onclick="addStudent()">新增學生</button>
         </div>
         <div class="msg" id="stuMsg"></div>
+        <div class="row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
+          <input type="file" id="importFile" accept=".csv">
+          <button onclick="importStudents()">📥 匯入名單</button>
+          <button class="ghost" onclick="exportStudentsCSV()">📤 匯出名單CSV</button>
+        </div>
+        <div class="msg">匯入格式（CSV，含或不含標題列皆可）：座號,姓名,生日,緊急聯絡人,緊急電話｜生日請用西元年月日8碼，如 20130512｜座號重複者會直接更新原有資料，不會重複建立、也不會影響學生原本的專屬連結</div>
         <div class="row" style="margin-top:8px;">
           <label><input type="checkbox" id="showArchivedStuChk" style="width:auto;" onchange="renderStudentTable()"> 查看已封存名單</label>
         </div>
@@ -302,6 +308,19 @@
           <thead><tr><th>座號</th><th>姓名</th><th>專屬連結</th><th>操作</th></tr></thead>
           <tbody id="stuTable"></tbody>
         </table>
+      </div>
+
+      <div class="card hidden" id="studentDetailPanel">
+        <h2>📇 學生詳細資料 <span id="studentDetailName"></span></h2>
+        <div class="row">
+          <label>生日(西元8碼)</label><input id="detailBirthday" placeholder="20130512" maxlength="8" style="width:120px;">
+          <label>緊急聯絡人</label><input id="detailEmergencyName" style="width:120px;">
+          <label>緊急電話</label><input id="detailEmergencyPhone" style="width:140px;">
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <button onclick="saveStudentDetail()">💾 儲存</button>
+          <button class="ghost" onclick="closeStudentDetail()">取消</button>
+        </div>
       </div>
     </div>
 
@@ -434,7 +453,10 @@
           <button onclick="createHwEntry()">建立登記表</button>
         </div>
         <div id="hwEntryArea"></div>
-        <button onclick="saveHomework()" class="hidden" id="hwSaveBtn">💾 儲存作業紀錄</button>
+        <div class="row" style="margin-top:8px;">
+          <button onclick="saveHomework()" class="hidden" id="hwSaveBtn">💾 儲存作業紀錄</button>
+          <button class="ghost" onclick="exportHomeworkCSV()">📤 匯出全班作業紀錄CSV</button>
+        </div>
         <div class="msg" id="hwMsg"></div>
       </div>
     </div>
@@ -467,6 +489,7 @@
             <option value="contact">📞 與家長聯絡</option>
           </select>
           <span id="noteCountBadge" style="font-size:12px;color:var(--muted);"></span>
+          <button class="ghost small" onclick="exportAllNotesCSV()">📤 匯出全班觀察紀錄CSV</button>
         </div>
         <table>
           <thead><tr><th>日期</th><th>類型</th><th>內容</th><th>操作</th></tr></thead>
@@ -877,6 +900,7 @@ function renderStudentTable(){
         ? `<button class="ghost small" onclick="unarchiveStudent('${key}')">取消封存</button>
            <button class="danger small" onclick="removeStudent('${key}')">刪除</button>`
         : `<button class="ghost small" onclick="editStudent('${key}')">修改</button>
+           <button class="ghost small" onclick="openStudentDetail('${key}')">詳細資料</button>
            <button class="ghost small" onclick="archiveStudent('${key}')">封存</button>
            <button class="danger small" onclick="removeStudent('${key}')">刪除</button>`;
       tr.innerHTML = `<td>${s.no}</td><td>${s.name}${s.archived?' <span class="tag">已封存</span>':''}</td>
@@ -887,6 +911,87 @@ function renderStudentTable(){
   if (tbody.children.length===0){
     tbody.innerHTML = "<tr><td colspan='4' style='color:var(--muted);'>沒有符合條件的學生</td></tr>";
   }
+}
+
+/* ---- 學生詳細資料（生日／緊急聯絡人／緊急電話） ---- */
+let currentDetailKey = null;
+function openStudentDetail(key){
+  const s = studentsCache[key];
+  if (!s) return;
+  currentDetailKey = key;
+  document.getElementById("studentDetailName").textContent = "－ " + s.name;
+  document.getElementById("detailBirthday").value = s.birthday || "";
+  document.getElementById("detailEmergencyName").value = s.emergencyContact || "";
+  document.getElementById("detailEmergencyPhone").value = s.emergencyPhone || "";
+  document.getElementById("studentDetailPanel").classList.remove("hidden");
+  document.getElementById("studentDetailPanel").scrollIntoView({ behavior:"smooth" });
+}
+function closeStudentDetail(){
+  currentDetailKey = null;
+  document.getElementById("studentDetailPanel").classList.add("hidden");
+}
+function saveStudentDetail(){
+  if (!currentDetailKey) return;
+  const birthday = document.getElementById("detailBirthday").value.trim();
+  const emergencyContact = document.getElementById("detailEmergencyName").value.trim();
+  const emergencyPhone = document.getElementById("detailEmergencyPhone").value.trim();
+  if (birthday && !/^\d{8}$/.test(birthday)){
+    showMsg("stuMsg","生日請用西元年月日共8碼數字，例如20130512", true); return;
+  }
+  db.ref("students/"+currentDetailKey).update({ birthday, emergencyContact, emergencyPhone }).then(()=>{
+    showMsg("stuMsg","已更新詳細資料");
+    closeStudentDetail();
+  });
+}
+
+/* ---- 匯入／匯出學生名單 ---- */
+function importStudents(){
+  const fileInput = document.getElementById("importFile");
+  const file = fileInput.files[0];
+  if (!file){ showMsg("stuMsg","請先選擇要匯入的CSV檔案", true); return; }
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l!=="");
+    if (lines.length===0){ showMsg("stuMsg","檔案是空的", true); return; }
+    let startIdx = 0;
+    const firstCols = lines[0].split(",");
+    if (isNaN(Number(firstCols[0]))) startIdx = 1; // 第一列若不是數字座號，視為標題列，跳過
+    const updates = {};
+    let count = 0;
+    for (let i=startIdx; i<lines.length; i++){
+      const cols = lines[i].split(",").map(c=>c.trim());
+      const [no, name, birthday, emergencyContact, emergencyPhone] = cols;
+      if (!no || !name) continue;
+      if (birthday && !/^\d{8}$/.test(birthday)){
+        showMsg("stuMsg", `第 ${i+1} 列的生日格式錯誤（應為西元8碼），已中止匯入，請修正後再試一次`, true);
+        return;
+      }
+      const existing = studentsCache["s"+no];
+      updates["students/s"+no] = {
+        no, name,
+        birthday: birthday || "",
+        emergencyContact: emergencyContact || "",
+        emergencyPhone: emergencyPhone || "",
+        token: existing ? existing.token : genToken(),
+        archived: existing ? !!existing.archived : false,
+      };
+      count++;
+    }
+    if (count===0){ showMsg("stuMsg","沒有解析到任何有效資料列，請確認CSV格式", true); return; }
+    db.ref().update(updates).then(()=>{
+      showMsg("stuMsg", `已匯入 ${count} 筆學生資料`);
+      fileInput.value = "";
+    });
+  };
+  reader.readAsText(file, "UTF-8");
+}
+function exportStudentsCSV(){
+  const rows = [["座號","姓名","生日","緊急聯絡人","緊急電話","狀態"]];
+  Object.values(studentsCache).sort((a,b)=>(a.no||0)-(b.no||0)).forEach(s=>{
+    rows.push([s.no, s.name, s.birthday||"", s.emergencyContact||"", s.emergencyPhone||"", s.archived?"已封存":"在籍"]);
+  });
+  downloadCSV("學生名單.csv", rows);
 }
 function copyLink(id){
   const el = document.getElementById(id);
@@ -1174,6 +1279,19 @@ function saveHomework(){
   const payload = {};
   selects.forEach(sel=>{ payload[sel.dataset.stu] = { name, status: sel.value }; });
   db.ref("homework/"+date).update(payload).then(()=> showMsg("hwMsg","作業紀錄已儲存"));
+}
+function exportHomeworkCSV(){
+  db.ref("homework").once("value").then(snap=>{
+    const all = snap.val() || {};
+    const rows = [["日期","座號","姓名","作業名稱","狀態"]];
+    Object.entries(all).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([date, entries])=>{
+      Object.entries(entries).forEach(([stuKey, rec])=>{
+        const s = studentsCache[stuKey];
+        rows.push([date, s?s.no:"", s?s.name:stuKey, rec.name, rec.status==="submitted"?"已交":"缺交"]);
+      });
+    });
+    downloadCSV("作業繳交紀錄.csv", rows);
+  });
 }
 
 /* ---- 科目顯示順序 ---- */
@@ -1613,6 +1731,20 @@ function addBehaviorNote(){
 function deleteBehaviorNote(stuKey, key){
   if (!confirmDeleteText("確定要刪除這筆觀察紀錄嗎？")) return;
   db.ref("studentNotes/"+stuKey+"/"+key).remove();
+}
+function exportAllNotesCSV(){
+  db.ref("studentNotes").once("value").then(snap=>{
+    const all = snap.val() || {};
+    const rows = [["座號","姓名","日期","類型","內容"]];
+    Object.entries(all).forEach(([stuKey, notes])=>{
+      const s = studentsCache[stuKey];
+      Object.values(notes).forEach(n=>{
+        const typeLabel = n.type==="positive" ? "好的表現" : n.type==="negative" ? "需留意" : "與家長聯絡";
+        rows.push([s?s.no:"", s?s.name:stuKey, n.date, typeLabel, n.text]);
+      });
+    });
+    downloadCSV("生活表現觀察紀錄.csv", rows);
+  });
 }
 
 /* ---- 評語草稿產生（不使用外部AI，純規則式組句） ---- */
