@@ -444,17 +444,31 @@
       <div class="card">
         <h2>🌱 日常表現觀察紀錄（僅老師可見，不會出現在家長可視設定選項中）</h2>
         <div class="row" style="margin-bottom:10px;">
-          <select id="behaviorStudentSelect"></select>
-          <button class="ghost" onclick="loadBehaviorNotes()">切換學生</button>
+          <select id="behaviorStudentSelect" onchange="loadBehaviorNotes()"></select>
+          <button class="ghost" onclick="loadBehaviorNotes()">重新整理</button>
         </div>
         <div class="row" style="margin-bottom:8px;">
           <input type="date" id="noteDate">
-          <select id="noteType"><option value="positive">👍 好的表現</option><option value="negative">⚠️ 需留意</option></select>
+          <select id="noteType">
+            <option value="positive">👍 好的表現</option>
+            <option value="negative">⚠️ 需留意</option>
+            <option value="contact">📞 與家長聯絡</option>
+          </select>
           <input id="noteText" placeholder="簡短記錄，如：主動協助同學打掃" style="flex:1;min-width:200px;">
           <button onclick="addBehaviorNote()">新增紀錄</button>
         </div>
         <div class="msg" id="behaviorMsg"></div>
-        <table style="margin-top:10px;">
+        <div class="row" style="margin-top:12px;margin-bottom:6px;">
+          <label>檢視：</label>
+          <select id="noteFilterType" onchange="renderBehaviorNoteTable(document.getElementById('behaviorStudentSelect').value)">
+            <option value="">全部紀錄</option>
+            <option value="positive">👍 好的表現</option>
+            <option value="negative">⚠️ 需留意</option>
+            <option value="contact">📞 與家長聯絡</option>
+          </select>
+          <span id="noteCountBadge" style="font-size:12px;color:var(--muted);"></span>
+        </div>
+        <table>
           <thead><tr><th>日期</th><th>類型</th><th>內容</th><th>操作</th></tr></thead>
           <tbody id="behaviorNoteTable"></tbody>
         </table>
@@ -836,6 +850,18 @@ function archiveStudent(key){
 function unarchiveStudent(key){
   db.ref("students/"+key+"/archived").set(false).then(()=> showMsg("stuMsg","已取消封存，原本的專屬連結會恢復可用"));
 }
+function editStudent(key){
+  const s = studentsCache[key];
+  if (!s) return;
+  const newName = window.prompt("修改姓名：", s.name);
+  if (newName === null) return;
+  const newNo = window.prompt("修改座號：", s.no);
+  if (newNo === null) return;
+  if (!newName.trim() || !String(newNo).trim()){ showMsg("stuMsg","姓名與座號不可空白", true); return; }
+  db.ref("students/"+key).update({ name: newName.trim(), no: newNo.trim() }).then(()=>{
+    showMsg("stuMsg","已更新學生資料，原本的專屬連結不受影響、仍可正常使用");
+  });
+}
 function renderStudentTable(){
   const tbody = document.getElementById("stuTable");
   tbody.innerHTML = "";
@@ -850,7 +876,8 @@ function renderStudentTable(){
       const actionsHtml = s.archived
         ? `<button class="ghost small" onclick="unarchiveStudent('${key}')">取消封存</button>
            <button class="danger small" onclick="removeStudent('${key}')">刪除</button>`
-        : `<button class="ghost small" onclick="archiveStudent('${key}')">封存</button>
+        : `<button class="ghost small" onclick="editStudent('${key}')">修改</button>
+           <button class="ghost small" onclick="archiveStudent('${key}')">封存</button>
            <button class="danger small" onclick="removeStudent('${key}')">刪除</button>`;
       tr.innerHTML = `<td>${s.no}</td><td>${s.name}${s.archived?' <span class="tag">已封存</span>':''}</td>
         <td><div class="link-box"><input readonly value="${link}" id="link-${key}"><a class="copybtn" onclick="copyLink('link-${key}')">複製</a></div></td>
@@ -1539,26 +1566,36 @@ function saveParentVisibility(){
 }
 
 /* ---- 日常表現觀察紀錄（僅老師端使用，不對家長開放） ---- */
+let currentBehaviorRef = null;
 function loadBehaviorNotes(){
   const stuKey = document.getElementById("behaviorStudentSelect").value;
   if (!stuKey) return;
-  db.ref("studentNotes/"+stuKey).on("value", snap=>{
+  if (currentBehaviorRef) currentBehaviorRef.off(); // 先關閉舊的監聽器，避免疊加造成資料互相干擾
+  currentBehaviorRef = db.ref("studentNotes/"+stuKey);
+  currentBehaviorRef.on("value", snap=>{
     behaviorNotesCache = snap.val() || {};
     renderBehaviorNoteTable(stuKey);
   });
 }
 function renderBehaviorNoteTable(stuKey){
   const tbody = document.getElementById("behaviorNoteTable");
+  const filter = document.getElementById("noteFilterType").value;
   tbody.innerHTML = "";
-  Object.entries(behaviorNotesCache).sort((a,b)=> b[1].date.localeCompare(a[1].date)).forEach(([key,n])=>{
-    const tagHtml = n.type==="positive" ? '<span class="tag">👍 好的表現</span>' : '<span class="tag warn">⚠️ 需留意</span>';
+  const entries = Object.entries(behaviorNotesCache)
+    .filter(([k,n])=> !filter || n.type===filter)
+    .sort((a,b)=> b[1].date.localeCompare(a[1].date));
+  entries.forEach(([key,n])=>{
+    const tagHtml = n.type==="positive" ? '<span class="tag">👍 好的表現</span>'
+      : n.type==="negative" ? '<span class="tag warn">⚠️ 需留意</span>'
+      : '<span class="tag gold">📞 與家長聯絡</span>';
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${n.date}</td><td>${tagHtml}</td><td>${n.text}</td><td><button class="danger small" onclick="deleteBehaviorNote('${stuKey}','${key}')">刪除</button></td>`;
     tbody.appendChild(tr);
   });
-  if (Object.keys(behaviorNotesCache).length===0){
-    tbody.innerHTML = "<tr><td colspan='4' style='color:var(--muted);'>目前沒有紀錄</td></tr>";
+  if (entries.length===0){
+    tbody.innerHTML = "<tr><td colspan='4' style='color:var(--muted);'>目前沒有符合條件的紀錄</td></tr>";
   }
+  document.getElementById("noteCountBadge").textContent = `共 ${Object.keys(behaviorNotesCache).length} 筆紀錄（目前顯示 ${entries.length} 筆）`;
 }
 function addBehaviorNote(){
   const stuKey = document.getElementById("behaviorStudentSelect").value;
@@ -1570,7 +1607,7 @@ function addBehaviorNote(){
   const key = "n"+Date.now();
   db.ref("studentNotes/"+stuKey+"/"+key).set({ date, type, text }).then(()=>{
     document.getElementById("noteText").value = "";
-    showMsg("behaviorMsg","已新增紀錄");
+    showMsg("behaviorMsg","已新增紀錄，下方列表已即時更新");
   });
 }
 function deleteBehaviorNote(stuKey, key){
