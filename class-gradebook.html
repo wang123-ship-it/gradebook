@@ -276,7 +276,8 @@
   <div id="adminView" class="hidden">
 
     <div class="tab-nav no-print">
-      <button class="tab-btn active" data-tab="roster" onclick="switchAdminTab('roster')">👥 學生名單</button>
+      <button class="tab-btn active" data-tab="overview" onclick="switchAdminTab('overview')">🏠 總覽</button>
+      <button class="tab-btn" data-tab="roster" onclick="switchAdminTab('roster')">👥 學生名單</button>
       <button class="tab-btn" data-tab="examEntry" onclick="switchAdminTab('examEntry')">✏️ 段考成績</button>
       <button class="tab-btn" data-tab="quiz" onclick="switchAdminTab('quiz')">🗒️ 小考管理</button>
       <button class="tab-btn" data-tab="report" onclick="switchAdminTab('report')">📊 成績單</button>
@@ -285,8 +286,39 @@
       <button class="tab-btn" data-tab="settings" onclick="switchAdminTab('settings')">⚙️ 設定</button>
     </div>
 
+    <!-- 總覽 -->
+    <div class="tab-panel active" id="tab-overview">
+      <div class="card">
+        <h2>📋 本週作業狀況</h2>
+        <div id="ov-homework"></div>
+      </div>
+      <div class="card">
+        <h2>🔒 未鎖定的段考</h2>
+        <div id="ov-unlockedExams"></div>
+      </div>
+      <div class="card">
+        <h2>📥 匯入待確認名單</h2>
+        <div id="ov-importReview"></div>
+      </div>
+      <div class="card">
+        <h2>🗓️ 週考期別狀況</h2>
+        <div id="ov-periods"></div>
+      </div>
+      <div class="card">
+        <h2>🌟 需要關心名單</h2>
+        <div class="msg">綜合最近一次段考相對位置、作業繳交率、生活表現「需留意」紀錄自動產生，僅供參考，實際狀況以你的觀察為準。</div>
+        <button onclick="refreshAttentionList()" style="margin-top:8px;">🔄 重新整理關心名單</button>
+        <div id="ov-attentionList" style="margin-top:10px;"></div>
+      </div>
+      <div class="card">
+        <h2>👀 家長查看狀況</h2>
+        <div class="msg">記錄家長最後一次打開專屬連結的時間，幫助你了解誰比較少關心班級動態。</div>
+        <div id="ov-parentViews" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
     <!-- 學生名單 -->
-    <div class="tab-panel active" id="tab-roster">
+    <div class="tab-panel" id="tab-roster">
       <div class="card">
         <h2>👥 學生名單管理</h2>
         <div class="row">
@@ -340,10 +372,16 @@
           <button onclick="addExam()">建立新考試</button>
         </div>
         <div id="scoreEntryArea"></div>
+        <div id="examLockedBanner" class="hidden" style="background:#fdf3d8;color:#8a6d1f;padding:10px;border-radius:6px;margin-top:8px;font-size:13px;">
+          🔒 此考試成績已鎖定，畫面唯讀，無法修改。如需修改請先解鎖。
+        </div>
         <div class="row" style="margin-top:10px;">
-          <button onclick="saveScores()">💾 儲存本次成績</button>
+          <button onclick="saveScores()" id="saveScoresBtn">💾 儲存本次成績</button>
+          <button onclick="lockExam()" id="lockExamBtn" class="ghost hidden">🔒 鎖定此段考成績</button>
+          <button onclick="unlockExam()" id="unlockExamBtn" class="danger hidden">🔓 解鎖以編輯</button>
         </div>
         <div class="msg">※ 若為段考，成績表格最右側會出現「校排名」欄位，請依教務處提供的名單逐一輸入每位學生的個人全校排名</div>
+        <div class="msg">※ 確認一次考試成績都輸入無誤後，建議按「鎖定」，避免之後手滑誤改；解鎖需要輸入指定文字才能生效</div>
         <div class="msg" id="scoreMsg"></div>
       </div>
 
@@ -661,9 +699,12 @@ function enableArrowNav(tableEl){
     });
   });
 }
+function confirmTypedText(message, keyword){
+  const input = window.prompt(message + `\n\n請輸入「${keyword}」以確認：`);
+  return input === keyword;
+}
 function confirmDeleteText(message){
-  const input = window.prompt(message + "\n\n請輸入「刪除」兩個字以確認：");
-  return input === "刪除";
+  return confirmTypedText(message, "刪除");
 }
 
 /* ---- 全域防呆：滑鼠滾輪不誤觸數字輸入框、分數上限100 ---- */
@@ -757,17 +798,20 @@ let quizScoresCache = {};
 let teachersCache = {};
 let quizPeriodsCache = {};
 let behaviorNotesCache = {};
+let homeworkCache = {};
 
 function initAdmin(){
   db.ref("students").on("value", snap=>{
     studentsCache = snap.val() || {};
     renderStudentTable();
     renderScoreEntryTable();
+    renderOverviewDashboard();
   });
   db.ref("exams").on("value", snap=>{
     examsCache = snap.val() || {};
     renderExamSelect();
     renderExamHistoryTable();
+    renderOverviewDashboard();
   });
   db.ref("quizzes").on("value", snap=>{
     quizzesCache = snap.val() || {};
@@ -782,9 +826,14 @@ function initAdmin(){
     teachersCache = snap.val() || {};
     renderTeacherList();
   });
+  db.ref("homework").on("value", snap=>{
+    homeworkCache = snap.val() || {};
+    renderOverviewDashboard();
+  });
   db.ref("quizPeriods").on("value", snap=>{
     quizPeriodsCache = snap.val() || {};
     renderPeriodTable();
+    renderOverviewDashboard();
   });
 
   const sel1 = document.getElementById("adminQuizSubject");
@@ -852,6 +901,150 @@ function initAdmin(){
   const start = new Date(Date.now() - 14*24*3600*1000).toISOString().slice(0,10);
   document.getElementById("reportStart").value = start;
   document.getElementById("reportEnd").value = end;
+
+  refreshAttentionList();
+  refreshParentViews();
+}
+
+/* ---- 總覽儀表板 ---- */
+function renderOverviewDashboard(){
+  if (!document.getElementById("tab-overview")) return;
+
+  // 本週作業狀況：抓最近7天的紀錄，統計缺交
+  const sevenDaysAgo = new Date(Date.now() - 7*24*3600*1000).toISOString().slice(0,10);
+  const missingByStudent = {};
+  let totalEntries = 0, totalMissing = 0;
+  Object.entries(homeworkCache).forEach(([date, entries])=>{
+    if (date < sevenDaysAgo) return;
+    Object.entries(entries).forEach(([stuKey, rec])=>{
+      totalEntries++;
+      if (rec.status === "missing"){
+        totalMissing++;
+        missingByStudent[stuKey] = (missingByStudent[stuKey]||0) + 1;
+      }
+    });
+  });
+  const hwBox = document.getElementById("ov-homework");
+  if (totalEntries === 0){
+    hwBox.innerHTML = "<p style='color:var(--muted);font-size:13px;'>最近7天沒有作業登記紀錄</p>";
+  } else {
+    const rows = Object.entries(missingByStudent).sort((a,b)=>b[1]-a[1]).map(([stuKey,cnt])=>{
+      const s = studentsCache[stuKey];
+      return `<li>${s?s.no+'號 '+s.name:stuKey}　缺交 ${cnt} 次</li>`;
+    }).join("");
+    hwBox.innerHTML = `<p>最近7天共登記 ${totalEntries} 筆，缺交 ${totalMissing} 筆</p>` +
+      (rows ? `<ul style="padding-left:20px;">${rows}</ul>` : "<p style='color:var(--ok);'>本週沒有人缺交，很棒！</p>");
+  }
+
+  // 未鎖定的段考
+  const unlockedBox = document.getElementById("ov-unlockedExams");
+  const unlockedExams = Object.entries(examsCache).filter(([k,e])=> e.isMajor && !e.locked);
+  if (unlockedExams.length===0){
+    unlockedBox.innerHTML = "<p style='color:var(--ok);font-size:13px;'>所有段考都已鎖定，很安全</p>";
+  } else {
+    unlockedBox.innerHTML = "<ul style='padding-left:20px;'>" + unlockedExams.map(([k,e])=>
+      `<li>${e.name}（${e.date||'未設日期'}）　<a style="cursor:pointer;color:var(--brand);text-decoration:underline;" onclick="editExam('${k}')">前往鎖定</a></li>`
+    ).join("") + "</ul>";
+  }
+
+  // 匯入待確認名單
+  const reviewBox = document.getElementById("ov-importReview");
+  const reviewStudents = Object.entries(studentsCache).filter(([k,s])=> s.needsReview);
+  if (reviewStudents.length===0){
+    reviewBox.innerHTML = "<p style='color:var(--muted);font-size:13px;'>目前沒有待確認的匯入紀錄</p>";
+  } else {
+    reviewBox.innerHTML = "<ul style='padding-left:20px;'>" + reviewStudents.map(([k,s])=>
+      `<li>${s.no}號 ${s.name}　<a style="cursor:pointer;color:var(--brand);text-decoration:underline;" onclick="switchAdminTab('roster')">前往學生名單確認</a></li>`
+    ).join("") + "</ul>";
+  }
+
+  // 週考期別狀況
+  const periodBox = document.getElementById("ov-periods");
+  const today = todayStr();
+  const openPeriods = Object.entries(quizPeriodsCache).filter(([k,p])=> !p.closed);
+  if (openPeriods.length===0){
+    periodBox.innerHTML = "<p style='color:var(--muted);font-size:13px;'>目前沒有進行中的週考期別</p>";
+  } else {
+    periodBox.innerHTML = "<ul style='padding-left:20px;'>" + openPeriods.map(([k,p])=>{
+      const overdue = p.end < today;
+      return `<li>${p.name}（${p.start}～${p.end}）${overdue?' <span class="tag warn">已超過結束日，建議結算</span>':' <span class="tag">進行中</span>'}　<a style="cursor:pointer;color:var(--brand);text-decoration:underline;" onclick="switchAdminTab('quiz')">前往查看</a></li>`;
+    }).join("") + "</ul>";
+  }
+}
+
+/* ---- 需要關心名單 ---- */
+function refreshAttentionList(){
+  const box = document.getElementById("ov-attentionList");
+  box.innerHTML = "<p style='color:var(--muted);font-size:13px;'>分析中...</p>";
+  Promise.all([
+    db.ref("exams").once("value"),
+    db.ref("scores").once("value"),
+    db.ref("homework").once("value"),
+    db.ref("studentNotes").once("value"),
+  ]).then(([examSnap, scoreSnap, hwSnap, noteSnap])=>{
+    const exams = examSnap.val() || {};
+    const allScores = scoreSnap.val() || {};
+    const homework = hwSnap.val() || {};
+    const allNotes = noteSnap.val() || {};
+
+    const majorExams = Object.entries(exams).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
+    const latestExamScores = majorExams.length>0 ? (allScores[majorExams[majorExams.length-1][0]]||{}) : {};
+
+    const results = [];
+    activeStudents().forEach(([stuKey, s])=>{
+      const reasons = [];
+
+      // 段考相對位置
+      if (latestExamScores[stuKey]){
+        const { rank, total } = calcOverallClassRank(latestExamScores, stuKey);
+        const band = percentileBand(rank, total);
+        if (band === 4) reasons.push("🔴 最近段考落在班級60%以後");
+      }
+
+      // 作業繳交率
+      let submitted=0, total_hw=0;
+      Object.values(homework).forEach(entries=>{
+        const rec = entries[stuKey];
+        if (rec){ total_hw++; if (rec.status==="submitted") submitted++; }
+      });
+      if (total_hw >= 3){
+        const rate = submitted/total_hw;
+        if (rate < 0.7) reasons.push(`📋 作業繳交率偏低（約${Math.round(rate*100)}%）`);
+      }
+
+      // 生活表現需留意次數
+      const notes = allNotes[stuKey] || {};
+      const negativeCount = Object.values(notes).filter(n=>n.type==="negative").length;
+      if (negativeCount >= 2) reasons.push(`⚠️ 生活表現「需留意」紀錄達 ${negativeCount} 筆`);
+
+      if (reasons.length > 0) results.push({ s, reasons });
+    });
+
+    if (results.length === 0){
+      box.innerHTML = "<p style='color:var(--ok);'>目前沒有符合條件的學生，班上狀況穩定</p>";
+      return;
+    }
+    box.innerHTML = results.map(r=>
+      `<div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;">
+        <strong>${r.s.no}號 ${r.s.name}</strong>
+        <ul style="margin:6px 0 0;padding-left:20px;font-size:13px;">${r.reasons.map(x=>`<li>${x}</li>`).join("")}</ul>
+      </div>`
+    ).join("");
+  });
+}
+
+/* ---- 家長查看紀錄 ---- */
+function refreshParentViews(){
+  const box = document.getElementById("ov-parentViews");
+  db.ref("studentViews").once("value").then(snap=>{
+    const views = snap.val() || {};
+    const rows = activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).map(([stuKey,s])=>{
+      const v = views[stuKey];
+      const label = v ? new Date(v.lastViewedAt).toLocaleString('zh-TW') : "<span style='color:var(--accent);'>尚未查看過</span>";
+      return `<tr><td>${s.no}</td><td>${s.name}</td><td>${label}</td></tr>`;
+    }).join("");
+    box.innerHTML = `<table><thead><tr><th>座號</th><th>姓名</th><th>最後查看時間</th></tr></thead><tbody>${rows}</tbody></table>`;
+  });
 }
 
 /* ---- 學生管理 ---- */
@@ -1070,31 +1263,42 @@ function addExam(){
   });
 }
 let currentExamIsMajor = false;
+let currentExamLocked = false;
 function renderScoreEntryTable(){
   const area = document.getElementById("scoreEntryArea");
   if (Object.keys(studentsCache).length === 0){
     area.innerHTML = "<p style='color:var(--muted);font-size:13px;'>請先在「學生名單」分頁新增學生</p>";
     return;
   }
+  const disabledAttr = currentExamLocked ? "disabled" : "";
   let html = "<table><thead><tr><th>座號</th><th>姓名</th>";
   SUBJECTS.forEach(s=> html += `<th>${s}</th>`);
   if (currentExamIsMajor) html += "<th>校排名（個人全校）</th>";
   html += "</tr></thead><tbody>";
   activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
     html += `<tr><td>${s.no}</td><td>${s.name}</td>`;
-    SUBJECTS.forEach(sub=> html += `<td><input type="number" min="0" max="100" data-stu="${key}" data-subj="${sub}" class="scoreInput"></td>`);
-    if (currentExamIsMajor) html += `<td><input type="number" min="1" data-stu="${key}" class="schoolRankInput" style="width:60px;"></td>`;
+    SUBJECTS.forEach(sub=> html += `<td><input type="number" min="0" max="100" data-stu="${key}" data-subj="${sub}" class="scoreInput" ${disabledAttr}></td>`);
+    if (currentExamIsMajor) html += `<td><input type="number" min="1" data-stu="${key}" class="schoolRankInput" style="width:60px;" ${disabledAttr}></td>`;
     html += "</tr>";
   });
   html += "</tbody></table>";
   area.innerHTML = html;
   enableArrowNav(area.querySelector("table"));
 }
+function updateLockUI(){
+  document.getElementById("examLockedBanner").classList.toggle("hidden", !currentExamLocked);
+  document.getElementById("saveScoresBtn").classList.toggle("hidden", currentExamLocked);
+  const examKey = document.getElementById("examSelect").value;
+  document.getElementById("lockExamBtn").classList.toggle("hidden", !examKey || currentExamLocked);
+  document.getElementById("unlockExamBtn").classList.toggle("hidden", !examKey || !currentExamLocked);
+}
 function loadExamForEntry(){
   const examKey = document.getElementById("examSelect").value;
   const exam = examsCache[examKey];
   currentExamIsMajor = !!(exam && exam.isMajor);
+  currentExamLocked = !!(exam && exam.locked);
   renderScoreEntryTable();
+  updateLockUI();
   if (!examKey) return;
   document.getElementById("newExamDate").value = exam ? exam.date : todayStr();
   document.getElementById("newExamIsMajor").checked = currentExamIsMajor;
@@ -1117,9 +1321,34 @@ function loadExamForEntry(){
     });
   }
 }
+function lockExam(){
+  const examKey = document.getElementById("examSelect").value;
+  if (!examKey) return;
+  if (!confirm("確定要鎖定這次考試的成績嗎？鎖定後畫面會變唯讀，需要解鎖才能再修改。")) return;
+  db.ref("exams/"+examKey+"/locked").set(true).then(()=>{
+    currentExamLocked = true;
+    renderScoreEntryTable();
+    updateLockUI();
+    showMsg("scoreMsg","已鎖定，成績畫面現在唯讀");
+  });
+}
+function unlockExam(){
+  const examKey = document.getElementById("examSelect").value;
+  if (!examKey) return;
+  const exam = examsCache[examKey];
+  if (!confirmTypedText(`確定要解鎖「${exam?exam.name:''}」以編輯成績嗎？`, "解鎖")) return;
+  db.ref("exams/"+examKey+"/locked").set(false).then(()=>{
+    currentExamLocked = false;
+    renderScoreEntryTable();
+    // 重新載入原本的數值，避免解鎖後輸入框是空的
+    loadExamForEntry();
+    showMsg("scoreMsg","已解鎖，可以編輯成績了，改完記得再重新鎖定");
+  });
+}
 function saveScores(){
   const examKey = document.getElementById("examSelect").value;
   if (!examKey){ showMsg("scoreMsg","請先選擇或建立考試", true); return; }
+  if (currentExamLocked){ showMsg("scoreMsg","此考試已鎖定，請先解鎖才能儲存修改", true); return; }
   const inputs = document.querySelectorAll(".scoreInput");
   const payload = {};
   inputs.forEach(inp=>{
@@ -1154,8 +1383,8 @@ function renderExamHistoryTable(){
   tbody.innerHTML = "";
   Object.entries(examsCache).sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0)).forEach(([key,e])=>{
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${e.name}</td><td>${e.date||'-'}</td><td>${e.isMajor?'<span class="tag gold">段考</span>':'一般'}</td>
-      <td><button class="ghost small" onclick="editExam('${key}')">開啟編輯</button></td>`;
+    tr.innerHTML = `<td>${e.name}</td><td>${e.date||'-'}</td><td>${e.isMajor?'<span class="tag gold">段考</span>':'一般'}${e.locked?' <span class="tag warn">🔒 已鎖定</span>':''}</td>
+      <td><button class="ghost small" onclick="editExam('${key}')">${e.locked?'查看':'開啟編輯'}</button></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -2039,6 +2268,9 @@ function loadParentView(token){
     document.getElementById("parentView").classList.remove("hidden");
     document.getElementById("pv-name").textContent = student.name + "（座號 " + student.no + "）";
     document.getElementById("pageSub").textContent = student.name + " 的成績與作業查詢";
+
+    // 記錄家長最後查看時間，供老師端「總覽」參考
+    db.ref("studentViews/"+stuKey).set({ lastViewedAt: Date.now() });
 
     Promise.all([
       db.ref("exams").once("value"),
