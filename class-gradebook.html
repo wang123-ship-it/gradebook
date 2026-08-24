@@ -1384,8 +1384,29 @@ function renderExamHistoryTable(){
   Object.entries(examsCache).sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0)).forEach(([key,e])=>{
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${e.name}</td><td>${e.date||'-'}</td><td>${e.isMajor?'<span class="tag gold">段考</span>':'一般'}${e.locked?' <span class="tag warn">🔒 已鎖定</span>':''}</td>
-      <td><button class="ghost small" onclick="editExam('${key}')">${e.locked?'查看':'開啟編輯'}</button></td>`;
+      <td><button class="ghost small" onclick="editExam('${key}')">${e.locked?'查看':'開啟編輯'}</button>
+        <button class="danger small" onclick="deleteExam('${key}')">刪除</button></td>`;
     tbody.appendChild(tr);
+  });
+}
+function deleteExam(key){
+  const e = examsCache[key];
+  if (!e) return;
+  const warnText = e.locked
+    ? `「${e.name}」目前是鎖定狀態，刪除會連同這次考試的所有分數、校排名一起永久移除，此動作無法復原，確定要刪除嗎？`
+    : `確定要刪除「${e.name}」嗎？這次考試的所有分數、校排名會一起永久移除，此動作無法復原。`;
+  if (!confirmDeleteText(warnText)) return;
+  db.ref().update({
+    ["exams/"+key]: null,
+    ["scores/"+key]: null,
+    ["schoolRank/"+key]: null,
+    ["schoolRankMeta/"+key]: null,
+  }).then(()=>{
+    if (document.getElementById("examSelect").value === key){
+      document.getElementById("examSelect").value = "";
+      loadExamForEntry();
+    }
+    showMsg("scoreMsg","已刪除該次考試的所有資料");
   });
 }
 function editExam(key){
