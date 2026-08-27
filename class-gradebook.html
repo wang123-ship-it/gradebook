@@ -161,6 +161,14 @@
       <div id="pv-name" style="font-size:18px;font-weight:700;">-</div>
     </div>
 
+    <div class="card" id="pv-homeworkCard">
+      <h2>📝 作業繳交紀錄（近兩週）</h2>
+      <table>
+        <thead><tr><th>日期</th><th>作業</th><th>狀態</th></tr></thead>
+        <tbody id="pv-hwTable"></tbody>
+      </table>
+    </div>
+
     <div class="card hidden" id="pv-progressCard">
       <div id="pv-progressBadge" style="font-size:20px;font-weight:700;text-align:center;padding:14px;border-radius:10px;"></div>
     </div>
@@ -202,12 +210,9 @@
       <div class="msg" id="trendMsg"></div>
     </div>
 
-    <div class="card" id="pv-homeworkCard">
-      <h2>📝 作業繳交紀錄（近期）</h2>
-      <table>
-        <thead><tr><th>日期</th><th>作業</th><th>狀態</th></tr></thead>
-        <tbody id="pv-hwTable"></tbody>
-      </table>
+    <div class="card hidden" id="pv-worksCard">
+      <h2>🎨 作品成果</h2>
+      <div id="pv-worksGallery" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;"></div>
     </div>
 
     <div class="card" id="pv-commentCard">
@@ -501,10 +506,35 @@
         </div>
         <div class="msg" id="hwMsg"></div>
       </div>
+
+      <div class="card">
+        <h2>🔍 查詢期間缺交紀錄</h2>
+        <div class="row" style="margin-bottom:10px;">
+          <label>起始</label><input type="date" id="hwQueryStart">
+          <label>結束</label><input type="date" id="hwQueryEnd">
+          <button onclick="queryMissingHomework()">查詢</button>
+        </div>
+        <div id="hwQueryResult"></div>
+      </div>
     </div>
 
     <!-- 生活表現 -->
     <div class="tab-panel" id="tab-behavior">
+      <div class="card">
+        <h2>🎨 學生作品上傳（家長端可見，照片直接壓縮存進資料庫，完全免費、不需另外設定）</h2>
+        <div class="row" style="margin-bottom:8px;">
+          <select id="workStudentSelect"></select>
+          <input type="date" id="workDate">
+          <input id="workCaption" placeholder="作品說明，如：水彩寫生作業" style="flex:1;min-width:180px;">
+        </div>
+        <div class="row" style="margin-bottom:8px;">
+          <input type="file" id="workFile" accept="image/*">
+          <button onclick="uploadStudentWork()">📤 上傳作品照片</button>
+        </div>
+        <div class="msg" id="workUploadMsg"></div>
+        <div id="workGalleryAdmin" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px;"></div>
+      </div>
+
       <div class="card">
         <h2>🌱 日常表現觀察紀錄（僅老師可見，不會出現在家長可視設定選項中）</h2>
         <div class="row" style="margin-bottom:10px;">
@@ -571,6 +601,7 @@
           <label><input type="checkbox" id="visComment" style="width:auto;"> 個人評語</label>
           <label><input type="checkbox" id="visProgress" style="width:auto;"> 段考進步／退步醒目提示（公布後顯示14天）</label>
           <label><input type="checkbox" id="visRecord" style="width:auto;"> 創校排紀錄提示（公布後顯示14天）</label>
+          <label><input type="checkbox" id="visWorks" style="width:auto;"> 作品成果</label>
         </div>
         <button onclick="saveParentVisibility()" style="margin-top:8px;">💾 儲存設定</button>
         <div class="msg" id="visMsg"></div>
@@ -855,15 +886,21 @@ function initAdmin(){
   });
 
   const behaviorSel = document.getElementById("behaviorStudentSelect");
+  const workSel = document.getElementById("workStudentSelect");
   db.ref("students").once("value").then(snap=>{
     const students = snap.val() || {};
     behaviorSel.innerHTML = "";
+    workSel.innerHTML = "";
     Object.entries(students).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([k,s])=>{
       const o = document.createElement("option"); o.value=k; o.textContent = s.no+" "+s.name; behaviorSel.appendChild(o);
+      const o2 = document.createElement("option"); o2.value=k; o2.textContent = s.no+" "+s.name; workSel.appendChild(o2);
     });
     if (behaviorSel.value) loadBehaviorNotes();
+    if (workSel.value) loadStudentWorksAdmin();
   });
   document.getElementById("noteDate").value = todayStr();
+  document.getElementById("workDate").value = todayStr();
+  workSel.addEventListener("change", loadStudentWorksAdmin);
 
   db.ref("settings/parentVisibility").once("value").then(snap=>{
     const vis = snap.val() || { position:true, trend:true, radar:true, homework:true, comment:true };
@@ -874,6 +911,7 @@ function initAdmin(){
     document.getElementById("visComment").checked = vis.comment !== false;
     document.getElementById("visProgress").checked = vis.progress !== false;
     document.getElementById("visRecord").checked = vis.record !== false;
+    document.getElementById("visWorks").checked = vis.works !== false;
   });
 
   const calcMethodBox = document.getElementById("calcMethodList");
@@ -1575,6 +1613,39 @@ function exportHomeworkCSV(){
     downloadCSV("作業繳交紀錄.csv", rows);
   });
 }
+function queryMissingHomework(){
+  const start = document.getElementById("hwQueryStart").value;
+  const end = document.getElementById("hwQueryEnd").value;
+  const box = document.getElementById("hwQueryResult");
+  if (!start || !end){ box.innerHTML = "<p style='color:var(--accent);font-size:13px;'>請先設定起訖日期</p>"; return; }
+  db.ref("homework").once("value").then(snap=>{
+    const all = snap.val() || {};
+    const missingByStudent = {}; // stuKey -> [{date, name}]
+    Object.entries(all).forEach(([date, entries])=>{
+      if (date < start || date > end) return;
+      Object.entries(entries).forEach(([stuKey, rec])=>{
+        if (rec.status === "missing"){
+          missingByStudent[stuKey] = missingByStudent[stuKey] || [];
+          missingByStudent[stuKey].push({ date, name: rec.name });
+        }
+      });
+    });
+    const entries = Object.entries(missingByStudent).sort((a,b)=> b[1].length - a[1].length);
+    if (entries.length===0){
+      box.innerHTML = "<p style='color:var(--ok);'>這段期間沒有任何缺交紀錄</p>";
+      return;
+    }
+    let html = `<table><thead><tr><th>座號</th><th>姓名</th><th>缺交次數</th><th>缺交明細</th></tr></thead><tbody>`;
+    entries.forEach(([stuKey, list])=>{
+      const s = studentsCache[stuKey];
+      const detail = list.sort((a,b)=>a.date.localeCompare(b.date)).map(x=>`${x.date} ${x.name}`).join("；");
+      html += `<tr><td>${s?s.no:''}</td><td>${s?s.name:stuKey}</td><td style="font-weight:700;color:var(--accent);">${list.length}</td><td style="text-align:left;font-size:12px;">${detail}</td></tr>`;
+    });
+    html += "</tbody></table>";
+    html += `<div class="row no-print" style="margin-top:8px;"><button class="ghost" onclick="window.print()">🖨️ 列印</button></div>`;
+    box.innerHTML = html;
+  });
+}
 
 /* ---- 科目顯示順序 ---- */
 function renderSubjOrderList(){
@@ -1961,8 +2032,79 @@ function saveParentVisibility(){
     comment: document.getElementById("visComment").checked,
     progress: document.getElementById("visProgress").checked,
     record: document.getElementById("visRecord").checked,
+    works: document.getElementById("visWorks").checked,
   };
   db.ref("settings/parentVisibility").set(vis).then(()=> showMsg("visMsg","已儲存家長端可視範圍設定"));
+}
+
+/* ---- 學生作品上傳（Firebase Storage） ---- */
+function resizeImageFile(file, maxWidth, quality){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const img = new Image();
+      img.onload = function(){
+        let w = img.width, h = img.height;
+        if (w > maxWidth){ h = Math.round(h * maxWidth / w); w = maxWidth; }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality)); // 直接產生base64文字編碼，不用上傳到Storage
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function uploadStudentWork(){
+  const stuKey = document.getElementById("workStudentSelect").value;
+  const date = document.getElementById("workDate").value || todayStr();
+  const caption = document.getElementById("workCaption").value.trim();
+  const fileInput = document.getElementById("workFile");
+  const file = fileInput.files[0];
+  if (!stuKey){ showMsg("workUploadMsg","請先選擇學生", true); return; }
+  if (!file){ showMsg("workUploadMsg","請先選擇照片檔案", true); return; }
+
+  showMsg("workUploadMsg","處理中，請稍候...");
+  // 壓縮到最大寬度800px、品質0.6，控制檔案大小，避免資料庫塞太多資料變慢
+  resizeImageFile(file, 800, 0.6).then(dataUrl=>{
+    if (dataUrl.length > 900000){
+      showMsg("workUploadMsg","這張照片壓縮後仍然太大，請換一張較小的照片再試", true);
+      return;
+    }
+    const workId = "w"+Date.now();
+    return db.ref("studentWorks/"+stuKey+"/"+workId).set({ url: dataUrl, caption, date, uploadedAt: Date.now() }).then(()=>{
+      document.getElementById("workCaption").value = "";
+      fileInput.value = "";
+      showMsg("workUploadMsg","上傳成功");
+      loadStudentWorksAdmin();
+    });
+  }).catch(err=>{
+    showMsg("workUploadMsg","上傳失敗："+err.message, true);
+  });
+}
+function loadStudentWorksAdmin(){
+  const stuKey = document.getElementById("workStudentSelect").value;
+  if (!stuKey) return;
+  db.ref("studentWorks/"+stuKey).once("value").then(snap=>{
+    const works = snap.val() || {};
+    const box = document.getElementById("workGalleryAdmin");
+    const entries = Object.entries(works).sort((a,b)=> b[1].uploadedAt - a[1].uploadedAt);
+    if (entries.length===0){ box.innerHTML = "<p style='color:var(--muted);font-size:13px;'>這位學生目前沒有上傳過作品</p>"; return; }
+    box.innerHTML = entries.map(([key,w])=>
+      `<div style="text-align:center;">
+        <img src="${w.url}" style="width:100%;border-radius:6px;border:1px solid var(--line);">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">${w.date}｜${w.caption||''}</div>
+        <button class="danger small" onclick="deleteStudentWork('${stuKey}','${key}')" style="margin-top:4px;">刪除</button>
+      </div>`
+    ).join("");
+  });
+}
+function deleteStudentWork(stuKey, key){
+  if (!confirmDeleteText("確定要刪除這張作品照片嗎？")) return;
+  db.ref("studentWorks/"+stuKey+"/"+key).remove().then(()=> loadStudentWorksAdmin());
 }
 
 /* ---- 日常表現觀察紀錄（僅老師端使用，不對家長開放） ---- */
@@ -2307,7 +2449,8 @@ function loadParentView(token){
       db.ref("schoolRank").once("value"),
       db.ref("schoolRankMeta").once("value"),
       db.ref("publishedReport").once("value"),
-    ]).then(([examSnap, scoreSnap, stuSnap, hwSnap, quizSnap, quizScoreSnap, periodSnap, periodResultSnap, visSnap, commentSnap, schoolRankSnap, schoolRankMetaSnap, publishedSnap])=>{
+      db.ref("studentWorks/"+stuKey).once("value"),
+    ]).then(([examSnap, scoreSnap, stuSnap, hwSnap, quizSnap, quizScoreSnap, periodSnap, periodResultSnap, visSnap, commentSnap, schoolRankSnap, schoolRankMetaSnap, publishedSnap, worksSnap])=>{
       const exams = examSnap.val() || {};
       const allScores = scoreSnap.val() || {};
       const homework = hwSnap.val() || {};
@@ -2315,17 +2458,19 @@ function loadParentView(token){
       const quizScores = quizScoreSnap.val() || {};
       const quizPeriods = periodSnap.val() || {};
       const quizPeriodResults = periodResultSnap.val() || {};
-      const vis = visSnap.val() || { position:true, trend:true, radar:true, homework:true, comment:true, progress:true, record:true };
+      const vis = visSnap.val() || { position:true, trend:true, radar:true, homework:true, comment:true, progress:true, record:true, works:true };
       const comment = commentSnap.val();
       const schoolRank = schoolRankSnap.val() || {};
       const schoolRankMeta = schoolRankMetaSnap.val() || {};
       const published = publishedSnap.val();
+      const works = worksSnap.val() || {};
 
       document.getElementById("pv-positionCard").classList.toggle("hidden", vis.position===false);
       document.getElementById("pv-trendCard").classList.toggle("hidden", vis.trend===false);
       document.getElementById("pv-radarCard").classList.toggle("hidden", vis.radar===false);
       document.getElementById("pv-homeworkCard").classList.toggle("hidden", vis.homework===false);
       document.getElementById("pv-commentCard").classList.toggle("hidden", vis.comment===false || !comment);
+      document.getElementById("pv-worksCard").classList.toggle("hidden", vis.works===false || Object.keys(works).length===0);
 
       if (vis.position !== false) renderPosition(stuKey, exams, allScores);
       if (vis.trend !== false) renderTrend(stuKey, exams, allScores, quizzes, quizScores, quizPeriods, quizPeriodResults);
@@ -2334,9 +2479,21 @@ function loadParentView(token){
       if (vis.comment !== false && comment) document.getElementById("pv-commentText").textContent = comment.text;
       if (vis.progress !== false) renderProgressBadge(stuKey, exams, schoolRank, schoolRankMeta);
       if (vis.record !== false) renderRecordBadge(stuKey, exams, schoolRank, schoolRankMeta);
+      if (vis.works !== false) renderStudentWorksParent(works);
       renderPersonalReport(stuKey, exams, allScores, quizzes, quizScores, published);
     });
   });
+}
+
+function renderStudentWorksParent(works){
+  const box = document.getElementById("pv-worksGallery");
+  const entries = Object.entries(works).sort((a,b)=> b[1].uploadedAt - a[1].uploadedAt);
+  box.innerHTML = entries.map(([key,w])=>
+    `<div style="text-align:center;">
+      <img src="${w.url}" style="width:100%;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('${w.url}','_blank')">
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;">${w.date}<br>${w.caption||''}</div>
+    </div>`
+  ).join("");
 }
 
 function renderPersonalReport(stuKey, exams, allScores, quizzes, quizScores, published){
@@ -2621,19 +2778,21 @@ function drawTrendChart(labels, bandData, label){
 function renderHomework(stuKey, homework){
   const tbody = document.getElementById("pv-hwTable");
   tbody.innerHTML = "";
+  const twoWeeksAgo = new Date(Date.now() - 14*24*3600*1000).toISOString().slice(0,10);
   const rows = [];
   Object.entries(homework).forEach(([date, entries])=>{
+    if (date < twoWeeksAgo) return; // 超過兩週不顯示
     const rec = entries[stuKey];
     if (rec) rows.push({date, ...rec});
   });
   rows.sort((a,b)=> b.date.localeCompare(a.date));
-  rows.slice(0,15).forEach(r=>{
+  rows.forEach(r=>{
     const tag = r.status==="submitted" ? '<span class="tag">已交</span>' : '<span class="tag warn">缺交</span>';
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${r.date}</td><td>${r.name}</td><td>${tag}</td>`;
     tbody.appendChild(tr);
   });
-  if (rows.length===0) tbody.innerHTML = "<tr><td colspan='3' style='color:var(--muted);'>目前尚無作業紀錄</td></tr>";
+  if (rows.length===0) tbody.innerHTML = "<tr><td colspan='3' style='color:var(--muted);'>近兩週尚無作業紀錄</td></tr>";
 }
 </script>
 </body>
