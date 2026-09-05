@@ -658,10 +658,10 @@
    Firebase 設定
    ========================================================= */
 const firebaseConfig = {
-  apiKey: "AIzaSyDD64ePGH2j8Lk1pMYsapN2VjCfQ4EpZ6I",
-  authDomain: "class-book-703.firebaseapp.com",
-  databaseURL: "https://class-book-703-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "class-book-703",
+  apiKey: "AIzaSyArjsk22SiVdkdzvySSgwkCDFBKrPp_MMM",
+  authDomain: "class-book-red-703.firebaseapp.com",
+  databaseURL: "https://class-book-red-703-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "class-book-red-703",
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
@@ -809,6 +809,7 @@ function switchAdminTab(tab){
    ======================================================== */
 function tryAdminLogin(){
   const pass = document.getElementById("adminPass").value;
+  showMsg("adminLoginMsg", "登入中，請稍候...");
   db.ref("settings/adminPassword").once("value").then(snap=>{
     const currentPass = snap.val() || ADMIN_PASSWORD;
     if (pass === currentPass){
@@ -818,6 +819,8 @@ function tryAdminLogin(){
     } else {
       showMsg("adminLoginMsg", "密碼錯誤", true);
     }
+  }).catch(err=>{
+    showMsg("adminLoginMsg", "連線失敗，請檢查網路連線或稍後再試（錯誤訊息："+err.message+"）", true);
   });
 }
 
@@ -2334,6 +2337,7 @@ let monitorQuizKey = null;
 
 function tryMonitorLogin(){
   const pass = document.getElementById("monitorPass").value;
+  showMsg("monitorLoginMsg", "登入中，請稍候...");
   db.ref("subjectTeachers").once("value").then(snap=>{
     const teachers = snap.val() || {};
     const match = Object.entries(teachers).find(([k,t])=> t.password === pass);
@@ -2343,6 +2347,8 @@ function tryMonitorLogin(){
     document.getElementById("monitorView").classList.remove("hidden");
     document.getElementById("monitorWhoAmI").textContent = currentMonitorTeacher.name + "｜" + currentMonitorTeacher.subjects.join("、");
     initMonitor();
+  }).catch(err=>{
+    showMsg("monitorLoginMsg", "連線失敗，請檢查網路連線或稍後再試（錯誤訊息："+err.message+"）", true);
   });
 }
 function initMonitor(){
