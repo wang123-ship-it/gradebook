@@ -352,7 +352,7 @@
       </div>
 
       <div class="card hidden" id="studentDetailPanel">
-        <h2>📇 學生詳細資料 <span id="studentDetailName"></span></h2>
+        <h2>📇 學生詳細資料 <span id="studentDetailName"></span> <span id="studentDetailStatus"></span></h2>
         <div class="row">
           <label>生日(西元8碼)</label><input id="detailBirthday" placeholder="20130512" maxlength="8" style="width:120px;">
           <label>緊急聯絡人</label><input id="detailEmergencyName" style="width:120px;">
@@ -522,8 +522,10 @@
     <div class="tab-panel" id="tab-behavior">
       <div class="card">
         <h2>🎨 學生作品上傳（家長端可見，照片直接壓縮存進資料庫，完全免費、不需另外設定）</h2>
+        <div class="msg">點選學生座號：</div>
+        <div id="workStudentPicker" style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;"></div>
+        <div id="workCurrentStudentLabel" style="font-weight:700;font-size:14px;margin-bottom:8px;"></div>
         <div class="row" style="margin-bottom:8px;">
-          <select id="workStudentSelect"></select>
           <input type="date" id="workDate">
           <input id="workCaption" placeholder="作品說明，如：水彩寫生作業" style="flex:1;min-width:180px;">
         </div>
@@ -537,10 +539,9 @@
 
       <div class="card">
         <h2>🌱 日常表現觀察紀錄（僅老師可見，不會出現在家長可視設定選項中）</h2>
-        <div class="row" style="margin-bottom:10px;">
-          <select id="behaviorStudentSelect" onchange="loadBehaviorNotes()"></select>
-          <button class="ghost" onclick="loadBehaviorNotes()">重新整理</button>
-        </div>
+        <div class="msg">點選學生座號：</div>
+        <div id="behaviorStudentPicker" style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;"></div>
+        <div id="behaviorCurrentStudentLabel" style="font-weight:700;font-size:15px;margin-bottom:10px;color:var(--brand);"></div>
         <div class="row" style="margin-bottom:8px;">
           <input type="date" id="noteDate">
           <select id="noteType">
@@ -554,7 +555,7 @@
         <div class="msg" id="behaviorMsg"></div>
         <div class="row" style="margin-top:12px;margin-bottom:6px;">
           <label>檢視：</label>
-          <select id="noteFilterType" onchange="renderBehaviorNoteTable(document.getElementById('behaviorStudentSelect').value)">
+          <select id="noteFilterType" onchange="renderBehaviorNoteTable()">
             <option value="">全部紀錄</option>
             <option value="positive">👍 好的表現</option>
             <option value="negative">⚠️ 需留意</option>
@@ -617,6 +618,14 @@
       <div class="card">
         <h2>🧑‍🏫 小老師帳號管理</h2>
         <div class="msg">每位小老師一組專屬密碼，登入後只看得到自己被指派的科目，其他科目完全看不到。</div>
+        <div class="row" style="margin-top:8px;margin-bottom:8px;">
+          <label style="white-space:nowrap;">小老師登入網址：</label>
+          <div class="link-box" style="flex:1;">
+            <input readonly id="monitorLoginLinkBox" value="">
+            <a class="copybtn" onclick="copyLink('monitorLoginLinkBox')">複製</a>
+          </div>
+        </div>
+        <div class="msg">把上面這個連結傳給小老師，密碼是你在下面幫每個人各自設定的那組（不是共用一組）</div>
         <div class="row" style="margin-top:10px;margin-bottom:6px;">
           <input id="newTeacherName" placeholder="小老師姓名/座號">
         </div>
@@ -840,6 +849,8 @@ function initAdmin(){
     renderStudentTable();
     renderScoreEntryTable();
     renderOverviewDashboard();
+    if (document.getElementById("behaviorStudentPicker")) renderBehaviorStudentPicker();
+    if (document.getElementById("workStudentPicker")) renderWorkStudentPicker();
   });
   db.ref("exams").on("value", snap=>{
     examsCache = snap.val() || {};
@@ -887,23 +898,12 @@ function initAdmin(){
   SUBJECTS.forEach(s=>{
     tgroup.innerHTML += `<label><input type="checkbox" value="${s}" class="teacherSubjChk"> ${s}</label>`;
   });
+  document.getElementById("monitorLoginLinkBox").value = location.origin + location.pathname + "?monitor=1";
 
-  const behaviorSel = document.getElementById("behaviorStudentSelect");
-  const workSel = document.getElementById("workStudentSelect");
-  db.ref("students").once("value").then(snap=>{
-    const students = snap.val() || {};
-    behaviorSel.innerHTML = "";
-    workSel.innerHTML = "";
-    Object.entries(students).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([k,s])=>{
-      const o = document.createElement("option"); o.value=k; o.textContent = s.no+" "+s.name; behaviorSel.appendChild(o);
-      const o2 = document.createElement("option"); o2.value=k; o2.textContent = s.no+" "+s.name; workSel.appendChild(o2);
-    });
-    if (behaviorSel.value) loadBehaviorNotes();
-    if (workSel.value) loadStudentWorksAdmin();
-  });
   document.getElementById("noteDate").value = todayStr();
   document.getElementById("workDate").value = todayStr();
-  workSel.addEventListener("change", loadStudentWorksAdmin);
+  renderBehaviorStudentPicker();
+  renderWorkStudentPicker();
 
   db.ref("settings/parentVisibility").once("value").then(snap=>{
     const vis = snap.val() || { position:true, trend:true, radar:true, homework:true, comment:true };
@@ -1157,7 +1157,12 @@ function openStudentDetail(key){
   const s = studentsCache[key];
   if (!s) return;
   currentDetailKey = key;
-  document.getElementById("studentDetailName").textContent = "－ " + s.name;
+  document.getElementById("studentDetailName").textContent = "－ " + s.no + "號 " + s.name;
+  let statusHtml = "";
+  if (s.archived) statusHtml = '<span class="tag">已封存</span>';
+  else if (s.needsReview) statusHtml = '<span class="tag warn">⚠️ 匯入待確認</span>';
+  else statusHtml = '<span class="tag" style="background:#eaf2ed;color:#3d7a5c;">在籍</span>';
+  document.getElementById("studentDetailStatus").innerHTML = statusHtml;
   document.getElementById("detailBirthday").value = s.birthday || "";
   document.getElementById("detailEmergencyName").value = s.emergencyContact || "";
   document.getElementById("detailEmergencyPhone").value = s.emergencyPhone || "";
@@ -2062,12 +2067,12 @@ function resizeImageFile(file, maxWidth, quality){
   });
 }
 function uploadStudentWork(){
-  const stuKey = document.getElementById("workStudentSelect").value;
+  const stuKey = currentWorkStuKey;
   const date = document.getElementById("workDate").value || todayStr();
   const caption = document.getElementById("workCaption").value.trim();
   const fileInput = document.getElementById("workFile");
   const file = fileInput.files[0];
-  if (!stuKey){ showMsg("workUploadMsg","請先選擇學生", true); return; }
+  if (!stuKey){ showMsg("workUploadMsg","請先點選學生座號", true); return; }
   if (!file){ showMsg("workUploadMsg","請先選擇照片檔案", true); return; }
 
   showMsg("workUploadMsg","處理中，請稍候...");
@@ -2089,7 +2094,7 @@ function uploadStudentWork(){
   });
 }
 function loadStudentWorksAdmin(){
-  const stuKey = document.getElementById("workStudentSelect").value;
+  const stuKey = currentWorkStuKey;
   if (!stuKey) return;
   db.ref("studentWorks/"+stuKey).once("value").then(snap=>{
     const works = snap.val() || {};
@@ -2110,19 +2115,63 @@ function deleteStudentWork(stuKey, key){
   db.ref("studentWorks/"+stuKey+"/"+key).remove().then(()=> loadStudentWorksAdmin());
 }
 
+/* ---- 座號按鈕選人（生活表現、作品上傳共用邏輯） ---- */
+let currentBehaviorStuKey = null;
+let currentWorkStuKey = null;
+
+function renderBehaviorStudentPicker(){
+  const box = document.getElementById("behaviorStudentPicker");
+  box.innerHTML = "";
+  activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([k,s])=>{
+    const btn = document.createElement("button");
+    btn.textContent = s.no;
+    btn.title = s.name;
+    btn.className = "small" + (currentBehaviorStuKey===k ? "" : " ghost");
+    btn.onclick = ()=> { currentBehaviorStuKey = k; renderBehaviorStudentPicker(); loadBehaviorNotes(); };
+    box.appendChild(btn);
+  });
+  const label = document.getElementById("behaviorCurrentStudentLabel");
+  if (currentBehaviorStuKey && studentsCache[currentBehaviorStuKey]){
+    const s = studentsCache[currentBehaviorStuKey];
+    label.textContent = `目前顯示：${s.no}號 ${s.name} 的所有觀察紀錄`;
+  } else {
+    label.textContent = "請先點選上方座號";
+  }
+}
+function renderWorkStudentPicker(){
+  const box = document.getElementById("workStudentPicker");
+  box.innerHTML = "";
+  activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([k,s])=>{
+    const btn = document.createElement("button");
+    btn.textContent = s.no;
+    btn.title = s.name;
+    btn.className = "small" + (currentWorkStuKey===k ? "" : " ghost");
+    btn.onclick = ()=> { currentWorkStuKey = k; renderWorkStudentPicker(); loadStudentWorksAdmin(); };
+    box.appendChild(btn);
+  });
+  const label = document.getElementById("workCurrentStudentLabel");
+  if (currentWorkStuKey && studentsCache[currentWorkStuKey]){
+    const s = studentsCache[currentWorkStuKey];
+    label.textContent = `目前選擇：${s.no}號 ${s.name}`;
+  } else {
+    label.textContent = "請先點選上方座號";
+  }
+}
+
 /* ---- 日常表現觀察紀錄（僅老師端使用，不對家長開放） ---- */
 let currentBehaviorRef = null;
 function loadBehaviorNotes(){
-  const stuKey = document.getElementById("behaviorStudentSelect").value;
+  const stuKey = currentBehaviorStuKey;
   if (!stuKey) return;
   if (currentBehaviorRef) currentBehaviorRef.off(); // 先關閉舊的監聽器，避免疊加造成資料互相干擾
   currentBehaviorRef = db.ref("studentNotes/"+stuKey);
   currentBehaviorRef.on("value", snap=>{
     behaviorNotesCache = snap.val() || {};
-    renderBehaviorNoteTable(stuKey);
+    renderBehaviorNoteTable();
   });
 }
-function renderBehaviorNoteTable(stuKey){
+function renderBehaviorNoteTable(){
+  const stuKey = currentBehaviorStuKey;
   const tbody = document.getElementById("behaviorNoteTable");
   const filter = document.getElementById("noteFilterType").value;
   tbody.innerHTML = "";
@@ -2143,11 +2192,11 @@ function renderBehaviorNoteTable(stuKey){
   document.getElementById("noteCountBadge").textContent = `共 ${Object.keys(behaviorNotesCache).length} 筆紀錄（目前顯示 ${entries.length} 筆）`;
 }
 function addBehaviorNote(){
-  const stuKey = document.getElementById("behaviorStudentSelect").value;
+  const stuKey = currentBehaviorStuKey;
   const date = document.getElementById("noteDate").value || todayStr();
   const type = document.getElementById("noteType").value;
   const text = document.getElementById("noteText").value.trim();
-  if (!stuKey){ showMsg("behaviorMsg","請先選擇學生", true); return; }
+  if (!stuKey){ showMsg("behaviorMsg","請先點選學生座號", true); return; }
   if (!text){ showMsg("behaviorMsg","請輸入紀錄內容", true); return; }
   const key = "n"+Date.now();
   db.ref("studentNotes/"+stuKey+"/"+key).set({ date, type, text }).then(()=>{
@@ -2176,8 +2225,8 @@ function exportAllNotesCSV(){
 
 /* ---- 評語草稿產生（不使用外部AI，純規則式組句） ---- */
 function draftComment(){
-  const stuKey = document.getElementById("behaviorStudentSelect").value;
-  if (!stuKey) return;
+  const stuKey = currentBehaviorStuKey;
+  if (!stuKey){ showMsg("commentMsg","請先點選學生座號", true); return; }
   const s = studentsCache[stuKey];
 
   Promise.all([
@@ -2235,9 +2284,9 @@ function draftComment(){
   });
 }
 function saveComment(){
-  const stuKey = document.getElementById("behaviorStudentSelect").value;
+  const stuKey = currentBehaviorStuKey;
   const text = document.getElementById("commentDraft").value.trim();
-  if (!stuKey){ showMsg("commentMsg","請先選擇學生", true); return; }
+  if (!stuKey){ showMsg("commentMsg","請先點選學生座號", true); return; }
   if (!text){ showMsg("commentMsg","評語內容不可空白", true); return; }
   db.ref("studentComments/"+stuKey).set({ text, updatedAt: Date.now() }).then(()=> showMsg("commentMsg","評語已儲存"));
 }
