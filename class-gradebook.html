@@ -139,7 +139,29 @@
   .st-prog{ font-weight:700; padding:0 4px; border-radius:8px; }
   .st-prog.up{ background:#e8f5e9; color:#2e7d32; }
   .st-prog.down{ background:#fff3e0; color:#c96a3e; }
+  .st-rank{ font-size:9px; color:#8a6d1f; background:#fdf3d8; padding:0 3px; border-radius:3px; margin-top:1px; }
   .st-sign{ margin-top:1mm; font-size:9px; color:#444; }
+
+  .st-mid{ display:flex; gap:2mm; align-items:center; }
+  .st-mid .st-table{ flex:1; }
+  .st-radar{ width:29mm; flex:none; line-height:0; }
+  .st-cm{ font-size:8.5px; line-height:1.3; margin-top:1px; }
+  .full-page{ height:272mm; box-sizing:border-box; padding:4mm 6mm; page-break-after:always; border:1px solid var(--line); margin-bottom:12px; background:#fff; overflow:hidden; font-size:12px; }
+  .fp-head h3{ margin:0 0 2px; color:var(--brand); font-size:18px; border-bottom:2px solid var(--brand); padding-bottom:3px; }
+  .fp-top{ display:flex; gap:8mm; align-items:center; margin:4mm 0; }
+  .fp-bars{ flex:1; }
+  .fp-bar{ display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+  .fp-bl{ width:34px; font-weight:700; }
+  .fp-track{ flex:1; height:12px; background:#eef0ef; border-radius:6px; overflow:hidden; }
+  .fp-fill{ display:block; height:100%; border-radius:6px; }
+  .fp-bv{ width:84px; text-align:right; }
+  .fp-table{ width:100%; border-collapse:collapse; margin-bottom:4mm; }
+  .fp-table th{ background:#e8f0ec; font-size:11px; padding:3px 4px; border:1px solid #cfd8d3; }
+  .fp-table td{ padding:3px 5px; border:1px solid #e1e6e3; font-size:11px; text-align:center; }
+  .fp-s{ font-weight:700; width:38px; }
+  .fp-cm{ background:#f7f3e6; border-left:4px solid #b98b2c; padding:3mm 4mm; border-radius:4px; font-size:12px; line-height:1.6; }
+  .fp-cm div{ margin-bottom:2mm; }
+  .fp-foot{ margin-top:6mm; font-size:12px; color:#444; }
   .merged-table th,.merged-table td{ padding:3px 4px; font-size:11px; text-align:center; }
   @media print{
     *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
@@ -512,13 +534,25 @@
             <div id="subjOrderList" style="margin-top:6px;"></div>
           </div>
           <div style="flex:1;min-width:200px;">
+            <div class="row" style="margin-bottom:6px;padding:6px;background:#fdf3d8;border-radius:6px;">
+              <b style="font-size:12px;width:100%;">🔒 個人報告的排名／位置顯示（預設全隱藏，僅限家長依規定申請時才勾）</b>
+              <label><input type="checkbox" id="optShowClassRank" style="width:auto;"> 顯示班排名</label>
+              <label><input type="checkbox" id="optShowSchoolRank" style="width:auto;"> 顯示校排名</label>
+              <label><input type="checkbox" id="optShowBand" style="width:auto;" checked> 顯示位置色塊與雷達圖（百分位）</label>
+              <label>只印這位座號：<input id="optOnlySeat" style="width:60px;" placeholder="全班"></label>
+            </div>
+            <div class="row" style="margin-bottom:6px;">
+              <label><input type="checkbox" id="optClassReportRank" style="width:auto;" checked> 全班合併成績單／Word 顯示班排欄（老師自用）</label>
+            </div>
             <div class="row" style="margin-bottom:6px;">
               <label><input type="checkbox" id="reportIncludeQuiz" style="width:auto;" checked> 包含大卷（小老師登記）</label>
-              <label><input type="checkbox" id="reportShowProgress" style="width:auto;" checked> 個人條附進步／退步提示</label>
+              <label><input type="checkbox" id="reportShowProgress" style="width:auto;" checked> 附進步／退步提示</label>
+              <label><input type="checkbox" id="reportShowComment" style="width:auto;" checked> 附雷達圖與學習描述</label>
             </div>
             <div class="row"><button onclick="generateTeacherReport()">📋 ① 產生全班合併成績單</button></div>
             <div class="row" style="margin-top:8px;"><button onclick="exportClassReportWord()">📄 ② 匯出 Word（全班合併）</button></div>
-            <div class="row" style="margin-top:8px;"><button onclick="generateStudentReports()">✂️ ③ 產生個人成績條（一頁8張，印出剪開）</button></div>
+            <div class="row" style="margin-top:8px;"><button onclick="generateStudentReports()">✂️ ③ 個人成績條（一頁8張，印出剪開）</button></div>
+            <div class="row" style="margin-top:8px;"><button onclick="generateFullReports()">📄 ④ 完整個人頁（一人一頁，家長會用）</button></div>
             <div class="row" style="margin-top:8px;display:none;"><button onclick="publishReportToParents()">📢 發布給家長線上查看</button></div>
             <div class="msg" id="reportMsg"></div>
           </div>
@@ -1998,7 +2032,7 @@ function buildClassReportDocx(docx, data, title, metaText){
   // 第一層
   const h1 = [ cell("座號",{rowSpan:2,fill:"2F5D50",color:"FFFFFF",bold:true}), cell("姓名",{rowSpan:2,fill:"2F5D50",color:"FFFFFF",bold:true}) ];
   data.subjects.forEach(({subj,items})=> h1.push(cell(subj,{span:items.length+1,fill:"2F5D50",color:"FFFFFF",bold:true})));
-  ["總分","平均","班排"].forEach(t=> h1.push(cell(t,{rowSpan:2,fill:"B98B2C",color:"FFFFFF",bold:true})));
+  ["總分","平均","班排"].filter(t=> t!=="班排" || data.showRank!==false).forEach(t=> h1.push(cell(t,{rowSpan:2,fill:"B98B2C",color:"FFFFFF",bold:true})));
   rows.push(new TableRow({ tableHeader:true, children:h1 }));
   // 第二層
   const h2 = [];
@@ -2015,7 +2049,7 @@ function buildClassReportDocx(docx, data, title, metaText){
     });
     c.push(cell(r.total===null?"-":r.total.toFixed(1)));
     c.push(cell(r.avg===null?"-":r.avg.toFixed(1),{bold:true}));
-    c.push(cell(r.rank===null?"-":r.rank));
+    if (data.showRank!==false) c.push(cell(r.rank===null?"-":r.rank));
     rows.push(new TableRow({ cantSplit:true, children:c }));
   });
   // 全班平均列
@@ -2028,7 +2062,7 @@ function buildClassReportDocx(docx, data, title, metaText){
   const ts = data.rows.map(r=>r.total).filter(v=>v!==null), avs = data.rows.map(r=>r.avg).filter(v=>v!==null);
   ca.push(cell(ts.length?(ts.reduce((a,b)=>a+b,0)/ts.length).toFixed(1):"-",{fill:"EEEEEE"}));
   ca.push(cell(avs.length?(avs.reduce((a,b)=>a+b,0)/avs.length).toFixed(1):"-",{fill:"EEEEEE",bold:true}));
-  ca.push(cell("",{fill:"EEEEEE"}));
+  if (data.showRank!==false) ca.push(cell("",{fill:"EEEEEE"}));
   rows.push(new TableRow({ children:ca }));
 
   return new Document({
@@ -2046,7 +2080,9 @@ function buildClassReportDocx(docx, data, title, metaText){
 function getMergedReport(){
   return collectReportData().then(grouped=>{
     const students = activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0));
-    return { data: buildMergedReportData(grouped, students, subjectOrder), start: document.getElementById("reportStart").value, end: document.getElementById("reportEnd").value };
+    const rkEl = document.getElementById("optClassReportRank");
+    const bd = buildMergedReportData(grouped, students, subjectOrder); bd.showRank = rkEl ? rkEl.checked : true;
+    return { data: bd, start: document.getElementById("reportStart").value, end: document.getElementById("reportEnd").value };
   });
 }
 function generateTeacherReport(){
@@ -2056,15 +2092,15 @@ function generateTeacherReport(){
       document.getElementById("reportOutput").innerHTML = "<div class='card'><p style='color:var(--muted);'>這個區間內沒有找到任何大卷或段考資料，請確認日期範圍。</p></div>";
       showMsg("reportMsg",""); return;
     }
-    let html = `<div class="report-sheet"><h3>703班 全班合併成績單</h3><div class="meta">區間：${start} ～ ${end}｜班排＝依「平均」排序（各科平均的平均）｜產生時間：${new Date().toLocaleString('zh-TW')}</div><div style="overflow-x:auto;"><table class="merged-table"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th>`;
+    let html = `<div class="report-sheet"><h3>703班 全班合併成績單</h3><div class="meta">區間：${start} ～ ${end}｜${data.showRank?"班排＝依「平均」排序（各科平均的平均）｜":""}產生時間：${new Date().toLocaleString('zh-TW')}</div><div style="overflow-x:auto;"><table class="merged-table"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th>`;
     data.subjects.forEach(({subj,items})=> html += `<th colspan="${items.length+1}" class="subj-block-title" style="text-align:center;">${subj}</th>`);
-    html += `<th rowspan="2">總分</th><th rowspan="2">平均</th><th rowspan="2">班排</th></tr><tr>`;
+    html += `<th rowspan="2">總分</th><th rowspan="2">平均</th>${data.showRank?'<th rowspan="2">班排</th>':''}</tr><tr>`;
     data.subjects.forEach(({items})=>{ items.forEach(it=> html += `<th style="font-size:10px;font-weight:400;">${shortItemName(it)}</th>`); html += `<th style="font-size:10px;background:#f3e6c4;">科平均</th>`; });
     html += `</tr></thead><tbody>`;
     data.rows.forEach(r=>{
       html += `<tr><td>${r.no}</td><td style="font-weight:600;">${r.name}</td>`;
       data.subjects.forEach(({subj})=>{ r.per[subj].vals.forEach(v=> html += `<td>${fmtScore(v)}</td>`); html += `<td style="background:#fbf5e3;font-weight:600;">${r.per[subj].avg===null?'-':r.per[subj].avg.toFixed(1)}</td>`; });
-      html += `<td>${r.total===null?'-':r.total.toFixed(1)}</td><td style="font-weight:700;">${r.avg===null?'-':r.avg.toFixed(1)}</td><td>${r.rank===null?'-':r.rank}</td></tr>`;
+      html += `<td>${r.total===null?'-':r.total.toFixed(1)}</td><td style="font-weight:700;">${r.avg===null?'-':r.avg.toFixed(1)}</td>${data.showRank?`<td>${r.rank===null?'-':r.rank}</td>`:''}</tr>`;
     });
     html += `</tbody></table></div><div class="row no-print" style="margin-top:10px;"><button onclick="exportClassReportWord()">📄 匯出 Word</button><button class="ghost" onclick="window.print()">🖨️ 列印本頁</button></div></div>`;
     document.getElementById("reportOutput").innerHTML = html;
@@ -2095,7 +2131,7 @@ function exportClassReportWord(){
   getMergedReport().then(({data,start,end})=>{
     if (data.subjects.length===0){ showMsg("reportMsg","這個區間沒有資料，請確認日期範圍", true); return; }
     const title = "703班 全班合併成績單";
-    const meta = `區間：${start} ～ ${end}｜班排＝依平均排序｜產生：${new Date().toLocaleDateString('zh-TW')}`;
+    const meta = `區間：${start} ～ ${end}${data.showRank?"｜班排＝依平均排序":""}｜產生：${new Date().toLocaleDateString('zh-TW')}`;
     const fname = `703班成績單_${start}_${end}`;
     loadDocxLib().then(docx=>{
       const doc = buildClassReportDocx(docx, data, title, meta);
@@ -2104,13 +2140,13 @@ function exportClassReportWord(){
       // 備援：Word 可直接開啟的 HTML（.doc）
       let h = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>@page{size:A4 landscape;margin:1cm;}table{border-collapse:collapse;font-size:9pt;}td,th{border:1px solid #999;padding:2px 4px;text-align:center;}</style></head><body><h3>${title}</h3><p>${meta}</p><table><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th>`;
       data.subjects.forEach(({subj,items})=> h += `<th colspan="${items.length+1}">${subj}</th>`);
-      h += `<th rowspan="2">總分</th><th rowspan="2">平均</th><th rowspan="2">班排</th></tr><tr>`;
+      h += `<th rowspan="2">總分</th><th rowspan="2">平均</th>${data.showRank?'<th rowspan="2">班排</th>':''}</tr><tr>`;
       data.subjects.forEach(({items})=>{ items.forEach(it=> h += `<th>${shortItemName(it)}</th>`); h += `<th>科平均</th>`; });
       h += `</tr>`;
       data.rows.forEach(r=>{
         h += `<tr><td>${r.no}</td><td>${r.name}</td>`;
         data.subjects.forEach(({subj})=>{ r.per[subj].vals.forEach(v=> h += `<td>${fmtScore(v)}</td>`); h += `<td>${r.per[subj].avg===null?'-':r.per[subj].avg.toFixed(1)}</td>`; });
-        h += `<td>${r.total===null?'-':r.total.toFixed(1)}</td><td>${r.avg===null?'-':r.avg.toFixed(1)}</td><td>${r.rank===null?'-':r.rank}</td></tr>`;
+        h += `<td>${r.total===null?'-':r.total.toFixed(1)}</td><td>${r.avg===null?'-':r.avg.toFixed(1)}</td>${data.showRank?`<td>${r.rank===null?'-':r.rank}</td>`:''}</tr>`;
       });
       h += `</table></body></html>`;
       saveBlob(new Blob(["﻿"+h],{type:"application/msword"}), fname+".doc");
@@ -2118,41 +2154,199 @@ function exportClassReportWord(){
     });
   });
 }
+/* ===== 雷達圖／質性評語／完整個人頁 (v4) ===== */
+const SUBJ_TXT = {
+  "國文":{ab:"閱讀理解與表達", strong:"閱讀理解與文字表達都很穩，文意判讀掌握得好。", mid:"基本功扎實，多練習段落大意歸納，還能再往上一層。", weak:"文意判讀和長文閱讀還有成長空間，多半是還沒養成抓關鍵句的習慣。", act:"每天讀一小段文章，用一句話寫出「這段在說什麼」。", actS:"每天一小段文章，寫一句大意"},
+  "英文":{ab:"單字文法與閱讀", strong:"單字與句型掌握得很好，閱讀時理解順暢。", mid:"基礎穩定，持續累積單字量，閱讀速度會更有感。", weak:"單字與句型的累積還有成長空間，打好基礎後進步會很快。", act:"每天複習 10 個單字並各造一個句子，一週後回頭檢查。", actS:"每天10個單字＋造句"},
+  "數學":{ab:"運算與邏輯推理", strong:"運算正確度高，推理過程清楚，是這次很亮的一科。", mid:"觀念大致穩固，多訂正錯題就能補上細節。", weak:"部分觀念與運算步驟還需要鞏固，從基礎題型重新熟練會很有幫助。", act:"把錯題整理成錯題本，每題寫下「錯在哪一步」。", actS:"錯題本：寫下錯在哪一步"},
+  "自然":{ab:"觀察與科學思考", strong:"能把課堂觀察與概念連結起來，科學思考力不錯。", mid:"概念大致掌握，多把名詞放回生活現象中想想會更牢。", weak:"概念名詞的記憶與應用還有成長空間，搭配圖解會更容易理解。", act:"每個單元畫一張概念圖，把重要名詞用線連起來。", actS:"每單元畫一張概念圖"},
+  "地理":{ab:"圖表與空間判讀", strong:"地圖與圖表判讀能力好，能掌握各地區的差異。", mid:"空間概念穩定，多看地圖對照課本，細節會更精確。", weak:"圖表判讀與地名位置還有成長空間，多利用地圖輔助記憶。", act:"每週挑一張地圖，標出本週學到的地名並說出特色。", actS:"每週看一張地圖標地名"},
+  "歷史":{ab:"時序與因果整理", strong:"事件的前因後果掌握得清楚，時序概念很好。", mid:"主要事件都有印象，再把因果關係串起來會更完整。", weak:"年代與事件的串連還有成長空間，先建立時間軸會很有幫助。", act:"上完歷史課，用 3 分鐘畫出「誰、何時、為什麼」的小時間軸。", actS:"課後畫3分鐘小時間軸"},
+  "公民":{ab:"制度理解與議題思辨", strong:"對制度與社會議題理解深入，能清楚說出自己的看法。", mid:"概念大致穩固，多留意時事並與課本對照會更有感。", weak:"概念與名詞的區辨還有成長空間，可從生活例子切入理解。", act:"每週找一則新聞，說出它和課本哪個概念有關。", actS:"每週一則新聞對應課本概念"}
+};
+function subjBandOf(pr){ return pr.avg===null ? null : percentileBand(pr.rank, pr.rankTotal); }
+function subjPR(pr){ return pr.avg===null ? 0 : bandedPercentile(pr.rank, pr.rankTotal).value; }
+
+function radarSvg(labels, cur, prev, px){
+  const n = labels.length; if (n<3) return "";
+  const c=60, R=36;
+  const pt=(i,v)=>{ const a=-Math.PI/2+i*2*Math.PI/n; const r=R*v/100; return [c+r*Math.cos(a), c+r*Math.sin(a)]; };
+  const pts=(arr)=> arr.map((v,i)=>pt(i,v).map(x=>x.toFixed(1)).join(",")).join(" ");
+  let g="";
+  [20,40,60,80,100].forEach(v=>{ g+=`<polygon points="${pts(labels.map(()=>v))}" fill="none" stroke="#d5dbd8" stroke-width="0.5"/>`; });
+  labels.forEach((l,i)=>{
+    const [x,y]=pt(i,100); g+=`<line x1="${c}" y1="${c}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#d5dbd8" stroke-width="0.5"/>`;
+    const [lx,ly]=pt(i,125); g+=`<text x="${lx.toFixed(1)}" y="${(ly+3).toFixed(1)}" font-size="9" text-anchor="middle" fill="#2f5d50" font-weight="700">${l}</text>`;
+  });
+  if (prev) g+=`<polygon points="${pts(prev)}" fill="none" stroke="#9aa5a0" stroke-width="1" stroke-dasharray="2.5,2"/>`;
+  g+=`<polygon points="${pts(cur)}" fill="rgba(47,93,80,0.28)" stroke="#2f5d50" stroke-width="1.4"/>`;
+  cur.forEach((v,i)=>{ const [x,y]=pt(i,v); g+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.8" fill="#b98b2c"/>`; });
+  return `<svg viewBox="0 0 120 120" width="${px}" height="${px}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+}
+
+// 評語：回傳 {hl, imp, act, hlS, actS, ups, lines:{subj:text}}
+function buildComment(r, data, prevBands){
+  const subs = data.subjects.map(x=>x.subj).filter(s=> r.per[s].avg!==null);
+  if (subs.length<3) return null;
+  const info = subs.map(s=>({ s, b: subjBandOf(r.per[s]), ratio: r.per[s].rank/r.per[s].rankTotal }));
+  const best = info.slice().sort((a,b)=> a.b-b.b || a.ratio-b.ratio)[0];
+  const worst = info.slice().sort((a,b)=> b.b-a.b || b.ratio-a.ratio)[0];
+  const spread = worst.b - best.b;
+  const S = best.s, W = worst.s;
+  let hl, hlS, imp, act, actS;
+  if (spread<=1){
+    if (worst.b<=1){ hl="各科表現都很出色，整體相當穩定，繼續保持。"; hlS="各科都很出色、整體穩定"; }
+    else if (worst.b<=3){ hl="各科發展均衡，沒有明顯弱科，基礎很扎實。"; hlS="各科發展均衡、基礎扎實"; }
+    else { hl="每一科都已有基礎，穩定練習就能一起往上。"; hlS="各科基礎已建立，穩定練習會進步"; }
+  } else {
+    hl = `${S}：${SUBJ_TXT[S].strong}`; hlS = `${S}（${SUBJ_TXT[S].ab}）`;
+  }
+  if (worst.b>=3){ imp = `${W}：${SUBJ_TXT[W].weak}`; act = `${W}：${SUBJ_TXT[W].act}`; actS = `${W}：${SUBJ_TXT[W].actS}`; }
+  else if (worst.b===2){ imp = `${W}：${SUBJ_TXT[W].mid}`; act = `${W}：${SUBJ_TXT[W].act}`; actS = `${W}：${SUBJ_TXT[W].actS}`; }
+  else { imp = "目前沒有明顯需要加強的科目，保持現在的學習節奏。"; act = "保持目前的節奏，試著幫同學講解題目，教別人是最好的複習。"; actS = "保持節奏，試著教同學講題"; }
+  const ups = prevBands ? subs.filter(s=> prevBands[s]!==undefined && prevBands[s]!==null && subjBandOf(r.per[s]) < prevBands[s]) : [];
+  if (ups.length) hl += `（${ups.join("、")}比上次段考更進一步 👏）`;
+  const lines = {};
+  subs.forEach(s=>{ const b = subjBandOf(r.per[s]); lines[s] = b<=1 ? SUBJ_TXT[s].strong : (b<=3 ? SUBJ_TXT[s].mid : SUBJ_TXT[s].weak); });
+  return { hl, imp, act, hlS, actS, ups, lines };
+}
+
+// 上次段考（區間開始日之前最近一次）各科位置色塊
+function calcPrevBands(stuKey, examsData, allScores, start, subjList){
+  const prevs = Object.entries(examsData).filter(([k,e])=>e.isMajor && (e.date||"")<start).sort((a,b)=>(a[1].date||"").localeCompare(b[1].date||""));
+  if (!prevs.length) return null;
+  const [pk] = prevs[prevs.length-1];
+  const es = allScores[pk]; if (!es || !es[stuKey]) return null;
+  const bands = {}, vals = {};
+  subjList.forEach(s=>{
+    if (es[stuKey][s]===undefined){ bands[s]=null; vals[s]=0; return; }
+    const { rank, total } = calcSubjRank(s, es, stuKey);
+    bands[s] = percentileBand(rank,total); vals[s] = bandedPercentile(rank,total).value;
+  });
+  return { bands, vals };
+}
+
+function readPersonalOpts(){
+  const g=(id)=>{ const e=document.getElementById(id); return e ? e.checked : false; };
+  const seatEl=document.getElementById("optOnlySeat");
+  return { classRank:g("optShowClassRank"), schoolRank:g("optShowSchoolRank"), band:g("optShowBand"), onlySeat: seatEl ? seatEl.value.trim() : "" };
+}
+function pickRows(data, opt){
+  if (!opt.onlySeat) return data.rows;
+  return data.rows.filter(r=> String(r.no)===opt.onlySeat);
+}
+function schoolRankText(stuKey, schoolRankData, start, end){
+  const majors = Object.entries(examsCache).filter(([k,e])=>e.isMajor && (e.date||"")>=start && (e.date||"")<=end && (schoolRankData[k]||{})[stuKey]!==undefined).sort((a,b)=>(a[1].date||"").localeCompare(b[1].date||""));
+  if (!majors.length) return null;
+  const [k,e] = majors[majors.length-1];
+  return `${e.name||"段考"} 校排第${schoolRankData[k][stuKey]}名`;
+}
+function rankLineHtml(r, stuKey, opt, schoolRankData, start, end){
+  const parts = [];
+  if (opt.classRank && r.rank!==null) parts.push(`班排 ${r.rank}／${r.rankTotal}`);
+  if (opt.schoolRank){ const t = schoolRankText(stuKey, schoolRankData, start, end); if (t) parts.push(t); }
+  return parts.length ? `<div class="st-rank">🔒 ${parts.join("　")}（依家長申請提供）</div>` : "";
+}
+function prepPersonalReports(){
+  return Promise.all([ getMergedReport(), db.ref("schoolRank").once("value"), db.ref("scores").once("value") ]).then(([{data,start,end}, rankSnap, scoreSnap])=>{
+    return { data, start, end, schoolRankData: rankSnap.val()||{}, allScores: scoreSnap.val()||{} };
+  });
+}
+function personalExtras(r, ctx){
+  const subjList = ctx.data.subjects.map(x=>x.subj);
+  const prev = calcPrevBands(r.stuKey, examsCache, ctx.allScores, ctx.start, subjList);
+  const cm = ctx.withComment ? buildComment(r, ctx.data, prev ? prev.bands : null) : null;
+  const cur = subjList.map(s=> subjPR(r.per[s]));
+  const prevVals = prev ? subjList.map(s=> prev.vals[s]||0) : null;
+  return { subjList, prev, cm, cur, prevVals };
+}
 function generateStudentReports(){
   showMsg("reportMsg","產生中...");
-  Promise.all([ getMergedReport(), db.ref("schoolRank").once("value") ]).then(([{data,start,end}, rankSnap])=>{
+  prepPersonalReports().then(ctx=>{
+    const { data, start, end, schoolRankData } = ctx;
     if (data.subjects.length===0){ showMsg("reportMsg","這個區間沒有資料，請確認日期範圍", true); return; }
-    const schoolRankData = rankSnap.val() || {};
     const showProg = document.getElementById("reportShowProgress").checked;
-    const strips = data.rows.map(r=>{
+    ctx.withComment = document.getElementById("reportShowComment").checked;
+    const opt = readPersonalOpts();
+    const selRows = pickRows(data, opt);
+    if (selRows.length===0){ showMsg("reportMsg","找不到這個座號", true); return; }
+    const strips = selRows.map(r=>{
+      const ex = personalExtras(r, ctx);
       let rowsHtml = "";
-      data.subjects.forEach(({subj,items})=>{
+      data.subjects.forEach(({subj})=>{
         const pr = r.per[subj];
-        const scoreTxt = pr.vals.map(fmtScore).join(" / ");
-        rowsHtml += `<tr><td class="st-subj">${subj}</td><td class="st-score">${scoreTxt}</td><td class="st-badge">${pr.avg===null?'-':bandBadgeHtml(pr.rank, pr.rankTotal)}</td></tr>`;
+        rowsHtml += `<tr><td class="st-subj">${subj}</td><td class="st-score">${pr.vals.map(fmtScore).join(" / ")}</td><td class="st-badge">${(!opt.band||pr.avg===null)?'':bandBadgeHtml(pr.rank, pr.rankTotal)}</td></tr>`;
       });
       let progHtml = "";
       if (showProg){
         const pg = calcProgressText(r.stuKey, examsCache, schoolRankData, start, end);
         if (pg){
           if (pg.text) progHtml += `<span class="st-prog ${pg.kind}">${pg.text}</span> `;
-          if (pg.record) progHtml += `<span class="st-prog up">🏆 創個人新高</span>`;
+          if (pg.record) progHtml += `<span class="st-prog up">🏆 創個人新高</span> `;
         }
       }
+      if (ex.cm && ex.cm.ups.length) progHtml += `<span class="st-prog up">👏 進步：${ex.cm.ups.length>3 ? ex.cm.ups.slice(0,3).join("、")+"等"+ex.cm.ups.length+"科" : ex.cm.ups.join("、")}</span>`;
+      const radar = (opt.band && ex.cm && ex.subjList.length>=3) ? `<div class="st-radar">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 110)}</div>` : "";
+      const cmHtml = ex.cm ? `<div class="st-cm">🌟 亮點：${ex.cm.hlS}<br>🎯 小行動：${ex.cm.actS}</div>` : "";
       const overall = r.rank===null ? "-" : bandBadgeHtml(r.rank, r.rankTotal);
       return `<div class="strip"><div class="st-head"><span><b>${r.name}</b>（${r.no}號）</span><span class="st-range">${start.slice(5)}～${end.slice(5)}</span></div>
-        <table class="st-table"><thead><tr><th>科目</th><th>成績（${data.subjects[0].items.length>1?'各次':'本次'}）</th><th>位置</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-        <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>　整體 ${overall}</div>
-        <div class="st-progline">${progHtml}</div>
+        <div class="st-mid">${radar}<table class="st-table"><thead><tr><th>科目</th><th>成績</th><th>${opt.band?'位置':''}</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
+        <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${opt.band?'　整體 '+overall:''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}
+        <div class="st-progline">${progHtml}</div>${cmHtml}
         <div class="st-sign">家長簽名：＿＿＿＿＿＿＿</div></div>`;
     });
-    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」，並勾選「背景圖形」，色塊才會印出。每頁 8 張，沿虛線剪開。</div>`;
+    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」，並勾選「背景圖形」，色塊才會印出。每頁 8 張，沿虛線剪開。雷達圖：實線＝這次，虛線＝上次段考。</div>`;
     for (let i=0;i<strips.length;i+=8){
       html += `<div class="strip-page"${i+8>=strips.length?' style="page-break-after:auto;"':""}>${strips.slice(i,i+8).join("")}</div>`;
     }
     html += `<div class="row no-print" style="margin-top:10px;"><button onclick="window.print()">🖨️ 列印全班個人條</button></div>`;
     document.getElementById("reportOutput").innerHTML = html;
-    showMsg("reportMsg","已產生 "+data.rows.length+" 張個人成績條");
+    showMsg("reportMsg","已產生 "+selRows.length+" 張個人成績條");
+  });
+}
+function generateFullReports(){
+  showMsg("reportMsg","產生中...");
+  prepPersonalReports().then(ctx=>{
+    const { data, start, end, schoolRankData } = ctx;
+    if (data.subjects.length===0){ showMsg("reportMsg","這個區間沒有資料，請確認日期範圍", true); return; }
+    const showProg = document.getElementById("reportShowProgress").checked;
+    ctx.withComment = document.getElementById("reportShowComment").checked;
+    const bandColor = ["#e53935","#fb8c00","#1e88e5","#43a047","#78909c"];
+    const opt = readPersonalOpts();
+    const selRows = pickRows(data, opt);
+    if (selRows.length===0){ showMsg("reportMsg","找不到這個座號", true); return; }
+    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、勾選「背景圖形」。一人一頁。雷達圖實線＝這次，虛線＝上次段考。</div>`;
+    selRows.forEach((r,idx)=>{
+      const ex = personalExtras(r, ctx);
+      let bars = "", tbl = "";
+      data.subjects.forEach(({subj})=>{
+        const pr = r.per[subj];
+        const b = subjBandOf(pr), v = subjPR(pr);
+        if (opt.band) bars += `<div class="fp-bar"><span class="fp-bl">${subj}</span><span class="fp-track"><span class="fp-fill" style="width:${v}%;background:${b===null?'#ccc':bandColor[b]};"></span></span><span class="fp-bv">${pr.avg===null?'-':bandBadgeHtml(pr.rank,pr.rankTotal)}</span></div>`;
+        const line = ex.cm && ex.cm.lines[subj] ? ex.cm.lines[subj] : "";
+        tbl += `<tr><td class="fp-s">${subj}</td><td>${pr.vals.map(fmtScore).join(" / ")}</td><td>${pr.avg===null?'-':pr.avg.toFixed(1)}</td><td style="text-align:left;">${line}</td></tr>`;
+      });
+      let progHtml = "";
+      if (showProg){
+        const pg = calcProgressText(r.stuKey, examsCache, schoolRankData, start, end);
+        if (pg){ if (pg.text) progHtml += `<span class="st-prog ${pg.kind}">${pg.text}</span> `; if (pg.record) progHtml += `<span class="st-prog up">🏆 創個人新高</span> `; }
+      }
+      if (ex.cm && ex.cm.ups.length) progHtml += `<span class="st-prog up">👏 進步科目：${ex.cm.ups.join("、")}</span>`;
+      const radar = (opt.band && ex.subjList.length>=3) ? `<div style="text-align:center;">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 260)}<div style="font-size:11px;color:#555;">━ 這次　<span style="color:#9aa5a0;">┅ 上次段考</span></div></div>` : "";
+      const cmBox = ex.cm ? `<div class="fp-cm"><div>🌟 <b>本期亮點</b>　${ex.cm.hl}</div><div>🌱 <b>可以更好</b>　${ex.cm.imp}</div><div>🎯 <b>下期小行動</b>　${ex.cm.act}</div></div>` : "";
+      html += `<div class="full-page"${idx===selRows.length-1?' style="page-break-after:auto;"':""}>
+        <div class="fp-head"><h3>703班 個人學習報告</h3><div><b style="font-size:18px;">${r.name}</b>（座號 ${r.no}）<span class="st-range">　區間 ${start} ～ ${end}</span></div></div>
+        <div class="fp-top">${radar}<div class="fp-bars">${opt.band?'<div style="font-size:12px;font-weight:700;margin-bottom:4px;">各科班級內位置</div>':''}${bars}
+          <div style="margin-top:8px;font-size:13px;">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${opt.band?'　整體 '+(r.rank===null?'-':bandBadgeHtml(r.rank,r.rankTotal)):''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}
+          <div style="margin-top:4px;">${progHtml}</div></div></div>
+        <table class="fp-table"><thead><tr><th>科目</th><th>成績</th><th>平均</th><th>學習描述</th></tr></thead><tbody>${tbl}</tbody></table>
+        ${cmBox}
+        <div class="fp-foot"><div>老師的話：＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</div><div style="margin-top:6mm;">＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</div><div style="margin-top:6mm;text-align:right;">家長簽名：＿＿＿＿＿＿＿＿＿＿＿</div></div>
+      </div>`;
+    });
+    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="window.print()">🖨️ 列印全班完整個人頁</button></div>`;
+    document.getElementById("reportOutput").innerHTML = html;
+    showMsg("reportMsg","已產生 "+selRows.length+" 頁完整個人報告");
   });
 }
 
