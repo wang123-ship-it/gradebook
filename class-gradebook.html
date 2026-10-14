@@ -94,7 +94,7 @@
   .tab-panel{display:none;}
   .tab-panel.active{display:block;}
 
-  /* 小考/週考成績單 */
+  /* 大卷/週考成績單 */
   .subj-order-item{
     display:flex; align-items:center; justify-content:space-between;
     padding:6px 10px; border:1px solid var(--line); border-radius:6px; margin-bottom:4px; background:#fafaf5;
@@ -120,6 +120,32 @@
   .band-2{background:#1e88e5;}  /* 前21~40% 藍 */
   .band-3{background:#43a047;}  /* 前41~60% 綠 */
   .band-4{background:#78909c;}  /* 60%以後 灰 */
+
+
+  /* 個人成績條（剪裁用） */
+  .strip-page{ display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:68mm; gap:0; margin-bottom:12px; page-break-after:always; }
+  .strip{ border:1px dashed #666; padding:2mm 3mm; font-size:10px; line-height:1.25; overflow:hidden; background:#fff; box-sizing:border-box; }
+  .st-head{ font-size:12px; display:flex; justify-content:space-between; border-bottom:1px solid #2f5d50; padding-bottom:1px; margin-bottom:2px; }
+  .st-range{ font-size:9px; color:#666; }
+  .st-table{ width:100%; border-collapse:collapse; margin:0; }
+  .st-table th{ font-size:9px; background:#e8f0ec; padding:1px 3px; border:1px solid #cfd8d3; }
+  .st-table td{ padding:1px 3px; border:1px solid #e1e6e3; font-size:10px; }
+  .st-subj{ width:34px; text-align:center; font-weight:600; }
+  .st-score{ text-align:center; }
+  .st-badge{ width:68px; text-align:center; }
+  .strip .band-badge{ padding:0 6px; font-size:9px; }
+  .st-total{ margin-top:2px; font-size:11px; }
+  .st-progline{ min-height:13px; font-size:10px; }
+  .st-prog{ font-weight:700; padding:0 4px; border-radius:8px; }
+  .st-prog.up{ background:#e8f5e9; color:#2e7d32; }
+  .st-prog.down{ background:#fff3e0; color:#c96a3e; }
+  .st-sign{ margin-top:1mm; font-size:9px; color:#444; }
+  .merged-table th,.merged-table td{ padding:3px 4px; font-size:11px; text-align:center; }
+  @media print{
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    @page{ size:A4; margin:6mm; }
+    .strip-page{ margin:0; }
+  }
 
   .teacher-item{
     display:flex; justify-content:space-between; align-items:center;
@@ -239,7 +265,7 @@
   </div>
 
   <div id="monitorView" class="hidden">
-    <div class="card">
+    <div class="card hidden" id="monitorCalcCard">
       <h2>📐 平時成績計算器</h2>
       <div class="row" style="margin-bottom:8px;">
         <select id="monitorTscoreSubject" onchange="applyCalcConfigDefaults('monitor')"></select>
@@ -252,16 +278,16 @@
     </div>
 
     <div class="card">
-      <h2>✏️ 小考成績登記 <span id="monitorWhoAmI" class="tag gold"></span></h2>
+      <h2>✏️ 大卷成績登記 <span id="monitorWhoAmI" class="tag gold"></span></h2>
       <div class="row" style="margin-bottom:10px;">
         <select id="monitorSubject"></select>
         <input type="date" id="monitorQuizDate">
-        <input id="monitorQuizName" placeholder="小考名稱，如：第2課生字">
+        <input id="monitorQuizName" placeholder="大卷名稱，如：第2課生字">
         <button onclick="createMonitorQuiz()">建立/開啟登記表</button>
       </div>
       <div id="monitorEntryArea"></div>
       <div class="row no-print" style="margin-top:8px;">
-        <button onclick="saveMonitorQuiz()" class="hidden" id="monitorSaveBtn">💾 儲存這次小考成績</button>
+        <button onclick="saveMonitorQuiz()" class="hidden" id="monitorSaveBtn">💾 儲存這次大卷成績</button>
         <button onclick="printMonitorQuiz()" class="ghost hidden" id="monitorPrintBtn">🖨️ 列印</button>
         <button onclick="exportMonitorQuizCSV()" class="ghost hidden" id="monitorCsvBtn">📤 匯出 CSV（Excel／Google試算表）</button>
       </div>
@@ -269,7 +295,7 @@
     </div>
 
     <div class="card">
-      <h2>🗂️ 我負責科目的歷次小考</h2>
+      <h2>🗂️ 我負責科目的歷次大卷</h2>
       <table>
         <thead><tr><th>科目</th><th>日期</th><th>名稱</th><th>已登記人數</th><th>操作</th></tr></thead>
         <tbody id="monitorHistoryTable"></tbody>
@@ -284,7 +310,7 @@
       <button class="tab-btn active" data-tab="overview" onclick="switchAdminTab('overview')">🏠 總覽</button>
       <button class="tab-btn" data-tab="roster" onclick="switchAdminTab('roster')">👥 學生名單</button>
       <button class="tab-btn" data-tab="examEntry" onclick="switchAdminTab('examEntry')">✏️ 段考成績</button>
-      <button class="tab-btn" data-tab="quiz" onclick="switchAdminTab('quiz')">🗒️ 小考管理</button>
+      <button class="tab-btn" data-tab="quiz" onclick="switchAdminTab('quiz')">🗒️ 大卷管理</button>
       <button class="tab-btn" data-tab="report" onclick="switchAdminTab('report')">📊 成績單</button>
       <button class="tab-btn" data-tab="homework" onclick="switchAdminTab('homework')">📋 作業登記</button>
       <button class="tab-btn" data-tab="behavior" onclick="switchAdminTab('behavior')">🌱 生活表現</button>
@@ -305,9 +331,15 @@
         <h2>📥 匯入待確認名單</h2>
         <div id="ov-importReview"></div>
       </div>
-      <div class="card">
+      <div class="card hidden">
         <h2>🗓️ 週考期別狀況</h2>
         <div id="ov-periods"></div>
+      </div>
+      <div class="card">
+        <h2>🎮 學生行為等級（教師專用，僅你自己看得到）</h2>
+        <div class="msg">計算方式：缺交+1分、需留意紀錄+2分、好的表現−1分，只計算最近60天內的紀錄（超過60天自動不算，等於自動給孩子重新開始的機會）。這套等級不會出現在家長端或學生端，只給你自己當處置參考。</div>
+        <button onclick="refreshBehaviorLevels()" style="margin-top:8px;">🔄 重新整理等級</button>
+        <div id="ov-behaviorLevels" style="margin-top:10px;"></div>
       </div>
       <div class="card">
         <h2>🌟 需要關心名單</h2>
@@ -315,7 +347,7 @@
         <button onclick="refreshAttentionList()" style="margin-top:8px;">🔄 重新整理關心名單</button>
         <div id="ov-attentionList" style="margin-top:10px;"></div>
       </div>
-      <div class="card">
+      <div class="card hidden">
         <h2>👀 家長查看狀況</h2>
         <div class="msg">記錄家長最後一次打開專屬連結的時間，幫助你了解誰比較少關心班級動態。</div>
         <div id="ov-parentViews" style="margin-top:8px;"></div>
@@ -399,11 +431,11 @@
       </div>
     </div>
 
-    <!-- 小考管理 -->
+    <!-- 大卷管理 -->
     <div class="tab-panel" id="tab-quiz">
-      <div class="card">
+      <div class="card hidden" id="adminCalcCard">
         <h2>📐 平時成績計算器</h2>
-        <div class="msg">選一段日期區間跟科目，系統會列出這段期間內每一次小考的成績，並依「設定」分頁裡這一科的計算方式，算出最終平時成績。</div>
+        <div class="msg">選一段日期區間跟科目，系統會列出這段期間內每一次大卷的成績，並依「設定」分頁裡這一科的計算方式，算出最終平時成績。</div>
         <div class="row" style="margin-top:8px;margin-bottom:8px;">
           <select id="tscoreSubject" onchange="applyCalcConfigDefaults('admin')"></select>
           <label>起始</label><input type="date" id="tscoreStart">
@@ -415,25 +447,25 @@
       </div>
 
       <div class="card">
-        <h2>✏️ 老師直接登記小考成績</h2>
+        <h2>✏️ 老師直接登記大卷成績</h2>
         <div class="row" style="margin-bottom:8px;">
           <select id="adminQuizSubject"></select>
           <input type="date" id="adminQuizDate">
-          <input id="adminQuizName" placeholder="小考名稱">
+          <input id="adminQuizName" placeholder="大卷名稱">
           <button onclick="createAdminQuiz()">建立/開啟登記表</button>
         </div>
         <div id="adminQuizEntryArea"></div>
         <div class="row no-print" style="margin-top:8px;">
-          <button onclick="saveAdminQuiz()" class="hidden" id="adminQuizSaveBtn">💾 儲存這次小考成績</button>
+          <button onclick="saveAdminQuiz()" class="hidden" id="adminQuizSaveBtn">💾 儲存這次大卷成績</button>
           <button onclick="printAdminQuiz()" class="ghost hidden" id="adminQuizPrintBtn">🖨️ 列印</button>
           <button onclick="exportAdminQuizCSV()" class="ghost hidden" id="adminQuizCsvBtn">📤 匯出 CSV</button>
         </div>
         <div class="msg" id="adminQuizMsg"></div>
       </div>
 
-      <div class="card">
+      <div class="card hidden" id="periodMgmtCard">
         <h2>🗓️ 週考期別管理</h2>
-        <div class="msg">先建立「週考1」「週考2」這樣的期別，設定起訖日期，等這個期別所有小考都考完後按「結算」，名次就會永久封存，之後刪改小考也不會影響已結算的紀錄。</div>
+        <div class="msg">先建立「週考1」「週考2」這樣的期別，設定起訖日期，等這個期別所有大卷都考完後按「結算」，名次就會永久封存，之後刪改大卷也不會影響已結算的紀錄。</div>
         <div class="row" style="margin-top:8px;margin-bottom:10px;">
           <input id="newPeriodName" placeholder="期別名稱，如：週考1">
           <label>起始</label><input type="date" id="newPeriodStart">
@@ -448,7 +480,7 @@
       </div>
 
       <div class="card">
-        <h2>🗂️ 全部小考歷史紀錄</h2>
+        <h2>🗂️ 全部大卷歷史紀錄</h2>
         <div class="row" style="margin-bottom:8px;">
           <label>篩選科目：</label>
           <select id="quizHistoryFilter" onchange="renderQuizHistoryTable()"><option value="">全部</option></select>
@@ -480,9 +512,14 @@
             <div id="subjOrderList" style="margin-top:6px;"></div>
           </div>
           <div style="flex:1;min-width:200px;">
-            <div class="row"><button onclick="generateTeacherReport()">📋 產生老師版（全班矩陣）</button></div>
-            <div class="row" style="margin-top:8px;"><button onclick="generateStudentReports()">🖨️ 產生家長／可列印個人成績單（全班）</button></div>
-            <div class="row" style="margin-top:8px;"><button onclick="publishReportToParents()">📢 發布這份區間成績給家長線上查看（免列印）</button></div>
+            <div class="row" style="margin-bottom:6px;">
+              <label><input type="checkbox" id="reportIncludeQuiz" style="width:auto;" checked> 包含大卷（小老師登記）</label>
+              <label><input type="checkbox" id="reportShowProgress" style="width:auto;" checked> 個人條附進步／退步提示</label>
+            </div>
+            <div class="row"><button onclick="generateTeacherReport()">📋 ① 產生全班合併成績單</button></div>
+            <div class="row" style="margin-top:8px;"><button onclick="exportClassReportWord()">📄 ② 匯出 Word（全班合併）</button></div>
+            <div class="row" style="margin-top:8px;"><button onclick="generateStudentReports()">✂️ ③ 產生個人成績條（一頁8張，印出剪開）</button></div>
+            <div class="row" style="margin-top:8px;display:none;"><button onclick="publishReportToParents()">📢 發布給家長線上查看</button></div>
             <div class="msg" id="reportMsg"></div>
           </div>
         </div>
@@ -585,7 +622,7 @@
     <div class="tab-panel" id="tab-settings">
       <div class="card">
         <h2>📐 各科「平時成績」計算方式設定</h2>
-        <div class="msg">這裡設定每一科的預設計算方式，會自動帶入「小考管理」分頁的T分數計算器：算術平均＝把該科所有小考分數直接加總平均；標準差法＝先算出每個學生的原始平均，再算全班平均與標準差，換算成Z分數，最後用「目標平均＋Z×目標標準差跨度」得出最終分數。</div>
+        <div class="msg">這裡設定每一科的預設計算方式，會自動帶入「大卷管理」分頁的T分數計算器：算術平均＝把該科所有大卷分數直接加總平均；標準差法＝先算出每個學生的原始平均，再算全班平均與標準差，換算成Z分數，最後用「目標平均＋Z×目標標準差跨度」得出最終分數。</div>
         <div id="calcMethodList" style="margin-top:8px;"></div>
         <button onclick="saveCalcMethods()" style="margin-top:8px;">💾 儲存設定</button>
         <div class="msg" id="calcMethodMsg"></div>
@@ -610,7 +647,7 @@
 
       <div class="card">
         <h2>💾 資料備份</h2>
-        <div class="msg">按下去會把資料庫「目前所有資料」（學生、成績、小考、作業、小老師帳號）打包成一個檔案下載，請妥善保存在你自己的電腦或雲端硬碟。</div>
+        <div class="msg">按下去會把資料庫「目前所有資料」（學生、成績、大卷、作業、小老師帳號）打包成一個檔案下載，請妥善保存在你自己的電腦或雲端硬碟。</div>
         <button onclick="exportFullBackup()" style="margin-top:8px;">📥 匯出完整資料備份</button>
         <div class="msg" id="backupMsg"></div>
       </div>
@@ -906,7 +943,7 @@ function initAdmin(){
   renderWorkStudentPicker();
 
   db.ref("settings/parentVisibility").once("value").then(snap=>{
-    const vis = snap.val() || { position:true, trend:true, radar:true, homework:true, comment:true };
+    const vis = snap.val() || { position:false, trend:false, radar:false, homework:false, comment:false, progress:false, record:false, works:false };
     document.getElementById("visPosition").checked = vis.position !== false;
     document.getElementById("visTrend").checked = vis.trend !== false;
     document.getElementById("visRadar").checked = vis.radar !== false;
@@ -945,6 +982,7 @@ function initAdmin(){
 
   refreshAttentionList();
   refreshParentViews();
+  refreshBehaviorLevels();
 }
 
 /* ---- 總覽儀表板 ---- */
@@ -1014,6 +1052,61 @@ function renderOverviewDashboard(){
 }
 
 /* ---- 需要關心名單 ---- */
+/* ---- 學生行為等級（RPG式積分制，教師專用） ---- */
+function getBehaviorLevel(points){
+  if (points >= 25) return { level:"S級", action:"罰寫10次＋不能下課1天＋通知家長／轉介學務處", color:"#c62828" };
+  if (points >= 20) return { level:"A級", action:"罰寫10次＋不能下課1天", color:"#d84315" };
+  if (points >= 15) return { level:"B級", action:"罰寫10次", color:"#ef6c00" };
+  if (points >= 10) return { level:"C級", action:"罰寫5次", color:"#f9a825" };
+  if (points >= 5)  return { level:"D級", action:"罰寫3次", color:"#9e9d24" };
+  return { level:"新手村", action:"無需處置", color:"#3d7a5c" };
+}
+function refreshBehaviorLevels(){
+  const box = document.getElementById("ov-behaviorLevels");
+  box.innerHTML = "<p style='color:var(--muted);font-size:13px;'>計算中...</p>";
+  const sixtyDaysAgo = new Date(Date.now() - 60*24*3600*1000).toISOString().slice(0,10);
+  Promise.all([
+    db.ref("homework").once("value"),
+    db.ref("studentNotes").once("value"),
+  ]).then(([hwSnap, noteSnap])=>{
+    const homework = hwSnap.val() || {};
+    const allNotes = noteSnap.val() || {};
+
+    const results = [];
+    activeStudents().forEach(([stuKey, s])=>{
+      let points = 0;
+      // 缺交 +1
+      Object.entries(homework).forEach(([date, entries])=>{
+        if (date < sixtyDaysAgo) return;
+        const rec = entries[stuKey];
+        if (rec && rec.status === "missing") points += 1;
+      });
+      // 需留意 +2，好的表現 -1
+      const notes = allNotes[stuKey] || {};
+      Object.values(notes).forEach(n=>{
+        if (n.date < sixtyDaysAgo) return;
+        if (n.type === "negative") points += 2;
+        if (n.type === "positive") points -= 1;
+      });
+      points = Math.max(0, points);
+      if (points > 0) results.push({ s, points });
+    });
+
+    results.sort((a,b)=> b.points - a.points);
+    if (results.length === 0){
+      box.innerHTML = "<p style='color:var(--ok);'>近60天沒有任何學生累積警示點數，班上狀況很穩定</p>";
+      return;
+    }
+    box.innerHTML = "<table><thead><tr><th>座號</th><th>姓名</th><th>60天內點數</th><th>等級</th><th>建議處置</th></tr></thead><tbody>" +
+      results.map(r=>{
+        const lv = getBehaviorLevel(r.points);
+        return `<tr><td>${r.s.no}</td><td>${r.s.name}</td><td>${r.points}</td>
+          <td><span class="tag" style="background:${lv.color};color:#fff;">${lv.level}</span></td>
+          <td style="font-size:12px;">${lv.action}</td></tr>`;
+      }).join("") + "</tbody></table>";
+  });
+}
+
 function refreshAttentionList(){
   const box = document.getElementById("ov-attentionList");
   box.innerHTML = "<p style='color:var(--muted);font-size:13px;'>分析中...</p>";
@@ -1462,14 +1555,14 @@ function editExam(key){
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
-/* ---- 小考：老師端登記 ---- */
+/* ---- 大卷：老師端登記 ---- */
 let currentAdminQuizKey = null;
 function createAdminQuiz(){
   const subject = document.getElementById("adminQuizSubject").value;
   const date = document.getElementById("adminQuizDate").value || todayStr();
   const name = document.getElementById("adminQuizName").value.trim();
   if (!subject){ showMsg("adminQuizMsg","請選擇科目", true); return; }
-  if (!name){ showMsg("adminQuizMsg","請輸入小考名稱", true); return; }
+  if (!name){ showMsg("adminQuizMsg","請輸入大卷名稱", true); return; }
   const existing = Object.entries(quizzesCache).find(([k,q])=> q.subject===subject && q.name===name && q.date===date);
   const key = existing ? existing[0] : ("q"+Date.now());
   currentAdminQuizKey = key;
@@ -1507,7 +1600,7 @@ function saveAdminQuiz(){
   const inputs = document.querySelectorAll(".adminQuizEntryArea-score");
   const payload = {};
   inputs.forEach(inp=>{ if (inp.value!=="") payload[inp.dataset.stu] = Number(inp.value); });
-  db.ref("quizScores/"+currentAdminQuizKey).set(payload).then(()=> showMsg("adminQuizMsg","小考成績已儲存"));
+  db.ref("quizScores/"+currentAdminQuizKey).set(payload).then(()=> showMsg("adminQuizMsg","大卷成績已儲存"));
 }
 function printAdminQuiz(){ window.print(); }
 function exportAdminQuizCSV(){
@@ -1564,13 +1657,13 @@ function deleteQuiz(key){
   if (!q) return;
   const inClosedPeriod = Object.values(quizPeriodsCache).some(p=> p.closed && q.date >= p.start && q.date <= p.end);
   const warnText = inClosedPeriod
-    ? `這筆小考屬於已結算鎖定的週考期別，該期別的名次紀錄已封存不受影響，但原始成績會被刪除，確定要刪除「${q.subject} - ${q.name}（${q.date}）」嗎？`
-    : `確定要刪除「${q.subject} - ${q.name}（${q.date}）」這筆小考紀錄嗎？此動作無法復原，且若這筆資料所屬的週考期別尚未結算，會影響之後的統計結果。`;
+    ? `這筆大卷屬於已結算鎖定的週考期別，該期別的名次紀錄已封存不受影響，但原始成績會被刪除，確定要刪除「${q.subject} - ${q.name}（${q.date}）」嗎？`
+    : `確定要刪除「${q.subject} - ${q.name}（${q.date}）」這筆大卷紀錄嗎？此動作無法復原，且若這筆資料所屬的週考期別尚未結算，會影響之後的統計結果。`;
   if (!confirmDeleteText(warnText)) return;
   db.ref().update({
     ["quizzes/"+key]: null,
     ["quizScores/"+key]: null
-  }).then(()=> showMsg("adminQuizMsg","已刪除該筆小考紀錄"));
+  }).then(()=> showMsg("adminQuizMsg","已刪除該筆大卷紀錄"));
 }
 function reopenAdminQuiz(key){
   const q = quizzesCache[key];
@@ -1592,21 +1685,39 @@ function createHwEntry(){
   if (!name){ showMsg("hwMsg","請輸入作業名稱", true); return; }
   const area = document.getElementById("hwEntryArea");
   let html = `<input type="hidden" id="hwCurrentDate" value="${date}"><input type="hidden" id="hwCurrentName" value="${name}">
-    <table><thead><tr><th>座號</th><th>姓名</th><th>是否繳交</th></tr></thead><tbody>`;
+    <div class="msg">預設全班都已交；<b>只要點「沒交」的同學座號</b>（變紅色），再按儲存即可。</div>
+    <div id="hwSeatBox" style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;">`;
   activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
-    html += `<tr><td>${s.no}</td><td>${s.name}</td><td><select data-stu="${key}" class="hwStatus"><option value="submitted">已交</option><option value="missing">缺交</option></select></td></tr>`;
+    html += `<button type="button" class="hwSeat" data-stu="${key}" data-missing="0" onclick="toggleHwSeat(this)" style="min-width:64px;padding:8px 6px;background:#eef6ee;color:#2f5d50;border:1px solid #cfe3d6;">${s.no}<br><span style="font-size:11px;font-weight:400;">${s.name}</span></button>`;
   });
-  html += "</tbody></table>";
+  html += `</div><div id="hwMissingCount" style="font-size:13px;color:var(--muted);">目前缺交：0 人</div>`;
   area.innerHTML = html;
   document.getElementById("hwSaveBtn").classList.remove("hidden");
+}
+function toggleHwSeat(btn){
+  const missing = btn.dataset.missing === "1" ? "0" : "1";
+  btn.dataset.missing = missing;
+  btn.style.background = missing==="1" ? "#e53935" : "#eef6ee";
+  btn.style.color = missing==="1" ? "#fff" : "#2f5d50";
+  btn.style.borderColor = missing==="1" ? "#e53935" : "#cfe3d6";
+  document.getElementById("hwMissingCount").textContent = "目前缺交：" + document.querySelectorAll('.hwSeat[data-missing="1"]').length + " 人";
 }
 function saveHomework(){
   const date = document.getElementById("hwCurrentDate").value;
   const name = document.getElementById("hwCurrentName").value;
-  const selects = document.querySelectorAll(".hwStatus");
   const payload = {};
-  selects.forEach(sel=>{ payload[sel.dataset.stu] = { name, status: sel.value }; });
-  db.ref("homework/"+date).update(payload).then(()=> showMsg("hwMsg","作業紀錄已儲存"));
+  document.querySelectorAll(".hwSeat").forEach(b=>{
+    payload[b.dataset.stu] = { name, status: b.dataset.missing==="1" ? "missing" : "submitted" };
+  });
+  // 提醒：同一天若已登記過另一份作業，會被這次覆蓋
+  db.ref("homework/"+date).once("value").then(snap=>{
+    const ex = snap.val();
+    if (ex){
+      const oldName = Object.values(ex)[0] && Object.values(ex)[0].name;
+      if (oldName && oldName !== name && !confirm("這一天已經登記過「"+oldName+"」，儲存會覆蓋成「"+name+"」，確定嗎？")) return;
+    }
+    return db.ref("homework/"+date).update(payload).then(()=> showMsg("hwMsg","作業紀錄已儲存（缺交 "+Object.values(payload).filter(x=>x.status==="missing").length+" 人）"));
+  });
 }
 function exportHomeworkCSV(){
   db.ref("homework").once("value").then(snap=>{
@@ -1705,12 +1816,14 @@ function collectReportData(){
   const start = document.getElementById("reportStart").value;
   const end = document.getElementById("reportEnd").value;
   const includeMajor = document.getElementById("reportIncludeMajor").checked;
+  const qEl = document.getElementById("reportIncludeQuiz");
+  const qd = (qEl && !qEl.checked) ? {} : quizzesCache;
   if (includeMajor){
     return db.ref("scores").once("value").then(scoreSnap=>{
-      return buildGroupedItems(quizzesCache, quizScoresCache, examsCache, scoreSnap.val()||{}, start, end, true, subjectOrder);
+      return buildGroupedItems(qd, quizScoresCache, examsCache, scoreSnap.val()||{}, start, end, true, subjectOrder);
     });
   }
-  return Promise.resolve(buildGroupedItems(quizzesCache, quizScoresCache, examsCache, {}, start, end, false, subjectOrder));
+  return Promise.resolve(buildGroupedItems(qd, quizScoresCache, examsCache, {}, start, end, false, subjectOrder));
 }
 function calcItemRank(item, stuKey){
   const list = Object.entries(item.scores).map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);
@@ -1728,7 +1841,7 @@ function calcItemBandBadge(item, stuKey){
   if (idx<0) return "-";
   return bandBadgeHtml(idx+1, list.length);
 }
-function generateTeacherReport(){
+function generateTeacherReportLegacy(){
   showMsg("reportMsg","產生中...");
   collectReportData().then(grouped=>{
     const start = document.getElementById("reportStart").value;
@@ -1737,7 +1850,7 @@ function generateTeacherReport(){
     const columns = [];
     subjectOrder.forEach(subj=> (grouped[subj]||[]).forEach(item=> columns.push(item)));
     if (columns.length===0){
-      document.getElementById("reportOutput").innerHTML = "<div class='card'><p style='color:var(--muted);'>這個區間內沒有找到任何小考或段考資料，請確認日期範圍。</p></div>";
+      document.getElementById("reportOutput").innerHTML = "<div class='card'><p style='color:var(--muted);'>這個區間內沒有找到任何大卷或段考資料，請確認日期範圍。</p></div>";
       showMsg("reportMsg",""); return;
     }
     let html = `<div class="report-sheet"><h3>703班 成績單（老師版）</h3><div class="meta">區間：${start} ～ ${end}｜產生時間：${new Date().toLocaleString('zh-TW')}</div>
@@ -1756,7 +1869,7 @@ function generateTeacherReport(){
     showMsg("reportMsg","已產生老師版成績單");
   });
 }
-function generateStudentReports(){
+function generateStudentReportsLegacy(){
   showMsg("reportMsg","產生中...");
   Promise.all([ collectReportData(), db.ref("scores").once("value") ]).then(([grouped, scoreSnap])=>{
     const allScores = scoreSnap.val() || {};
@@ -1809,6 +1922,237 @@ function generateStudentReports(){
     });
 
     showMsg("reportMsg","已產生個人成績單，可直接列印");
+  });
+}
+
+/* ===== 合併成績單／Word／個人剪裁條 (v3) ===== */
+// 純資料運算：回傳 { subjects:[{subj,items:[...]}], rows:[...] }
+function buildMergedReportData(grouped, students, subjOrder){
+  const subjects = [];
+  (subjOrder||[]).forEach(subj=>{
+    const items = (grouped[subj]||[]);
+    if (items.length>0) subjects.push({ subj, items });
+  });
+  const rows = students.map(([stuKey,s])=>{
+    const per = {};
+    let total = 0, n = 0;
+    subjects.forEach(({subj,items})=>{
+      const vals = items.map(it=> it.scores[stuKey]);
+      const got = vals.filter(v=>v!==undefined);
+      const avg = got.length>0 ? got.reduce((a,b)=>a+b,0)/got.length : null;
+      per[subj] = { vals, avg };
+      if (avg!==null){ total += avg; n++; }
+    });
+    return { stuKey, no:s.no, name:s.name, per, total: n>0?total:null, avg: n>0?total/n:null, subjCount:n };
+  });
+  // 班排（依平均）
+  const ranked = rows.filter(r=>r.avg!==null).sort((a,b)=>b.avg-a.avg);
+  rows.forEach(r=>{ const i = ranked.findIndex(x=>x.stuKey===r.stuKey); r.rank = i>=0 ? i+1 : null; r.rankTotal = ranked.length; });
+  // 各科平均的班排
+  subjects.forEach(({subj})=>{
+    const list = rows.filter(r=>r.per[subj].avg!==null).sort((a,b)=>b.per[subj].avg-a.per[subj].avg);
+    rows.forEach(r=>{
+      const i = list.findIndex(x=>x.stuKey===r.stuKey);
+      r.per[subj].rank = i>=0 ? i+1 : null; r.per[subj].rankTotal = list.length;
+    });
+  });
+  return { subjects, rows };
+}
+function fmtScore(v){ return v===undefined||v===null ? "-" : (Math.round(v*10)/10).toString(); }
+function shortItemName(it){ return (it.name||"").replace("(段考)","").slice(0,8); }
+
+// 個人進退步文字（用「個人校排名」，不影響原家長端邏輯）
+function calcProgressText(stuKey, examsData, schoolRankData, rangeStart, rangeEnd){
+  const majors = Object.entries(examsData).filter(([k,e])=>e.isMajor).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
+  const inRange = majors.filter(([k,e])=>{ const d=e.date||""; return d>=rangeStart && d<=rangeEnd && (schoolRankData[k]||{})[stuKey]!==undefined; });
+  if (inRange.length===0) return null;
+  const [curKey] = inRange[inRange.length-1];
+  const B = schoolRankData[curKey][stuKey];
+  const curIdx = majors.findIndex(x=>x[0]===curKey);
+  const prior = majors.slice(0,curIdx).map(([k])=>(schoolRankData[k]||{})[stuKey]).filter(v=>v!==undefined);
+  if (prior.length===0) return null;
+  const A = prior.reduce((a,b)=>a+b,0)/prior.length;
+  const ratio = (A-B)/A, X = Math.abs(ratio*100).toFixed(0);
+  let text = null, kind = "";
+  if (ratio>=0.2){ text = `🚀 超級進步 ${X}%`; kind="up"; }
+  else if (ratio>=0.1){ text = `📈 進步 ${X}%`; kind="up"; }
+  else if (ratio<=-0.2){ text = `⚠️ 大退步 ${X}%`; kind="down"; }
+  else if (ratio<=-0.1){ text = `📉 退步 ${X}%`; kind="down"; }
+  const record = B < Math.min(...prior);
+  if (!text && !record) return null;
+  return { text, kind, record };
+}
+
+// Word 檔（docx 物件由外部傳入，瀏覽器與 node 皆可用）
+function buildClassReportDocx(docx, data, title, metaText){
+  const { Document, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, PageOrientation, ShadingType, BorderStyle } = docx;
+  const FS = 16; // 8pt
+  const cell = (text, o={})=> new TableCell({
+    columnSpan:o.span||1, rowSpan:o.rowSpan||1,
+    shading: o.fill ? { type:ShadingType.CLEAR, fill:o.fill, color:"auto" } : undefined,
+    margins:{ top:30, bottom:30, left:40, right:40 },
+    verticalAlign: "center",
+    children:[ new Paragraph({ alignment:AlignmentType.CENTER, children:[ new TextRun({ text:String(text), size:o.size||FS, bold:!!o.bold, color:o.color }) ] }) ]
+  });
+  const rows = [];
+  // 第一層
+  const h1 = [ cell("座號",{rowSpan:2,fill:"2F5D50",color:"FFFFFF",bold:true}), cell("姓名",{rowSpan:2,fill:"2F5D50",color:"FFFFFF",bold:true}) ];
+  data.subjects.forEach(({subj,items})=> h1.push(cell(subj,{span:items.length+1,fill:"2F5D50",color:"FFFFFF",bold:true})));
+  ["總分","平均","班排"].forEach(t=> h1.push(cell(t,{rowSpan:2,fill:"B98B2C",color:"FFFFFF",bold:true})));
+  rows.push(new TableRow({ tableHeader:true, children:h1 }));
+  // 第二層
+  const h2 = [];
+  data.subjects.forEach(({items})=>{
+    items.forEach(it=> h2.push(cell(shortItemName(it),{fill:"E8F0EC",size:12})));
+    h2.push(cell("科平均",{fill:"F3E6C4",bold:true,size:12}));
+  });
+  rows.push(new TableRow({ tableHeader:true, children:h2 }));
+  data.rows.forEach(r=>{
+    const c = [ cell(r.no), cell(r.name,{bold:true}) ];
+    data.subjects.forEach(({subj})=>{
+      r.per[subj].vals.forEach(v=> c.push(cell(fmtScore(v))));
+      c.push(cell(r.per[subj].avg===null?"-":r.per[subj].avg.toFixed(1),{fill:"FBF5E3",bold:true}));
+    });
+    c.push(cell(r.total===null?"-":r.total.toFixed(1)));
+    c.push(cell(r.avg===null?"-":r.avg.toFixed(1),{bold:true}));
+    c.push(cell(r.rank===null?"-":r.rank));
+    rows.push(new TableRow({ cantSplit:true, children:c }));
+  });
+  // 全班平均列
+  const ca = [ cell("",{}), cell("全班平均",{bold:true,fill:"EEEEEE"}) ];
+  data.subjects.forEach(({subj,items})=>{
+    items.forEach((it,i)=>{ const vs = data.rows.map(r=>r.per[subj].vals[i]).filter(v=>v!==undefined); ca.push(cell(vs.length?(vs.reduce((a,b)=>a+b,0)/vs.length).toFixed(1):"-",{fill:"EEEEEE"})); });
+    const as = data.rows.map(r=>r.per[subj].avg).filter(v=>v!==null);
+    ca.push(cell(as.length?(as.reduce((a,b)=>a+b,0)/as.length).toFixed(1):"-",{fill:"EEEEEE",bold:true}));
+  });
+  const ts = data.rows.map(r=>r.total).filter(v=>v!==null), avs = data.rows.map(r=>r.avg).filter(v=>v!==null);
+  ca.push(cell(ts.length?(ts.reduce((a,b)=>a+b,0)/ts.length).toFixed(1):"-",{fill:"EEEEEE"}));
+  ca.push(cell(avs.length?(avs.reduce((a,b)=>a+b,0)/avs.length).toFixed(1):"-",{fill:"EEEEEE",bold:true}));
+  ca.push(cell("",{fill:"EEEEEE"}));
+  rows.push(new TableRow({ children:ca }));
+
+  return new Document({
+    sections:[{
+      properties:{ page:{ size:{ orientation: PageOrientation.LANDSCAPE }, margin:{ top:567, bottom:567, left:567, right:567 } } },
+      children:[
+        new Paragraph({ children:[ new TextRun({ text:title, bold:true, size:28 }) ] }),
+        new Paragraph({ spacing:{ after:120 }, children:[ new TextRun({ text:metaText, size:18, color:"666666" }) ] }),
+        new Table({ width:{ size:100, type:WidthType.PERCENTAGE }, rows })
+      ]
+    }]
+  });
+}
+
+function getMergedReport(){
+  return collectReportData().then(grouped=>{
+    const students = activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0));
+    return { data: buildMergedReportData(grouped, students, subjectOrder), start: document.getElementById("reportStart").value, end: document.getElementById("reportEnd").value };
+  });
+}
+function generateTeacherReport(){
+  showMsg("reportMsg","產生中...");
+  getMergedReport().then(({data,start,end})=>{
+    if (data.subjects.length===0){
+      document.getElementById("reportOutput").innerHTML = "<div class='card'><p style='color:var(--muted);'>這個區間內沒有找到任何大卷或段考資料，請確認日期範圍。</p></div>";
+      showMsg("reportMsg",""); return;
+    }
+    let html = `<div class="report-sheet"><h3>703班 全班合併成績單</h3><div class="meta">區間：${start} ～ ${end}｜班排＝依「平均」排序（各科平均的平均）｜產生時間：${new Date().toLocaleString('zh-TW')}</div><div style="overflow-x:auto;"><table class="merged-table"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th>`;
+    data.subjects.forEach(({subj,items})=> html += `<th colspan="${items.length+1}" class="subj-block-title" style="text-align:center;">${subj}</th>`);
+    html += `<th rowspan="2">總分</th><th rowspan="2">平均</th><th rowspan="2">班排</th></tr><tr>`;
+    data.subjects.forEach(({items})=>{ items.forEach(it=> html += `<th style="font-size:10px;font-weight:400;">${shortItemName(it)}</th>`); html += `<th style="font-size:10px;background:#f3e6c4;">科平均</th>`; });
+    html += `</tr></thead><tbody>`;
+    data.rows.forEach(r=>{
+      html += `<tr><td>${r.no}</td><td style="font-weight:600;">${r.name}</td>`;
+      data.subjects.forEach(({subj})=>{ r.per[subj].vals.forEach(v=> html += `<td>${fmtScore(v)}</td>`); html += `<td style="background:#fbf5e3;font-weight:600;">${r.per[subj].avg===null?'-':r.per[subj].avg.toFixed(1)}</td>`; });
+      html += `<td>${r.total===null?'-':r.total.toFixed(1)}</td><td style="font-weight:700;">${r.avg===null?'-':r.avg.toFixed(1)}</td><td>${r.rank===null?'-':r.rank}</td></tr>`;
+    });
+    html += `</tbody></table></div><div class="row no-print" style="margin-top:10px;"><button onclick="exportClassReportWord()">📄 匯出 Word</button><button class="ghost" onclick="window.print()">🖨️ 列印本頁</button></div></div>`;
+    document.getElementById("reportOutput").innerHTML = html;
+    showMsg("reportMsg","已產生全班合併成績單");
+  });
+}
+let _docxLoading = null;
+function loadDocxLib(){
+  if (window.docx) return Promise.resolve(window.docx);
+  if (_docxLoading) return _docxLoading;
+  _docxLoading = new Promise((resolve,reject)=>{
+    const sc = document.createElement("script");
+    sc.src = "https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js";
+    sc.onload = ()=> window.docx ? resolve(window.docx) : reject(new Error("docx missing"));
+    sc.onerror = ()=> { _docxLoading=null; reject(new Error("load fail")); };
+    document.head.appendChild(sc);
+  });
+  return _docxLoading;
+}
+function saveBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+function exportClassReportWord(){
+  showMsg("reportMsg","準備 Word 檔中...");
+  getMergedReport().then(({data,start,end})=>{
+    if (data.subjects.length===0){ showMsg("reportMsg","這個區間沒有資料，請確認日期範圍", true); return; }
+    const title = "703班 全班合併成績單";
+    const meta = `區間：${start} ～ ${end}｜班排＝依平均排序｜產生：${new Date().toLocaleDateString('zh-TW')}`;
+    const fname = `703班成績單_${start}_${end}`;
+    loadDocxLib().then(docx=>{
+      const doc = buildClassReportDocx(docx, data, title, meta);
+      return docx.Packer.toBlob(doc).then(blob=>{ saveBlob(blob, fname+".docx"); showMsg("reportMsg","已下載 Word 檔（.docx）"); });
+    }).catch(()=>{
+      // 備援：Word 可直接開啟的 HTML（.doc）
+      let h = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>@page{size:A4 landscape;margin:1cm;}table{border-collapse:collapse;font-size:9pt;}td,th{border:1px solid #999;padding:2px 4px;text-align:center;}</style></head><body><h3>${title}</h3><p>${meta}</p><table><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th>`;
+      data.subjects.forEach(({subj,items})=> h += `<th colspan="${items.length+1}">${subj}</th>`);
+      h += `<th rowspan="2">總分</th><th rowspan="2">平均</th><th rowspan="2">班排</th></tr><tr>`;
+      data.subjects.forEach(({items})=>{ items.forEach(it=> h += `<th>${shortItemName(it)}</th>`); h += `<th>科平均</th>`; });
+      h += `</tr>`;
+      data.rows.forEach(r=>{
+        h += `<tr><td>${r.no}</td><td>${r.name}</td>`;
+        data.subjects.forEach(({subj})=>{ r.per[subj].vals.forEach(v=> h += `<td>${fmtScore(v)}</td>`); h += `<td>${r.per[subj].avg===null?'-':r.per[subj].avg.toFixed(1)}</td>`; });
+        h += `<td>${r.total===null?'-':r.total.toFixed(1)}</td><td>${r.avg===null?'-':r.avg.toFixed(1)}</td><td>${r.rank===null?'-':r.rank}</td></tr>`;
+      });
+      h += `</table></body></html>`;
+      saveBlob(new Blob(["﻿"+h],{type:"application/msword"}), fname+".doc");
+      showMsg("reportMsg","Word 元件載入失敗，已改下載 .doc 版（Word 可直接開啟）");
+    });
+  });
+}
+function generateStudentReports(){
+  showMsg("reportMsg","產生中...");
+  Promise.all([ getMergedReport(), db.ref("schoolRank").once("value") ]).then(([{data,start,end}, rankSnap])=>{
+    if (data.subjects.length===0){ showMsg("reportMsg","這個區間沒有資料，請確認日期範圍", true); return; }
+    const schoolRankData = rankSnap.val() || {};
+    const showProg = document.getElementById("reportShowProgress").checked;
+    const strips = data.rows.map(r=>{
+      let rowsHtml = "";
+      data.subjects.forEach(({subj,items})=>{
+        const pr = r.per[subj];
+        const scoreTxt = pr.vals.map(fmtScore).join(" / ");
+        rowsHtml += `<tr><td class="st-subj">${subj}</td><td class="st-score">${scoreTxt}</td><td class="st-badge">${pr.avg===null?'-':bandBadgeHtml(pr.rank, pr.rankTotal)}</td></tr>`;
+      });
+      let progHtml = "";
+      if (showProg){
+        const pg = calcProgressText(r.stuKey, examsCache, schoolRankData, start, end);
+        if (pg){
+          if (pg.text) progHtml += `<span class="st-prog ${pg.kind}">${pg.text}</span> `;
+          if (pg.record) progHtml += `<span class="st-prog up">🏆 創個人新高</span>`;
+        }
+      }
+      const overall = r.rank===null ? "-" : bandBadgeHtml(r.rank, r.rankTotal);
+      return `<div class="strip"><div class="st-head"><span><b>${r.name}</b>（${r.no}號）</span><span class="st-range">${start.slice(5)}～${end.slice(5)}</span></div>
+        <table class="st-table"><thead><tr><th>科目</th><th>成績（${data.subjects[0].items.length>1?'各次':'本次'}）</th><th>位置</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+        <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>　整體 ${overall}</div>
+        <div class="st-progline">${progHtml}</div>
+        <div class="st-sign">家長簽名：＿＿＿＿＿＿＿</div></div>`;
+    });
+    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」，並勾選「背景圖形」，色塊才會印出。每頁 8 張，沿虛線剪開。</div>`;
+    for (let i=0;i<strips.length;i+=8){
+      html += `<div class="strip-page"${i+8>=strips.length?' style="page-break-after:auto;"':""}>${strips.slice(i,i+8).join("")}</div>`;
+    }
+    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="window.print()">🖨️ 列印全班個人條</button></div>`;
+    document.getElementById("reportOutput").innerHTML = html;
+    showMsg("reportMsg","已產生 "+data.rows.length+" 張個人成績條");
   });
 }
 
@@ -1868,7 +2212,7 @@ function renderPeriodTable(){
 function closePeriod(key){
   const period = quizPeriodsCache[key];
   if (!period) return;
-  if (!confirm(`確定要結算「${period.name}」嗎？結算後會把目前每位同學的相對位置永久封存，之後即使刪改小考成績也不會再變動這筆紀錄。`)) return;
+  if (!confirm(`確定要結算「${period.name}」嗎？結算後會把目前每位同學的相對位置永久封存，之後即使刪改大卷成績也不會再變動這筆紀錄。`)) return;
 
   Promise.all([ db.ref("quizzes").once("value"), db.ref("quizScores").once("value"), db.ref("students").once("value") ])
     .then(([qSnap, qsSnap, stuSnap])=>{
@@ -1916,7 +2260,7 @@ function genReportFromPeriod(key){
 }
 function deletePeriod(key){
   const period = quizPeriodsCache[key];
-  if (!confirmDeleteText(`確定要刪除期別「${period?period.name:''}」嗎？（不會刪除底下的小考成績，只是移除這個分組標籤）`)) return;
+  if (!confirmDeleteText(`確定要刪除期別「${period?period.name:''}」嗎？（不會刪除底下的大卷成績，只是移除這個分組標籤）`)) return;
   db.ref().update({ ["quizPeriods/"+key]: null, ["quizPeriodResults/"+key]: null });
 }
 
@@ -1953,12 +2297,12 @@ function calcTScore(outputId){
       .filter(([k,q])=> !q.archived && q.subject===subject && q.date>=start && q.date<=end)
       .sort((a,b)=> a[1].date.localeCompare(b[1].date));
     if (relevantQuizzes.length===0){
-      document.getElementById(outputId).innerHTML = "<p style='color:var(--muted);font-size:13px;'>這個區間內找不到符合的小考資料</p>";
+      document.getElementById(outputId).innerHTML = "<p style='color:var(--muted);font-size:13px;'>這個區間內找不到符合的大卷資料</p>";
       return;
     }
 
     const studentAvgs = {};
-    const studentDetail = {}; // stuKey -> [每次小考分數]
+    const studentDetail = {}; // stuKey -> [每次大卷分數]
     activeStudents().forEach(([stuKey])=>{
       let sum=0, cnt=0;
       const detail = [];
@@ -2418,7 +2762,7 @@ function createMonitorQuiz(){
   const date = document.getElementById("monitorQuizDate").value || todayStr();
   const name = document.getElementById("monitorQuizName").value.trim();
   if (!currentMonitorTeacher.subjects.includes(subject)){ showMsg("monitorMsg","你沒有這個科目的登記權限", true); return; }
-  if (!name){ showMsg("monitorMsg","請輸入小考名稱", true); return; }
+  if (!name){ showMsg("monitorMsg","請輸入大卷名稱", true); return; }
   const existing = Object.entries(quizzesCache).find(([k,q])=> q.subject===subject && q.name===name && q.date===date);
   const key = existing ? existing[0] : ("q"+Date.now());
   monitorQuizKey = key;
@@ -2513,7 +2857,7 @@ function loadParentView(token){
       const quizScores = quizScoreSnap.val() || {};
       const quizPeriods = periodSnap.val() || {};
       const quizPeriodResults = periodResultSnap.val() || {};
-      const vis = visSnap.val() || { position:true, trend:true, radar:true, homework:true, comment:true, progress:true, record:true, works:true };
+      const vis = visSnap.val() || { position:false, trend:false, radar:false, homework:false, comment:false, progress:false, record:false, works:false };
       const comment = commentSnap.val();
       const schoolRank = schoolRankSnap.val() || {};
       const schoolRankMeta = schoolRankMetaSnap.val() || {};
