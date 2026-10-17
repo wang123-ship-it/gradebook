@@ -2727,6 +2727,12 @@ function printReport(){
   window.addEventListener("afterprint", done);
   window.print();
 }
+/* 無論按「列印」按鈕或直接 Ctrl+P，只要成績單頁已產生報告，就只印報告區 */
+window.addEventListener("beforeprint", ()=>{
+  const tab = document.getElementById("tab-report"), out = document.getElementById("reportOutput");
+  if (tab && out && tab.classList.contains("active") && out.children.length > 0) document.body.classList.add("print-report");
+});
+window.addEventListener("afterprint", ()=> document.body.classList.remove("print-report"));
 const LAYOUT_IDS = ["layStripH","layStripFs","laySlipH","layTop"];
 function saveLayout(){
   LAYOUT_IDS.forEach(id=>{ const e=document.getElementById(id); if (e) try{ localStorage.setItem("layout_"+id, e.value); }catch(x){} });
