@@ -341,6 +341,12 @@
 
     <!-- 總覽 -->
     <div class="tab-panel active" id="tab-overview">
+      <div class="card hidden" id="backupReminder" style="background:#fdf3d8;border-color:#e0c27a;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div id="backupReminderText" style="font-size:14px;"></div>
+          <button onclick="exportFullBackup()">📥 立即備份</button>
+        </div>
+      </div>
       <div class="card">
         <h2>📋 本週作業狀況</h2>
         <div id="ov-homework"></div>
@@ -430,6 +436,7 @@
           <label><input type="checkbox" id="newExamIsMajor" style="width:auto;"> 為段考(顯示校排/計入趨勢)</label>
           <button onclick="addExam()">建立新考試</button>
         </div>
+        <div class="msg" style="margin-bottom:6px;">📌 要看或修改「已儲存」的考試：在上方下拉選單選那次考試，或到最下方「歷次段考列表」按「開啟編輯」。這裡預設是空白的新考試輸入表，資料都還在。</div>
         <div class="row" style="margin-bottom:8px;padding:6px 8px;background:#fdf3d8;border-radius:6px;font-size:13px;">
           <b>個人成績單是否顯示：</b>
           <label><input type="checkbox" data-rankopt="class" style="width:auto;" onchange="setRankOpt(this)"> 班排名</label>
@@ -688,7 +695,15 @@
       <div class="card">
         <h2>💾 資料備份</h2>
         <div class="msg">按下去會把資料庫「目前所有資料」（學生、成績、大卷、作業、小老師帳號）打包成一個檔案下載，請妥善保存在你自己的電腦或雲端硬碟。</div>
-        <button onclick="exportFullBackup()" style="margin-top:8px;">📥 匯出完整資料備份</button>
+        <div class="msg" id="lastBackupInfo"></div>
+        <button onclick="exportFullBackup()" style="margin-top:8px;">📥 匯出完整資料備份（JSON，最完整）</button>
+        <div class="row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
+          <button class="ghost" onclick="exportAllExamsCSV()">📊 匯出全部段考成績（Excel 可開）</button>
+          <button class="ghost" onclick="exportAllQuizCSV()">📊 匯出全部大卷成績（Excel 可開）</button>
+          <button class="ghost" onclick="exportHomeworkCSV()">📊 匯出全部作業紀錄（Excel 可開）</button>
+        </div>
+        <div class="msg">建議：<b>每週備份一次 JSON</b>，存到學校 Google 雲端硬碟；每學期結束再多匯出一份 Excel 版留底。總覽頁超過 7 天沒備份會提醒你。</div>
+        <div class="msg">還原方式（萬一資料被誤刪）：Firebase 主控台 → Realtime Database → 右上角 ⋮ → 匯入 JSON，選這份備份檔。注意：匯入會以備份內容覆蓋，所以請先確認要還原的是哪一份。</div>
         <div class="msg" id="backupMsg"></div>
       </div>
 
@@ -1029,6 +1044,7 @@ function initAdmin(){
 /* ---- 總覽儀表板 ---- */
 function renderOverviewDashboard(){
   if (!document.getElementById("tab-overview")) return;
+  refreshBackupReminder();
 
   // 本週作業狀況：抓最近7天的紀錄，統計缺交
   const sevenDaysAgo = new Date(Date.now() - 7*24*3600*1000).toISOString().slice(0,10);
@@ -1466,9 +1482,14 @@ function renderScoreEntryTable(){
   html += "</tbody></table>";
   area.innerHTML = html;
   enableArrowNav(area.querySelector("table"));
+  _lastRankMap = {};
   updateEntryStats();
 }
-/* 總分／平均／班排名：依目前輸入即時計算（班排只計算七科都輸入完的同學，依總分排序，同分同名次） */
+/* 總分／平均／班排名：每輸入一格就即時重算。
+   班排名依「平均」排序（只要有輸入任一科就參與），同平均同名次；
+   七科還沒全部輸入完之前顯示「暫」並用灰字，全部輸完才是正式名次。排名變動會短暫顯示 ▲▼ */
+let _lastRankMap = {};
+let _rankArrowTimers = {};
 function updateEntryStats(){
   const per = {};
   document.querySelectorAll(".scoreInput").forEach(inp=>{
@@ -1477,9 +1498,12 @@ function updateEntryStats(){
     per[k] = per[k] || { sum:0, n:0 };
     per[k].sum += Number(inp.value); per[k].n++;
   });
-  const full = Object.entries(per).filter(([k,v])=> v.n === SUBJECTS.length).map(([k,v])=>({k,sum:v.sum})).sort((a,b)=>b.sum-a.sum);
+  const list = Object.entries(per).map(([k,v])=>({k, avg:v.sum/v.n})).sort((a,b)=>b.avg-a.avg);
   const rankOf = {};
-  full.forEach((x,i)=>{ rankOf[x.k] = (i>0 && full[i-1].sum===x.sum) ? rankOf[full[i-1].k] : i+1; });
+  list.forEach((x,i)=>{ rankOf[x.k] = (i>0 && Math.abs(list[i-1].avg-x.avg)<1e-9) ? rankOf[list[i-1].k] : i+1; });
+  const allFull = list.length>0 && Object.values(per).every(v=> v.n === SUBJECTS.length);
+  const totalStu = document.querySelectorAll(".calcRank").length;
+  const everyoneFull = allFull && list.length === totalStu;
   document.querySelectorAll(".calcTotal").forEach(td=>{
     const v = per[td.dataset.stu];
     const partial = v && v.n < SUBJECTS.length;
@@ -1494,8 +1518,25 @@ function updateEntryStats(){
     td.style.color = partial ? "#aaa" : "";
   });
   document.querySelectorAll(".calcRank").forEach(td=>{
-    const r = rankOf[td.dataset.stu];
-    td.textContent = r ? (r+"／"+full.length) : "-";
+    const k = td.dataset.stu;
+    const r = rankOf[k];
+    if (!r){ td.textContent = "-"; td.style.color = ""; return; }
+    const final = everyoneFull;
+    td.textContent = (final ? "" : "暫 ") + r + "／" + list.length;
+    td.style.color = final ? "#2f5d50" : "#aaa";
+    td.title = final ? "" : "還有科目沒輸入完，名次會隨輸入變動";
+    // 名次變動箭頭
+    const old = _lastRankMap[k];
+    if (old && old !== r){
+      const up = r < old;
+      const sp = document.createElement("span");
+      sp.textContent = (up ? " ▲" : " ▼") + Math.abs(old - r);
+      sp.style.cssText = "font-size:11px;font-weight:700;color:" + (up ? "#2e7d32" : "#c62828") + ";";
+      td.appendChild(sp);
+      clearTimeout(_rankArrowTimers[k]);
+      _rankArrowTimers[k] = setTimeout(()=>{ if (sp.parentNode) sp.parentNode.removeChild(sp); }, 4000);
+    }
+    _lastRankMap[k] = r;
   });
 }
 document.addEventListener("input", function(e){
@@ -2417,6 +2458,51 @@ function generateFullReports(){
   });
 }
 
+
+/* ---- 備份提醒與 Excel 匯出（唯讀，不會動到任何資料）---- */
+function refreshBackupReminder(){
+  let last = 0;
+  try { last = Number(localStorage.getItem("lastBackupAt")) || 0; } catch(e){}
+  const days = last ? Math.floor((Date.now()-last)/86400000) : null;
+  const info = document.getElementById("lastBackupInfo");
+  if (info) info.textContent = last ? "上次備份：" + new Date(last).toLocaleString("zh-TW") + "（" + (days===0?"今天":days+" 天前") + "，限這台電腦的紀錄）" : "這台電腦還沒有備份紀錄";
+  const box = document.getElementById("backupReminder");
+  if (!box) return;
+  const need = (days === null) || days >= 7;
+  box.classList.toggle("hidden", !need);
+  const t = document.getElementById("backupReminderText");
+  if (t) t.innerHTML = days === null ? "💾 <b>這台電腦還沒備份過資料</b>，建議現在按一次，存到學校雲端硬碟。" : "💾 已經 <b>"+days+" 天</b>沒備份了，建議現在備份一次。";
+}
+function exportAllExamsCSV(){
+  Promise.all([ db.ref("scores").once("value"), db.ref("schoolRank").once("value") ]).then(([sc, rk])=>{
+    const scores = sc.val() || {}, ranks = rk.val() || {};
+    const rows = [["考試","日期","類型","座號","姓名",...SUBJECTS,"總分","平均","校排名","狀態"]];
+    Object.entries(examsCache).sort((a,b)=>(a[1].date||"").localeCompare(b[1].date||"")).forEach(([ek,e])=>{
+      const es = scores[ek] || {};
+      Object.entries(studentsCache).sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([sk,st])=>{
+        const v = es[sk]; if (!v && !(ranks[ek]||{})[sk]) return;
+        const vals = SUBJECTS.map(sub=> v && v[sub]!==undefined ? v[sub] : "");
+        const got = vals.filter(x=>x!=="");
+        const total = got.reduce((a,b)=>a+b,0);
+        rows.push([e.name, e.date||"", e.isMajor?"段考":"一般", st.no, st.name, ...vals, got.length?total:"", got.length?(total/got.length).toFixed(1):"", (ranks[ek]||{})[sk]||"", st.archived?"已封存":""]);
+      });
+    });
+    downloadCSV("703班_全部段考成績.csv", rows);
+    showMsg("backupMsg","已下載段考成績 CSV，可用 Excel 開啟");
+  });
+}
+function exportAllQuizCSV(){
+  const rows = [["日期","科目","大卷名稱","座號","姓名","分數","狀態"]];
+  Object.entries(quizzesCache).sort((a,b)=>(a[1].date||"").localeCompare(b[1].date||"")).forEach(([qk,q])=>{
+    Object.entries(quizScoresCache[qk]||{}).forEach(([sk,val])=>{
+      const st = studentsCache[sk];
+      rows.push([q.date||"", q.subject||"", q.name||"", st?st.no:"", st?st.name:sk, val, q.archived?"已封存":""]);
+    });
+  });
+  downloadCSV("703班_全部大卷成績.csv", rows);
+  showMsg("backupMsg","已下載大卷成績 CSV，可用 Excel 開啟");
+}
+
 /* ---- 完整資料備份（唯讀，不會動到任何既有資料）---- */
 function exportFullBackup(){
   showMsg("backupMsg","備份中，請稍候...");
@@ -2430,6 +2516,8 @@ function exportFullBackup(){
     a.href = url; a.download = `703班成績系統備份_${ts}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    try { localStorage.setItem("lastBackupAt", String(Date.now())); } catch(e){}
+    refreshBackupReminder();
     showMsg("backupMsg","備份已下載，請存到你電腦或雲端硬碟妥善保管");
   }).catch(err=>{
     showMsg("backupMsg","備份失敗，請確認網路連線後重試", true);
