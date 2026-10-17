@@ -123,8 +123,8 @@
 
 
   /* 個人成績條（剪裁用） */
-  .strip-page{ display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:68mm; gap:0; margin-bottom:12px; page-break-after:always; }
-  .strip{ border:1px dashed #666; padding:2mm 3mm; font-size:10px; line-height:1.25; overflow:hidden; background:#fff; box-sizing:border-box; }
+  .strip-page{ display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:var(--strip-h,68mm); padding-top:var(--page-top,0mm); gap:0; margin-bottom:12px; page-break-after:always; }
+  .strip{ zoom:var(--strip-fs,1); border:1px dashed #666; padding:2mm 3mm; font-size:10px; line-height:1.25; overflow:hidden; background:#fff; box-sizing:border-box; }
   .st-head{ font-size:12px; display:flex; justify-content:space-between; border-bottom:1px solid #2f5d50; padding-bottom:1px; margin-bottom:2px; }
   .st-range{ font-size:9px; color:#666; }
   .st-table{ width:100%; border-collapse:collapse; margin:0; }
@@ -140,7 +140,7 @@
   .st-prog.up{ background:#e8f5e9; color:#2e7d32; }
   .st-prog.down{ background:#fff3e0; color:#c96a3e; }
   .st-rank{ font-size:9px; color:#8a6d1f; background:#fdf3d8; padding:0 3px; border-radius:3px; margin-top:1px; }
-  .slip-page{ display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:34mm; margin-bottom:12px; page-break-after:always; }
+  .slip-page{ display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:var(--slip-h,34mm); padding-top:var(--page-top,0mm); margin-bottom:12px; page-break-after:always; }
   .slip{ border:1px dashed #666; padding:2mm 3mm; font-size:11px; box-sizing:border-box; overflow:hidden; background:#fff; }
   .slip-head{ display:flex; justify-content:space-between; border-bottom:1px solid #2f5d50; font-size:12px; margin-bottom:2px; }
   .slip-rank{ font-size:14px; margin:2px 0; }
@@ -168,6 +168,9 @@
   .fp-foot{ margin-top:6mm; font-size:12px; color:#444; }
   .merged-table th,.merged-table td{ padding:3px 4px; font-size:11px; text-align:center; }
   @media print{
+    body.print-report .tab-nav, body.print-report #tab-report > .card, body.print-report .footer-note, body.print-report .topbar, body.print-report .no-print{ display:none !important; }
+    body.print-report .wrap{ padding:0 !important; margin:0 !important; max-width:none !important; }
+    body.print-report #reportOutput{ margin:0; }
     *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     @page{ size:A4; margin:6mm; }
     .strip-page{ margin:0; }
@@ -577,6 +580,14 @@
             <div class="row" style="margin-bottom:6px;">
               <label><input type="checkbox" id="optClassReportRank" style="width:auto;" checked> 全班合併成績單／Word／Excel 顯示班排欄（老師自用）</label>
               <label>排列順序：<select id="optReportSort" style="width:auto;"><option value="seat">依座號</option><option value="rank">依班排名（高→低）</option></select></label>
+            </div>
+            <div class="row" style="margin-bottom:6px;padding:6px;background:#eef2f0;border-radius:6px;">
+              <b style="font-size:12px;width:100%;">🖨️ 列印版面微調（條子跑掉時調這裡，會記住）</b>
+              <label>成績條高度 <input id="layStripH" type="number" min="55" max="74" step="1" value="68" style="width:60px;" onchange="saveLayout()"> mm</label>
+              <label>字級 <input id="layStripFs" type="number" min="70" max="130" step="5" value="100" style="width:60px;" onchange="saveLayout()"> %</label>
+              <label>補發小條高度 <input id="laySlipH" type="number" min="25" max="50" step="1" value="34" style="width:60px;" onchange="saveLayout()"> mm</label>
+              <label>頁面上方留白 <input id="layTop" type="number" min="0" max="20" step="1" value="0" style="width:60px;" onchange="saveLayout()"> mm</label>
+              <div class="msg" style="width:100%;">列印時：邊界選「無」、取消「頁首和頁尾」、勾選「背景圖形」。A4 一頁 4 排，成績條高度 × 4 ＋ 上方留白 ≤ 285 mm。跑到下一頁就把高度減 2～4 mm 或字級減 5～10%。</div>
             </div>
             <div class="row" style="margin-bottom:6px;">
               <label><input type="checkbox" id="reportIncludeQuiz" style="width:auto;" checked> 包含大卷（小老師登記）</label>
@@ -2025,7 +2036,7 @@ function generateTeacherReportLegacy(){
       html += `<td>${cnt>0?(sum/cnt).toFixed(1):'-'}</td></tr>`;
     });
     html += "</tbody></table></div>";
-    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="window.print()">🖨️ 列印本頁</button></div></div>`;
+    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="printReport()">🖨️ 列印本頁</button></div></div>`;
     document.getElementById("reportOutput").innerHTML = html;
     showMsg("reportMsg","已產生老師版成績單");
   });
@@ -2270,7 +2281,7 @@ function generateTeacherReport(){
       data.subjects.forEach(({subj})=>{ r.per[subj].vals.forEach(v=> html += `<td>${fmtScore(v)}</td>`); });
       html += `<td>${r.total===null?'-':r.total.toFixed(1)}</td><td style="font-weight:700;">${r.avg===null?'-':r.avg.toFixed(1)}</td>${data.showRank?`<td>${r.rank===null?'-':r.rank}</td>`:''}</tr>`;
     });
-    html += `</tbody></table></div><div class="row no-print" style="margin-top:10px;"><button onclick="exportClassReportWord()">📄 匯出 Word</button><button class="ghost" onclick="window.print()">🖨️ 列印本頁</button></div></div>`;
+    html += `</tbody></table></div><div class="row no-print" style="margin-top:10px;"><button onclick="exportClassReportWord()">📄 匯出 Word</button><button class="ghost" onclick="printReport()">🖨️ 列印本頁</button></div></div>`;
     document.getElementById("reportOutput").innerHTML = html;
     showMsg("reportMsg","已產生全班合併成績單");
   });
@@ -2505,9 +2516,9 @@ function generateStudentReports(){
     });
     let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」，並勾選「背景圖形」，色塊才會印出。每頁 8 張，沿虛線剪開。雷達圖：實線＝這次，虛線＝上次段考。</div>`;
     for (let i=0;i<strips.length;i+=8){
-      html += `<div class="strip-page"${i+8>=strips.length?' style="page-break-after:auto;"':""}>${strips.slice(i,i+8).join("")}</div>`;
+      html += `<div class="strip-page" style="${layoutStyle()}${i+8>=strips.length?'page-break-after:auto;':''}">${strips.slice(i,i+8).join("")}</div>`;
     }
-    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="window.print()">🖨️ 列印全班個人條</button></div>`;
+    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="printReport()">🖨️ 列印全班個人條</button></div>`;
     document.getElementById("reportOutput").innerHTML = html;
     showMsg("reportMsg","已產生 "+selRows.length+" 張個人成績條");
   });
@@ -2552,7 +2563,7 @@ function generateFullReports(){
         <div class="fp-foot"><div>老師的話：＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</div><div style="margin-top:6mm;">＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</div><div style="margin-top:6mm;text-align:right;">家長簽名：＿＿＿＿＿＿＿＿＿＿＿</div></div>
       </div>`;
     });
-    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="window.print()">🖨️ 列印全班完整個人頁</button></div>`;
+    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="printReport()">🖨️ 列印全班完整個人頁</button></div>`;
     document.getElementById("reportOutput").innerHTML = html;
     showMsg("reportMsg","已產生 "+selRows.length+" 頁完整個人報告");
   });
@@ -2702,11 +2713,32 @@ function generateRankSlips(){
     });
     if (!slips.length){ showMsg("reportMsg","沒有需要補發的小條（沒有可比較的進退步，也沒有同意列排名的學生）", true); return; }
     let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」、勾選「背景圖形」。每頁 16 張，沿虛線剪開。校排名只會出現在家長同意名單內的學生。</div>`;
-    for (let i=0;i<slips.length;i+=16) html += `<div class="slip-page"${i+16>=slips.length?' style="page-break-after:auto;"':""}>${slips.slice(i,i+16).join("")}</div>`;
-    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="window.print()">🖨️ 列印補發小條</button></div>`;
+    for (let i=0;i<slips.length;i+=16) html += `<div class="slip-page" style="${layoutStyle()}${i+16>=slips.length?'page-break-after:auto;':''}">${slips.slice(i,i+16).join("")}</div>`;
+    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="printReport()">🖨️ 列印補發小條</button></div>`;
     document.getElementById("reportOutput").innerHTML = html;
     showMsg("reportMsg","已產生 "+slips.length+" 張補發小條"+(skipped?("（"+skipped+" 位沒有內容，已略過）"):""));
   });
+}
+
+/* ---- 列印：只印報告區、版面微調 ---- */
+function printReport(){
+  document.body.classList.add("print-report");
+  const done = ()=>{ document.body.classList.remove("print-report"); window.removeEventListener("afterprint", done); };
+  window.addEventListener("afterprint", done);
+  window.print();
+}
+const LAYOUT_IDS = ["layStripH","layStripFs","laySlipH","layTop"];
+function saveLayout(){
+  LAYOUT_IDS.forEach(id=>{ const e=document.getElementById(id); if (e) try{ localStorage.setItem("layout_"+id, e.value); }catch(x){} });
+}
+function loadLayout(){
+  LAYOUT_IDS.forEach(id=>{ const e=document.getElementById(id); if (!e) return; try{ const v=localStorage.getItem("layout_"+id); if (v!==null && v!=="") e.value=v; }catch(x){} });
+}
+window.addEventListener("load", loadLayout);
+function layoutStyle(){
+  const g=(id,d)=>{ const e=document.getElementById(id); const v=e?Number(e.value):NaN; return isFinite(v)&&v>0 ? v : d; };
+  const top = (()=>{ const e=document.getElementById("layTop"); const v=e?Number(e.value):0; return isFinite(v)&&v>=0?v:0; })();
+  return `--strip-h:${g("layStripH",68)}mm;--strip-fs:${g("layStripFs",100)/100};--slip-h:${g("laySlipH",34)}mm;--page-top:${top}mm;`;
 }
 
 /* ---- 完整資料備份（唯讀，不會動到任何既有資料）---- */
