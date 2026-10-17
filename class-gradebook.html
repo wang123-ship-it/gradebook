@@ -575,7 +575,8 @@
               <label>只印這位座號：<input id="optOnlySeat" style="width:60px;" placeholder="全班"></label>
             </div>
             <div class="row" style="margin-bottom:6px;">
-              <label><input type="checkbox" id="optClassReportRank" style="width:auto;" checked> 全班合併成績單／Word 顯示班排欄（老師自用）</label>
+              <label><input type="checkbox" id="optClassReportRank" style="width:auto;" checked> 全班合併成績單／Word／Excel 顯示班排欄（老師自用）</label>
+              <label>排列順序：<select id="optReportSort" style="width:auto;"><option value="seat">依座號</option><option value="rank">依班排名（高→低）</option></select></label>
             </div>
             <div class="row" style="margin-bottom:6px;">
               <label><input type="checkbox" id="reportIncludeQuiz" style="width:auto;" checked> 包含大卷（小老師登記）</label>
@@ -583,7 +584,7 @@
               <label><input type="checkbox" id="reportShowComment" style="width:auto;" checked> 附雷達圖與學習描述</label>
             </div>
             <div class="row"><button onclick="generateTeacherReport()">📋 ① 產生全班合併成績單</button></div>
-            <div class="row" style="margin-top:8px;"><button onclick="exportClassReportWord()">📄 ② 匯出 Word（全班合併）</button></div>
+            <div class="row" style="margin-top:8px;"><button onclick="exportClassReportExcel()">📊 ② 匯出 Excel（全班合併）</button> <button onclick="exportClassReportWord()">📄 匯出 Word</button></div>
             <div class="row" style="margin-top:8px;"><button onclick="generateStudentReports()">✂️ ③ 個人成績條（一頁8張，印出剪開）</button></div>
             <div class="row" style="margin-top:8px;"><button onclick="generateFullReports()">📄 ④ 完整個人頁（一人一頁，家長會用）</button></div>
             <div class="row" style="margin-top:8px;"><button onclick="generateRankSlips()">🏫 ⑤ 校排名公布後補發小條（進退步＋同意者校排名）</button></div>
@@ -2119,7 +2120,7 @@ function buildMergedReportData(grouped, students, subjOrder){
   return { subjects, rows };
 }
 function fmtScore(v){ return v===undefined||v===null ? "-" : (Math.round(v*10)/10).toString(); }
-function shortItemName(it){ return (it.name||"").replace("(段考)","").slice(0,8); }
+function shortItemName(it){ return (it.name||"").replace("(段考)","").replace(/^\d+-[上下]-/,"").slice(0,8); }
 
 // 個人進退步文字（用「個人校排名」，不影響原家長端邏輯）
 function calcProgressInfo(stuKey, examsData, schoolRankData, rangeStart, rangeEnd){
@@ -2147,6 +2148,45 @@ function calcProgressText(stuKey, examsData, schoolRankData, rangeStart, rangeEn
   return { text:p.text, kind:p.kind, record:p.record };
 }
 
+// Excel 用的二維陣列（含兩層表頭、合併儲存格設定）
+function buildClassReportAOA(data, title, metaText){
+  const aoa = [], merges = [];
+  const showRank = data.showRank !== false;
+  const nSubjCols = data.subjects.reduce((n,x)=> n + x.items.length, 0);
+  const totalCols = 2 + nSubjCols + 2 + (showRank?1:0);
+  aoa.push([title]); aoa.push([metaText]);
+  const hr = aoa.length; // 第一層表頭所在列(0-based)
+  const h1 = ["座號","姓名"], h2 = ["",""];
+  let col = 2;
+  data.subjects.forEach(({subj,items})=>{
+    h1.push(subj); for (let i=1;i<items.length;i++) h1.push("");
+    items.forEach(it=> h2.push(shortItemName(it)));
+    if (items.length>1) merges.push({ s:{r:hr,c:col}, e:{r:hr,c:col+items.length-1} });
+    col += items.length;
+  });
+  ["總分","平均"].concat(showRank?["班排"]:[]).forEach(t=>{ h1.push(t); h2.push(""); });
+  aoa.push(h1); aoa.push(h2);
+  for (let c=0;c<2;c++) merges.push({ s:{r:hr,c}, e:{r:hr+1,c} });
+  for (let c=2+nSubjCols;c<totalCols;c++) merges.push({ s:{r:hr,c}, e:{r:hr+1,c} });
+  data.rows.forEach(r=>{
+    const row = [r.no, r.name];
+    data.subjects.forEach(({subj})=> r.per[subj].vals.forEach(v=> row.push(v===undefined||v===null?"":v)));
+    row.push(r.total===null?"":Math.round(r.total*10)/10);
+    row.push(r.avg===null?"":Math.round(r.avg*10)/10);
+    if (showRank) row.push(r.rank===null?"":r.rank);
+    aoa.push(row);
+  });
+  const avgRow = ["","全班平均"];
+  data.subjects.forEach(({subj,items})=> items.forEach((it,i)=>{ const vs = data.rows.map(r=>r.per[subj].vals[i]).filter(v=>v!==undefined); avgRow.push(vs.length ? Math.round(vs.reduce((a,b)=>a+b,0)/vs.length*10)/10 : ""); }));
+  const ts = data.rows.map(r=>r.total).filter(v=>v!==null), avs = data.rows.map(r=>r.avg).filter(v=>v!==null);
+  avgRow.push(ts.length?Math.round(ts.reduce((a,b)=>a+b,0)/ts.length*10)/10:"");
+  avgRow.push(avs.length?Math.round(avs.reduce((a,b)=>a+b,0)/avs.length*10)/10:"");
+  if (showRank) avgRow.push("");
+  aoa.push(avgRow);
+  merges.push({ s:{r:0,c:0}, e:{r:0,c:Math.max(totalCols-1,1)} }, { s:{r:1,c:0}, e:{r:1,c:Math.max(totalCols-1,1)} });
+  return { aoa, merges, totalCols, nSubjCols };
+}
+
 // Word 檔（docx 物件由外部傳入，瀏覽器與 node 皆可用）
 function buildClassReportDocx(docx, data, title, metaText){
   const { Document, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, PageOrientation, ShadingType, BorderStyle } = docx;
@@ -2161,21 +2201,19 @@ function buildClassReportDocx(docx, data, title, metaText){
   const rows = [];
   // 第一層
   const h1 = [ cell("座號",{rowSpan:2,fill:"2F5D50",color:"FFFFFF",bold:true}), cell("姓名",{rowSpan:2,fill:"2F5D50",color:"FFFFFF",bold:true}) ];
-  data.subjects.forEach(({subj,items})=> h1.push(cell(subj,{span:items.length+1,fill:"2F5D50",color:"FFFFFF",bold:true})));
+  data.subjects.forEach(({subj,items})=> h1.push(cell(subj,{span:items.length,fill:"2F5D50",color:"FFFFFF",bold:true})));
   ["總分","平均","班排"].filter(t=> t!=="班排" || data.showRank!==false).forEach(t=> h1.push(cell(t,{rowSpan:2,fill:"B98B2C",color:"FFFFFF",bold:true})));
   rows.push(new TableRow({ tableHeader:true, children:h1 }));
   // 第二層
   const h2 = [];
   data.subjects.forEach(({items})=>{
     items.forEach(it=> h2.push(cell(shortItemName(it),{fill:"E8F0EC",size:12})));
-    h2.push(cell("科平均",{fill:"F3E6C4",bold:true,size:12}));
   });
   rows.push(new TableRow({ tableHeader:true, children:h2 }));
   data.rows.forEach(r=>{
     const c = [ cell(r.no), cell(r.name,{bold:true}) ];
     data.subjects.forEach(({subj})=>{
       r.per[subj].vals.forEach(v=> c.push(cell(fmtScore(v))));
-      c.push(cell(r.per[subj].avg===null?"-":r.per[subj].avg.toFixed(1),{fill:"FBF5E3",bold:true}));
     });
     c.push(cell(r.total===null?"-":r.total.toFixed(1)));
     c.push(cell(r.avg===null?"-":r.avg.toFixed(1),{bold:true}));
@@ -2186,8 +2224,6 @@ function buildClassReportDocx(docx, data, title, metaText){
   const ca = [ cell("",{}), cell("全班平均",{bold:true,fill:"EEEEEE"}) ];
   data.subjects.forEach(({subj,items})=>{
     items.forEach((it,i)=>{ const vs = data.rows.map(r=>r.per[subj].vals[i]).filter(v=>v!==undefined); ca.push(cell(vs.length?(vs.reduce((a,b)=>a+b,0)/vs.length).toFixed(1):"-",{fill:"EEEEEE"})); });
-    const as = data.rows.map(r=>r.per[subj].avg).filter(v=>v!==null);
-    ca.push(cell(as.length?(as.reduce((a,b)=>a+b,0)/as.length).toFixed(1):"-",{fill:"EEEEEE",bold:true}));
   });
   const ts = data.rows.map(r=>r.total).filter(v=>v!==null), avs = data.rows.map(r=>r.avg).filter(v=>v!==null);
   ca.push(cell(ts.length?(ts.reduce((a,b)=>a+b,0)/ts.length).toFixed(1):"-",{fill:"EEEEEE"}));
@@ -2212,6 +2248,8 @@ function getMergedReport(){
     const students = activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0));
     const rkEl = document.getElementById("optClassReportRank");
     const bd = buildMergedReportData(grouped, students, subjectOrder); bd.showRank = rkEl ? rkEl.checked : true;
+    const sortEl = document.getElementById("optReportSort");
+    if (sortEl && sortEl.value === "rank") bd.rows.sort((a,b)=> (a.rank===null?1e9:a.rank) - (b.rank===null?1e9:b.rank) || (a.no||0)-(b.no||0));
     return { data: bd, start: document.getElementById("reportStart").value, end: document.getElementById("reportEnd").value };
   });
 }
@@ -2223,13 +2261,13 @@ function generateTeacherReport(){
       showMsg("reportMsg",""); return;
     }
     let html = `<div class="report-sheet"><h3>703班 全班合併成績單</h3><div class="meta">區間：${start} ～ ${end}｜${data.showRank?"班排＝依「平均」排序（各科平均的平均）｜":""}產生時間：${new Date().toLocaleString('zh-TW')}</div><div style="overflow-x:auto;"><table class="merged-table"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th>`;
-    data.subjects.forEach(({subj,items})=> html += `<th colspan="${items.length+1}" class="subj-block-title" style="text-align:center;">${subj}</th>`);
+    data.subjects.forEach(({subj,items})=> html += `<th colspan="${items.length}" class="subj-block-title" style="text-align:center;">${subj}</th>`);
     html += `<th rowspan="2">總分</th><th rowspan="2">平均</th>${data.showRank?'<th rowspan="2">班排</th>':''}</tr><tr>`;
-    data.subjects.forEach(({items})=>{ items.forEach(it=> html += `<th style="font-size:10px;font-weight:400;">${shortItemName(it)}</th>`); html += `<th style="font-size:10px;background:#f3e6c4;">科平均</th>`; });
+    data.subjects.forEach(({items})=>{ items.forEach(it=> html += `<th style="font-size:10px;font-weight:400;">${shortItemName(it)}</th>`); });
     html += `</tr></thead><tbody>`;
     data.rows.forEach(r=>{
       html += `<tr><td>${r.no}</td><td style="font-weight:600;">${r.name}</td>`;
-      data.subjects.forEach(({subj})=>{ r.per[subj].vals.forEach(v=> html += `<td>${fmtScore(v)}</td>`); html += `<td style="background:#fbf5e3;font-weight:600;">${r.per[subj].avg===null?'-':r.per[subj].avg.toFixed(1)}</td>`; });
+      data.subjects.forEach(({subj})=>{ r.per[subj].vals.forEach(v=> html += `<td>${fmtScore(v)}</td>`); });
       html += `<td>${r.total===null?'-':r.total.toFixed(1)}</td><td style="font-weight:700;">${r.avg===null?'-':r.avg.toFixed(1)}</td>${data.showRank?`<td>${r.rank===null?'-':r.rank}</td>`:''}</tr>`;
     });
     html += `</tbody></table></div><div class="row no-print" style="margin-top:10px;"><button onclick="exportClassReportWord()">📄 匯出 Word</button><button class="ghost" onclick="window.print()">🖨️ 列印本頁</button></div></div>`;
@@ -2256,6 +2294,45 @@ function saveBlob(blob, filename){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url), 2000);
 }
+let _xlsxLoading = null;
+function loadXlsxLib(){
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (_xlsxLoading) return _xlsxLoading;
+  _xlsxLoading = new Promise((resolve,reject)=>{
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    sc.onload = ()=> window.XLSX ? resolve(window.XLSX) : reject(new Error("xlsx missing"));
+    sc.onerror = ()=> { _xlsxLoading=null; reject(new Error("load fail")); };
+    document.head.appendChild(sc);
+  });
+  return _xlsxLoading;
+}
+function exportClassReportExcel(){
+  showMsg("reportMsg","準備 Excel 檔中...");
+  getMergedReport().then(({data,start,end})=>{
+    if (data.subjects.length===0){ showMsg("reportMsg","這個區間沒有資料，請確認日期範圍", true); return; }
+    const title = "703班 全班合併成績單";
+    const sortTxt = (document.getElementById("optReportSort")||{}).value === "rank" ? "｜依班排名排序" : "";
+    const meta = `區間：${start} ～ ${end}${data.showRank?"｜班排＝依平均排序":""}${sortTxt}｜產生：${new Date().toLocaleDateString('zh-TW')}`;
+    const fname = `703班成績單_${start}_${end}`;
+    const built = buildClassReportAOA(data, title, meta);
+    loadXlsxLib().then(XLSX=>{
+      const ws = XLSX.utils.aoa_to_sheet(built.aoa);
+      ws["!merges"] = built.merges;
+      ws["!cols"] = [{wch:6},{wch:10}].concat(Array(built.totalCols-2).fill({wch:11}));
+      ws["!freeze"] = { xSplit:2, ySplit:4 };
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "成績單");
+      XLSX.writeFile(wb, fname+".xlsx");
+      showMsg("reportMsg","已下載 Excel 檔（.xlsx）");
+    }).catch(()=>{
+      // 備援：CSV（Excel 可直接開啟）
+      const rows = built.aoa.slice(2);
+      downloadCSV(fname+".csv", rows);
+      showMsg("reportMsg","Excel 元件載入失敗，已改下載 CSV（Excel 可直接開啟）");
+    });
+  });
+}
 function exportClassReportWord(){
   showMsg("reportMsg","準備 Word 檔中...");
   getMergedReport().then(({data,start,end})=>{
@@ -2269,13 +2346,13 @@ function exportClassReportWord(){
     }).catch(()=>{
       // 備援：Word 可直接開啟的 HTML（.doc）
       let h = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>@page{size:A4 landscape;margin:1cm;}table{border-collapse:collapse;font-size:9pt;}td,th{border:1px solid #999;padding:2px 4px;text-align:center;}</style></head><body><h3>${title}</h3><p>${meta}</p><table><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th>`;
-      data.subjects.forEach(({subj,items})=> h += `<th colspan="${items.length+1}">${subj}</th>`);
+      data.subjects.forEach(({subj,items})=> h += `<th colspan="${items.length}">${subj}</th>`);
       h += `<th rowspan="2">總分</th><th rowspan="2">平均</th>${data.showRank?'<th rowspan="2">班排</th>':''}</tr><tr>`;
-      data.subjects.forEach(({items})=>{ items.forEach(it=> h += `<th>${shortItemName(it)}</th>`); h += `<th>科平均</th>`; });
+      data.subjects.forEach(({items})=>{ items.forEach(it=> h += `<th>${shortItemName(it)}</th>`); });
       h += `</tr>`;
       data.rows.forEach(r=>{
         h += `<tr><td>${r.no}</td><td>${r.name}</td>`;
-        data.subjects.forEach(({subj})=>{ r.per[subj].vals.forEach(v=> h += `<td>${fmtScore(v)}</td>`); h += `<td>${r.per[subj].avg===null?'-':r.per[subj].avg.toFixed(1)}</td>`; });
+        data.subjects.forEach(({subj})=>{ r.per[subj].vals.forEach(v=> h += `<td>${fmtScore(v)}</td>`); });
         h += `<td>${r.total===null?'-':r.total.toFixed(1)}</td><td>${r.avg===null?'-':r.avg.toFixed(1)}</td>${data.showRank?`<td>${r.rank===null?'-':r.rank}</td>`:''}</tr>`;
       });
       h += `</table></body></html>`;
