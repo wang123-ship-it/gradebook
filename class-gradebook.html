@@ -430,6 +430,12 @@
           <label><input type="checkbox" id="newExamIsMajor" style="width:auto;"> 為段考(顯示校排/計入趨勢)</label>
           <button onclick="addExam()">建立新考試</button>
         </div>
+        <div class="row" style="margin-bottom:8px;padding:6px 8px;background:#fdf3d8;border-radius:6px;font-size:13px;">
+          <b>個人成績單是否顯示：</b>
+          <label><input type="checkbox" data-rankopt="class" style="width:auto;" onchange="setRankOpt(this)"> 班排名</label>
+          <label><input type="checkbox" data-rankopt="school" style="width:auto;" onchange="setRankOpt(this)"> 校排名</label>
+          <span id="entryRankStatus" style="color:#8a6d1f;"></span>
+        </div>
         <div id="scoreEntryArea"></div>
         <div id="examLockedBanner" class="hidden" style="background:#fdf3d8;color:#8a6d1f;padding:10px;border-radius:6px;margin-top:8px;font-size:13px;">
           🔒 此考試成績已鎖定，畫面唯讀，無法修改。如需修改請先解鎖。
@@ -536,8 +542,8 @@
           <div style="flex:1;min-width:200px;">
             <div class="row" style="margin-bottom:6px;padding:6px;background:#fdf3d8;border-radius:6px;">
               <b style="font-size:12px;width:100%;">🔒 個人報告的排名／位置顯示（預設全隱藏，僅限家長依規定申請時才勾）</b>
-              <label><input type="checkbox" id="optShowClassRank" style="width:auto;"> 顯示班排名</label>
-              <label><input type="checkbox" id="optShowSchoolRank" style="width:auto;"> 顯示校排名</label>
+              <label><input type="checkbox" id="optShowClassRank" data-rankopt="class" onchange="setRankOpt(this)" style="width:auto;"> 顯示班排名</label>
+              <label><input type="checkbox" id="optShowSchoolRank" data-rankopt="school" onchange="setRankOpt(this)" style="width:auto;"> 顯示校排名</label>
               <label><input type="checkbox" id="optShowBand" style="width:auto;" checked> 顯示位置色塊與雷達圖（百分位）</label>
               <label>只印這位座號：<input id="optOnlySeat" style="width:60px;" placeholder="全班"></label>
             </div>
@@ -880,6 +886,7 @@ if (isAdmin) {
 
 /* ---------- 分頁切換 ---------- */
 function switchAdminTab(tab){
+  if (typeof syncRankOptUI === "function") syncRankOptUI();
   document.querySelectorAll(".tab-btn").forEach(b=> b.classList.toggle("active", b.dataset.tab===tab));
   document.querySelectorAll(".tab-panel").forEach(p=> p.classList.toggle("active", p.id==="tab-"+tab));
 }
@@ -1446,18 +1453,76 @@ function renderScoreEntryTable(){
   const disabledAttr = currentExamLocked ? "disabled" : "";
   let html = "<table><thead><tr><th>座號</th><th>姓名</th>";
   SUBJECTS.forEach(s=> html += `<th>${s}</th>`);
+  html += "<th>總分</th><th>平均</th><th>班排名</th>";
   if (currentExamIsMajor) html += "<th>校排名（個人全校）</th>";
   html += "</tr></thead><tbody>";
   activeStudents().sort((a,b)=>(a[1].no||0)-(b[1].no||0)).forEach(([key, s])=>{
     html += `<tr><td>${s.no}</td><td>${s.name}</td>`;
     SUBJECTS.forEach(sub=> html += `<td><input type="number" min="0" max="100" data-stu="${key}" data-subj="${sub}" class="scoreInput" ${disabledAttr}></td>`);
+    html += `<td class="calcTotal" data-stu="${key}" style="font-weight:700;">-</td><td class="calcAvg" data-stu="${key}">-</td><td class="calcRank" data-stu="${key}" style="font-weight:700;color:#2f5d50;">-</td>`;
     if (currentExamIsMajor) html += `<td><input type="number" min="1" data-stu="${key}" class="schoolRankInput" style="width:60px;" ${disabledAttr}></td>`;
     html += "</tr>";
   });
   html += "</tbody></table>";
   area.innerHTML = html;
   enableArrowNav(area.querySelector("table"));
+  updateEntryStats();
 }
+/* 總分／平均／班排名：依目前輸入即時計算（班排只計算七科都輸入完的同學，依總分排序，同分同名次） */
+function updateEntryStats(){
+  const per = {};
+  document.querySelectorAll(".scoreInput").forEach(inp=>{
+    if (inp.value === "") return;
+    const k = inp.dataset.stu;
+    per[k] = per[k] || { sum:0, n:0 };
+    per[k].sum += Number(inp.value); per[k].n++;
+  });
+  const full = Object.entries(per).filter(([k,v])=> v.n === SUBJECTS.length).map(([k,v])=>({k,sum:v.sum})).sort((a,b)=>b.sum-a.sum);
+  const rankOf = {};
+  full.forEach((x,i)=>{ rankOf[x.k] = (i>0 && full[i-1].sum===x.sum) ? rankOf[full[i-1].k] : i+1; });
+  document.querySelectorAll(".calcTotal").forEach(td=>{
+    const v = per[td.dataset.stu];
+    const partial = v && v.n < SUBJECTS.length;
+    td.textContent = v ? v.sum : "-";
+    td.style.color = partial ? "#aaa" : "";
+    td.title = partial ? "尚未輸入完七科（已輸入 "+v.n+" 科）" : "";
+  });
+  document.querySelectorAll(".calcAvg").forEach(td=>{
+    const v = per[td.dataset.stu];
+    const partial = v && v.n < SUBJECTS.length;
+    td.textContent = v ? (v.sum/v.n).toFixed(1) : "-";
+    td.style.color = partial ? "#aaa" : "";
+  });
+  document.querySelectorAll(".calcRank").forEach(td=>{
+    const r = rankOf[td.dataset.stu];
+    td.textContent = r ? (r+"／"+full.length) : "-";
+  });
+}
+document.addEventListener("input", function(e){
+  if (e.target && e.target.classList && e.target.classList.contains("scoreInput")) updateEntryStats();
+});
+/* 班排／校排「個人成績單是否顯示」：輸入頁與成績單頁共用同一設定（存在這台瀏覽器） */
+function setRankOpt(src){
+  const kind = src.dataset.rankopt;
+  try { localStorage.setItem("rankOpt_"+kind, src.checked ? "1" : "0"); } catch(e){}
+  syncRankOptUI(kind, src.checked);
+}
+function syncRankOptUI(onlyKind, forceVal){
+  ["class","school"].forEach(kind=>{
+    if (onlyKind && onlyKind!==kind) return;
+    let val = false;
+    if (forceVal !== undefined) val = forceVal;
+    else { try { val = localStorage.getItem("rankOpt_"+kind) === "1"; } catch(e){} }
+    document.querySelectorAll(`input[data-rankopt="${kind}"]`).forEach(c=> c.checked = val);
+  });
+  const st = document.getElementById("entryRankStatus");
+  if (st){
+    const c = document.querySelector('input[data-rankopt="class"]'), sc = document.querySelector('input[data-rankopt="school"]');
+    const on = [c&&c.checked?"班排名":"", sc&&sc.checked?"校排名":""].filter(Boolean);
+    st.textContent = on.length ? "目前：個人成績單會印出 "+on.join("、")+"（僅限家長申請時使用）" : "目前：個人成績單不顯示任何排名";
+  }
+}
+window.addEventListener("load", ()=> syncRankOptUI());
 function updateLockUI(){
   document.getElementById("examLockedBanner").classList.toggle("hidden", !currentExamLocked);
   document.getElementById("saveScoresBtn").classList.toggle("hidden", currentExamLocked);
@@ -1483,6 +1548,7 @@ function loadExamForEntry(){
         if (input) input.value = val;
       });
     });
+    updateEntryStats();
   });
   if (currentExamIsMajor){
     db.ref("schoolRank/"+examKey).once("value").then(snap=>{
@@ -1542,7 +1608,8 @@ function saveScores(){
     updates["schoolRank/"+examKey] = rankPayload;
   }
   db.ref().update(updates).then(()=>{
-    showMsg("scoreMsg","成績已儲存");
+    updateEntryStats();
+    showMsg("scoreMsg","成績已儲存（總分、平均、班排名已更新）");
     if (hasSchoolRank){
       db.ref("schoolRankMeta/"+examKey).once("value").then(metaSnap=>{
         if (!metaSnap.exists()) db.ref("schoolRankMeta/"+examKey).set({ enteredAt: Date.now() });
