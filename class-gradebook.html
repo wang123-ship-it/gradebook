@@ -150,6 +150,8 @@
   .st-mid .st-table{ flex:1; }
   .st-radar{ width:29mm; flex:none; line-height:0; }
   .st-cm{ font-size:8.5px; line-height:1.3; margin-top:1px; }
+  .st-act{ padding-left:2px; }
+  .fp-act{ padding-left:6px; }
   .full-page{ height:272mm; box-sizing:border-box; padding:4mm 6mm; page-break-after:always; border:1px solid var(--line); margin-bottom:12px; background:#fff; overflow:hidden; font-size:12px; }
   .fp-head h3{ margin:0 0 2px; color:var(--brand); font-size:18px; border-bottom:2px solid var(--brand); padding-bottom:3px; }
   .fp-top{ display:flex; gap:8mm; align-items:center; margin:4mm 0; }
@@ -2374,14 +2376,44 @@ function exportClassReportWord(){
 }
 /* ===== 雷達圖／質性評語／完整個人頁 (v4) ===== */
 const SUBJ_TXT = {
-  "國文":{ab:"閱讀理解與表達", strong:"閱讀理解與文字表達都很穩，文意判讀掌握得好。", mid:"基本功扎實，多練習段落大意歸納，還能再往上一層。", weak:"文意判讀和長文閱讀還有成長空間，多半是還沒養成抓關鍵句的習慣。", act:"每天讀一小段文章，用一句話寫出「這段在說什麼」。", actS:"每天一小段文章，寫一句大意"},
-  "英文":{ab:"單字文法與閱讀", strong:"單字與句型掌握得很好，閱讀時理解順暢。", mid:"基礎穩定，持續累積單字量，閱讀速度會更有感。", weak:"單字與句型的累積還有成長空間，打好基礎後進步會很快。", act:"每天複習 10 個單字並各造一個句子，一週後回頭檢查。", actS:"每天10個單字＋造句"},
-  "數學":{ab:"運算與邏輯推理", strong:"運算正確度高，推理過程清楚，是這次很亮的一科。", mid:"觀念大致穩固，多訂正錯題就能補上細節。", weak:"部分觀念與運算步驟還需要鞏固，從基礎題型重新熟練會很有幫助。", act:"把錯題整理成錯題本，每題寫下「錯在哪一步」。", actS:"錯題本：寫下錯在哪一步"},
-  "自然":{ab:"觀察與科學思考", strong:"能把課堂觀察與概念連結起來，科學思考力不錯。", mid:"概念大致掌握，多把名詞放回生活現象中想想會更牢。", weak:"概念名詞的記憶與應用還有成長空間，搭配圖解會更容易理解。", act:"每個單元畫一張概念圖，把重要名詞用線連起來。", actS:"每單元畫一張概念圖"},
-  "地理":{ab:"圖表與空間判讀", strong:"地圖與圖表判讀能力好，能掌握各地區的差異。", mid:"空間概念穩定，多看地圖對照課本，細節會更精確。", weak:"圖表判讀與地名位置還有成長空間，多利用地圖輔助記憶。", act:"每週挑一張地圖，標出本週學到的地名並說出特色。", actS:"每週看一張地圖標地名"},
-  "歷史":{ab:"時序與因果整理", strong:"事件的前因後果掌握得清楚，時序概念很好。", mid:"主要事件都有印象，再把因果關係串起來會更完整。", weak:"年代與事件的串連還有成長空間，先建立時間軸會很有幫助。", act:"上完歷史課，用 3 分鐘畫出「誰、何時、為什麼」的小時間軸。", actS:"課後畫3分鐘小時間軸"},
-  "公民":{ab:"制度理解與議題思辨", strong:"對制度與社會議題理解深入，能清楚說出自己的看法。", mid:"概念大致穩固，多留意時事並與課本對照會更有感。", weak:"概念與名詞的區辨還有成長空間，可從生活例子切入理解。", act:"每週找一則新聞，說出它和課本哪個概念有關。", actS:"每週一則新聞對應課本概念"}
+  "國文":{ab:"閱讀理解與表達", strong:"閱讀理解與文字表達都很穩，文意判讀掌握得好。", t:[
+    {s:"上完國文課當天，讀一段課文，圈出不懂的字詞", f:"上完國文課當天，花 10 分鐘把今天教的段落讀一遍，圈出不懂的字詞，查完後說說這段在講什麼。", d:"字詞與課文內容還在熟悉階段，先把課本讀熟、讀懂是最重要的第一步，上完課當天讀一小段，就能慢慢累積。"},
+    {s:"上完一課，抄一句主旨句並說出大意", f:"每上完一課，找出一句最能代表主旨的句子抄下來，再用一句話說明這課在講什麼。", d:"基本內容已有印象，下一步是學會抓重點，能找出關鍵句、說出大意，閱讀題就不容易失分。"},
+    {s:"每週讀一篇短文，寫主旨與依據", f:"每週讀一篇課外短文，寫出主旨，並圈出兩個支持這個判斷的句子。", d:"課文理解穩定，可以練習從文章找證據、說明理由，從「看懂」進步到「說得出為什麼」。"},
+    {s:"每週寫一段 100 字的心得", f:"每週讀完一篇文章，用自己的話寫一段約 100 字的摘要或心得。", d:"閱讀與理解相當扎實，把想法寫成文字，會讓理解變成表達力。"}]},
+  "英文":{ab:"單字文法與閱讀", strong:"單字與句型掌握得很好，閱讀時理解順暢。", t:[
+    {s:"上完英文課當天，念、寫 5 個今天的單字", f:"上完英文課當天，選 5 個今天教的單字，念出來、寫一次；下次上課前先複習這 5 個。", d:"單字是目前最需要累積的地方，上完課當天少量複習，比考前一次背很多更有效。"},
+    {s:"上完英文課當天，複習 10 個單字並造一句", f:"上完英文課當天，複習 10 個課本單字，並用其中幾個仿照課本句型各造一個句子。", d:"單字已有基礎，把單字放進句子裡使用，才會從「認得」變成「會用」，文法與閱讀都會更穩。"},
+    {s:"每週寫一段 3～5 句短文", f:"上完課當天複習今天的單字，每週再用學過的單字與句型寫一段 3～5 句的英文短文。", d:"單字句型掌握不錯，開始自己寫句子、寫短文，會讓表現更穩定、更靈活。"},
+    {s:"每週讀一篇簡單英文短文", f:"每週讀一篇適合程度的英文短文，挑出三個新單字記下來。", d:"英文基礎很好，多接觸不同的文章，能擴充單字量並提升閱讀速度。"}]},
+  "數學":{ab:"運算與邏輯推理", strong:"運算正確度高，推理過程清楚，是這次很亮的一科。", t:[
+    {s:"上完數學課當天，重做 2 題今天的例題", f:"上完數學課當天，重做 2 題今天教的課本例題，每個步驟都寫出來，確認自己知道為什麼這樣做。", d:"基本運算與觀念需要先打穩，從課本例題開始，一步一步寫清楚，比多做題更重要。"},
+    {s:"作業或考卷發回當天，錯題重算，寫下錯在哪一步", f:"作業或考卷發回當天，把錯題重算一遍，寫下「錯在哪一步、正確做法是什麼」，隔天再做一次。", d:"觀念大致有了，主要失分在計算與步驟，養成訂正錯題的習慣是進步最快的方法。"},
+    {s:"錯題本：標出卡在哪個觀念", f:"建立錯題本，每題標註「卡在哪個觀念或步驟」，每週挑 3 題重做並說出解題想法。", d:"基礎穩定，只要減少粗心與不熟的題型就能更進一步，重點在檢討錯題，而不是多做題。"},
+    {s:"每週挑 2 題難題挑戰", f:"每週挑 2 題較有挑戰性的題目，寫出解題想法，再想想有沒有別的解法。", d:"數學表現優異，可以用較難的題目練習思考與表達，讓解題更有彈性。"}]},
+  "自然":{ab:"觀察與科學思考", strong:"能把課堂觀察與概念連結起來，科學思考力不錯。", t:[
+    {s:"小考前一天，圈出該單元 3 個重要名詞並說意思", f:"小考前一天，翻開課本，圈出該單元 3 個重要名詞，用自己的話說說意思，也可以畫一個簡單的圖。", d:"科學名詞與基本概念還在建立，從看懂課本圖片與名詞開始，小考前一天整理該單元，就能一步步累積。"},
+    {s:"小考前一天，做一張該單元重點卡", f:"小考前一天，為該單元整理一張重點卡，寫下 5 個核心名詞與意思，再試著回答「為什麼會這樣」。", d:"名詞已有印象，下一步是把名詞和現象連起來，學會回答「為什麼」，實驗與題目都會更順。"},
+    {s:"小考前一天，畫概念圖並解釋一個生活現象", f:"小考前一天，為該單元畫一張概念圖，把名詞與現象用線連起來，再用學到的原理解釋一個生活中的現象。", d:"概念掌握不錯，能把原理用在生活現象上，會培養出更好的科學思考力。"},
+    {s:"想到生活現象，就寫下一個「為什麼」", f:"平時看到有趣的自然現象，就寫下一個「為什麼」的問題，並試著找答案，有空也可以來問老師。", d:"自然科表現優秀，主動觀察與提問，是更進一步的科學探究能力。"}]},
+  "地理":{ab:"圖表與空間判讀", strong:"地圖與圖表判讀能力好，能掌握各地區的差異。", t:[
+    {s:"小考前一天，對照課本地圖指出 3 個重要地名", f:"小考前一天，對照課本地圖，指認出該單元 3 個重要地名或地形，說說它在哪裡。", d:"地名位置與地圖判讀還在熟悉階段，從看圖、指出地名開始，圖像會幫助記憶。"},
+    {s:"小考前一天，填一張空白地圖，寫一句特色", f:"小考前一天，練習一張空白地圖，標出該單元的地名，並各寫一句該地的環境或特色。", d:"地名有基礎，加上「這裡有什麼特色」，位置與環境就能連在一起記。"},
+    {s:"小考前一天，挑一張圖表說明特色與原因", f:"小考前一天，挑一張地圖或圖表，標出重點地名，寫下該地的地形、氣候或產業特色，以及形成的原因。", d:"地圖判讀穩定，能進一步說明「為什麼會這樣」，分析能力就會更強。"},
+    {s:"小考前一天，比較兩個地區的差異", f:"小考前一天，挑兩個地區，比較它們在地形、氣候或生活上的差異並說明原因。", d:"地理基礎扎實，用比較的方式思考，能讓知識更有系統。"}]},
+  "歷史":{ab:"時序與因果整理", strong:"事件的前因後果掌握得清楚，時序概念很好。", t:[
+    {s:"小考前一天，講出 1 個事件的人物與結果", f:"小考前一天，從該課挑 1 個事件，向家人或同學說出它的人物、時間與結果。", d:"歷史事件還在熟悉階段，先把人物與事件講清楚，再慢慢串起來，說故事會幫助記憶。"},
+    {s:"小考前一天，整理「人物、時間、事件」簡表", f:"小考前一天，為該課整理一張簡表，寫下重要事件的人物、時間、發生什麼事與結果。", d:"主要事件已有印象，把時間與前因後果整理起來，就不容易混淆。"},
+    {s:"小考前一天，畫小時間軸並標示因果", f:"小考前一天，為該課用 3 分鐘畫一條小時間軸，用短句標出事件發生的原因與影響。", d:"歷史知識掌握不錯，能說明事件的原因與影響，是下一步更進一步的關鍵。"},
+    {s:"小考前一天，比較兩個事件的異同", f:"小考前一天，挑兩個相關的歷史事件，比較它們的原因、經過與影響有什麼相同與不同。", d:"歷史理解相當扎實，用比較的方式思考，能讓看法更有深度。"}]},
+  "公民":{ab:"制度理解與議題思辨", strong:"對制度與社會議題理解深入，能清楚說出自己的看法。", t:[
+    {s:"小考前一天，挑 2 個概念說出意思", f:"小考前一天，從該單元挑 2 個課本重要概念，用自己的話說出意思，並請家人聽聽看是否清楚。", d:"公民有許多新名詞，先把意思弄懂最重要，小考前一天整理該單元，2 個概念就很夠了。"},
+    {s:"小考前一天，找 1 個生活例子對應概念", f:"小考前一天，為該單元舉出一個自己或生活中的真實例子，來說明課本的概念。", d:"概念已有印象，用生活例子來說明，抽象概念會變得容易記，也更會答題。"},
+    {s:"小考前一天，選一個案例說明概念與理由", f:"小考前一天，選一個生活或校園案例（也可以是新聞），說出對應該單元的哪個概念，並說明自己的判斷理由。", d:"概念理解穩固，可以練習判斷案例並說出理由，思辨能力會更好。"},
+    {s:"小考前一天，選一個議題寫出兩種觀點", f:"小考前一天，選一個議題，各寫出一個支持與不同意的觀點，再說說自己的想法。", d:"公民科表現優異，練習從不同角度看事情，能讓看法更全面。"}]}
 };
+// 依該科平均分數決定區間：0=40分以下 1=41～60 2=61～80 3=81以上
+function scoreTier(avg){ const v=Math.round(avg); return v<=40 ? 0 : (v<=60 ? 1 : (v<=80 ? 2 : 3)); }
 function subjBandOf(pr){ return pr.avg===null ? null : percentileBand(pr.rank, pr.rankTotal); }
 function subjPR(pr){ return pr.avg===null ? 0 : bandedPercentile(pr.rank, pr.rankTotal).value; }
 
@@ -2403,29 +2435,36 @@ function radarSvg(labels, cur, prev, px){
 }
 
 // 評語：回傳 {hl, imp, act, hlS, actS, ups, lines:{subj:text}}
+// 亮點仍依班級位置色塊；各科描述與小行動依「該科平均分數區間」，小行動取最低 3 科（81分以上的科目只在全部都 81+ 時取最低 1 科）
 function buildComment(r, data, prevBands){
-  const subs = data.subjects.map(x=>x.subj).filter(s=> r.per[s].avg!==null);
+  const subs = data.subjects.map(x=>x.subj).filter(s=> r.per[s].avg!==null && SUBJ_TXT[s]);
   if (subs.length<3) return null;
-  const info = subs.map(s=>({ s, b: subjBandOf(r.per[s]), ratio: r.per[s].rank/r.per[s].rankTotal }));
+  const info = subs.map(s=>({ s, b: subjBandOf(r.per[s]), ratio: r.per[s].rank/r.per[s].rankTotal, avg: r.per[s].avg, tier: scoreTier(r.per[s].avg) }));
   const best = info.slice().sort((a,b)=> a.b-b.b || a.ratio-b.ratio)[0];
-  const worst = info.slice().sort((a,b)=> b.b-a.b || b.ratio-a.ratio)[0];
-  const spread = worst.b - best.b;
-  const S = best.s, W = worst.s;
-  let hl, hlS, imp, act, actS;
+  const worstB = info.slice().sort((a,b)=> b.b-a.b || b.ratio-a.ratio)[0];
+  const spread = worstB.b - best.b;
+  const S = best.s;
+  let hl, hlS, imp;
   if (spread<=1){
-    if (worst.b<=1){ hl="各科表現都很出色，整體相當穩定，繼續保持。"; hlS="各科都很出色、整體穩定"; }
-    else if (worst.b<=3){ hl="各科發展均衡，沒有明顯弱科，基礎很扎實。"; hlS="各科發展均衡、基礎扎實"; }
+    if (worstB.b<=1){ hl="各科表現都很出色，整體相當穩定，繼續保持。"; hlS="各科都很出色、整體穩定"; }
+    else if (worstB.b<=3){ hl="各科發展均衡，沒有明顯弱科，基礎很扎實。"; hlS="各科發展均衡、基礎扎實"; }
     else { hl="每一科都已有基礎，穩定練習就能一起往上。"; hlS="各科基礎已建立，穩定練習會進步"; }
   } else {
     hl = `${S}：${SUBJ_TXT[S].strong}`; hlS = `${S}（${SUBJ_TXT[S].ab}）`;
   }
-  if (worst.b>=3){ imp = `${W}：${SUBJ_TXT[W].weak}`; act = `${W}：${SUBJ_TXT[W].act}`; actS = `${W}：${SUBJ_TXT[W].actS}`; }
-  else if (worst.b===2){ imp = `${W}：${SUBJ_TXT[W].mid}`; act = `${W}：${SUBJ_TXT[W].act}`; actS = `${W}：${SUBJ_TXT[W].actS}`; }
-  else { imp = "目前沒有明顯需要加強的科目，保持現在的學習節奏。"; act = "保持目前的節奏，試著幫同學講解題目，教別人是最好的複習。"; actS = "保持節奏，試著教同學講題"; }
+  const byScore = info.slice().sort((a,b)=> a.avg-b.avg);
+  let focus = byScore.filter(x=>x.tier<=2).slice(0,3);
+  if (!focus.length) focus = byScore.slice(0,1);
+  let act, actS;
+  const low = byScore[0];
+  if (low.tier<=2){ imp = `${low.s}：${SUBJ_TXT[low.s].t[low.tier].d}`; }
+  else { imp = "目前沒有明顯需要加強的科目，保持現在的學習節奏，試著挑戰更有深度的題目。"; }
+  act = focus.map(x=>`${x.s}：${SUBJ_TXT[x.s].t[x.tier].f}`);
+  actS = focus.map(x=>`${x.s}：${SUBJ_TXT[x.s].t[x.tier].s}`);
   const ups = prevBands ? subs.filter(s=> prevBands[s]!==undefined && prevBands[s]!==null && subjBandOf(r.per[s]) < prevBands[s]) : [];
   if (ups.length) hl += `（${ups.join("、")}比上次段考更進一步 👏）`;
   const lines = {};
-  subs.forEach(s=>{ const b = subjBandOf(r.per[s]); lines[s] = b<=1 ? SUBJ_TXT[s].strong : (b<=3 ? SUBJ_TXT[s].mid : SUBJ_TXT[s].weak); });
+  info.forEach(x=>{ lines[x.s] = SUBJ_TXT[x.s].t[x.tier].d; });
   return { hl, imp, act, hlS, actS, ups, lines };
 }
 
@@ -2506,7 +2545,7 @@ function generateStudentReports(){
       }
       if (ex.cm && ex.cm.ups.length) progHtml += `<span class="st-prog up">👏 進步：${ex.cm.ups.length>3 ? ex.cm.ups.slice(0,3).join("、")+"等"+ex.cm.ups.length+"科" : ex.cm.ups.join("、")}</span>`;
       const radar = (opt.band && ex.cm && ex.subjList.length>=3) ? `<div class="st-radar">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 110)}</div>` : "";
-      const cmHtml = ex.cm ? `<div class="st-cm">🌟 亮點：${ex.cm.hlS}<br>🎯 小行動：${ex.cm.actS}</div>` : "";
+      const cmHtml = ex.cm ? `<div class="st-cm">🌟 亮點：${ex.cm.hlS}<br>🎯 小行動：${ex.cm.actS.map(t=>`<div class="st-act">• ${t}</div>`).join("")}</div>` : "";
       const overall = r.rank===null ? "-" : bandBadgeHtml(r.rank, r.rankTotal);
       return `<div class="strip"><div class="st-head"><span><b>${r.name}</b>（${r.no}號）</span><span class="st-range">${start.slice(5)}～${end.slice(5)}</span></div>
         <div class="st-mid">${radar}<table class="st-table"><thead><tr><th>科目</th><th>成績</th><th>${opt.band?'位置':''}</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
@@ -2552,7 +2591,7 @@ function generateFullReports(){
       }
       if (ex.cm && ex.cm.ups.length) progHtml += `<span class="st-prog up">👏 進步科目：${ex.cm.ups.join("、")}</span>`;
       const radar = (opt.band && ex.subjList.length>=3) ? `<div style="text-align:center;">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 260)}<div style="font-size:11px;color:#555;">━ 這次　<span style="color:#9aa5a0;">┅ 上次段考</span></div></div>` : "";
-      const cmBox = ex.cm ? `<div class="fp-cm"><div>🌟 <b>本期亮點</b>　${ex.cm.hl}</div><div>🌱 <b>可以更好</b>　${ex.cm.imp}</div><div>🎯 <b>下期小行動</b>　${ex.cm.act}</div></div>` : "";
+      const cmBox = ex.cm ? `<div class="fp-cm"><div>🌟 <b>本期亮點</b>　${ex.cm.hl}</div><div>🌱 <b>可以更好</b>　${ex.cm.imp}</div><div>🎯 <b>下期小行動</b>${ex.cm.act.map(t=>`<div class="fp-act">• ${t}</div>`).join("")}</div></div>` : "";
       html += `<div class="full-page"${idx===selRows.length-1?' style="page-break-after:auto;"':""}>
         <div class="fp-head"><h3>703班 個人學習報告</h3><div><b style="font-size:18px;">${r.name}</b>（座號 ${r.no}）<span class="st-range">　區間 ${start} ～ ${end}</span></div></div>
         <div class="fp-top">${radar}<div class="fp-bars">${opt.band?'<div style="font-size:12px;font-weight:700;margin-bottom:4px;">各科班級內位置</div>':''}${bars}
