@@ -129,7 +129,7 @@
   .st-range{ font-size:9px; color:#666; }
   .st-table{ width:100%; border-collapse:collapse; margin:0; }
   .st-table th{ font-size:9px; background:#e8f0ec; padding:1px 3px; border:1px solid #cfd8d3; }
-  .st-table td{ padding:1px 3px; border:1px solid #e1e6e3; font-size:10px; }
+  .st-table td{ padding:0 3px; border:1px solid #e1e6e3; font-size:10px; }
   .st-subj{ width:34px; text-align:center; font-weight:600; }
   .st-score{ text-align:center; }
   .st-badge{ width:68px; text-align:center; }
@@ -139,6 +139,8 @@
   .st-prog{ font-weight:700; padding:0 4px; border-radius:8px; }
   .st-prog.up{ background:#e8f5e9; color:#2e7d32; }
   .st-prog.down{ background:#fff3e0; color:#c96a3e; }
+  .st-praise{ font-size:8.5px; line-height:1.3; color:#7a5a00; background:#fff6d6; border:1px solid #e6c458; border-radius:3px; padding:1px 3px; margin-top:1px; }
+  .fp-praise{ background:#fff6d6; border:2px solid #e6c458; border-radius:6px; padding:3mm 4mm; margin:3mm 0; font-size:14px; line-height:1.6; color:#6b4f00; text-align:center; }
   .st-rank{ font-size:9px; color:#8a6d1f; background:#fdf3d8; padding:0 3px; border-radius:3px; margin-top:1px; }
   .slip-page{ display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:var(--slip-h,34mm); padding-top:var(--page-top,0mm); margin-bottom:12px; page-break-after:always; }
   .slip{ border:1px dashed #666; padding:2mm 3mm; font-size:11px; box-sizing:border-box; overflow:hidden; background:#fff; }
@@ -149,8 +151,8 @@
   .st-mid{ display:flex; gap:2mm; align-items:center; }
   .st-mid .st-table{ flex:1; }
   .st-radar{ width:29mm; flex:none; line-height:0; }
-  .st-cm{ font-size:8.5px; line-height:1.3; margin-top:1px; }
-  .st-act{ padding-left:2px; }
+  .st-cm{ font-size:8.5px; line-height:1.2; margin-top:1px; }
+  .st-act{ padding-left:2px; line-height:1.15; }
   .fp-act{ padding-left:6px; }
   .full-page{ height:272mm; box-sizing:border-box; padding:4mm 6mm; page-break-after:always; border:1px solid var(--line); margin-bottom:12px; background:#fff; overflow:hidden; font-size:12px; }
   .fp-head h3{ margin:0 0 2px; color:var(--brand); font-size:18px; border-bottom:2px solid var(--brand); padding-bottom:3px; }
@@ -576,6 +578,7 @@
               <b style="font-size:12px;width:100%;">🔒 個人報告的排名顯示（只會印在上方「家長同意名單」內的學生，其他人一律不印）</b>
               <label><input type="checkbox" id="optShowClassRank" data-rankopt="class" onchange="setRankOpt(this)" style="width:auto;"> 印班排名（限同意名單）</label>
               <label><input type="checkbox" id="optShowSchoolRank" data-rankopt="school" onchange="setRankOpt(this)" style="width:auto;"> 印校排名（限同意名單，公布前不會有）</label>
+              <label><input type="checkbox" id="optShowPraise" style="width:auto;" checked> 班排前三名印稱讚小語（限同意名單）</label>
               <label><input type="checkbox" id="optShowBand" style="width:auto;" checked> 顯示位置色塊與雷達圖（百分位）</label>
               <label>只印這位座號：<input id="optOnlySeat" style="width:60px;" placeholder="全班"></label>
             </div>
@@ -2486,7 +2489,7 @@ function calcPrevBands(stuKey, examsData, allScores, start, subjList){
 function readPersonalOpts(){
   const g=(id)=>{ const e=document.getElementById(id); return e ? e.checked : false; };
   const seatEl=document.getElementById("optOnlySeat");
-  return { classRank:g("optShowClassRank"), schoolRank:g("optShowSchoolRank"), band:g("optShowBand"), onlySeat: seatEl ? seatEl.value.trim() : "" };
+  return { classRank:g("optShowClassRank"), schoolRank:g("optShowSchoolRank"), band:g("optShowBand"), praise:g("optShowPraise"), onlySeat: seatEl ? seatEl.value.trim() : "" };
 }
 function pickRows(data, opt){
   if (!opt.onlySeat) return data.rows;
@@ -2497,6 +2500,26 @@ function schoolRankText(stuKey, schoolRankData, start, end){
   if (!majors.length) return null;
   const [k,e] = majors[majors.length-1];
   return `${e.name||"段考"} 校排第${schoolRankData[k][stuKey]}名`;
+}
+const PRAISE = {
+  1:{medal:"🥇", title:"優秀典範", txt:"用努力成就優秀，以實力綻放光芒，期待你持續超越自我！"},
+  2:{medal:"🥈", title:"卓越領航", txt:"用踏實累積實力，以專注贏得肯定，期待你朝更高目標邁進！"},
+  3:{medal:"🥉", title:"潛力之星", txt:"用勤奮展現成果，以熱忱點亮未來，期待你創造更多可能！"}
+};
+// 班排前三名稱讚小語：只給「家長同意名單」內的學生；回傳 {strip, full} HTML 或空字串
+function praiseHtml(r, opt){
+  if (!opt.praise || !rankOptInCache[r.stuKey] || r.rank===null || r.rank<1 || r.rank>3) return {strip:"", full:""};
+  const p = PRAISE[r.rank];
+  return {
+    strip: `<div class="st-praise">${p.medal} <b>第 ${r.rank} 名　${p.title}</b>　${p.txt}</div>`,
+    full: `<div class="fp-praise">${p.medal} <b style="font-size:16px;">第 ${r.rank} 名　${p.title}</b><br>${p.txt}</div>`
+  };
+}
+function praiseMissingNote(rows, opt){
+  if (!opt.praise) return "";
+  const miss = rows.filter(r=> r.rank!==null && r.rank>=1 && r.rank<=3 && !rankOptInCache[r.stuKey]);
+  if (!miss.length) return "";
+  return `<div class="no-print" style="font-size:12px;color:#c96a3e;margin-bottom:8px;">ℹ️ 班排前三名但不在家長同意名單（未印稱讚小語）：${miss.map(r=>`${r.no}號${r.name}`).join("、")}。如家長同意，請到上方名單勾選後重新產生。</div>`;
 }
 function rankLineHtml(r, stuKey, opt, schoolRankData, start, end){
   if (!rankOptInCache[stuKey]) return "";
@@ -2545,15 +2568,15 @@ function generateStudentReports(){
       }
       if (ex.cm && ex.cm.ups.length) progHtml += `<span class="st-prog up">👏 進步：${ex.cm.ups.length>3 ? ex.cm.ups.slice(0,3).join("、")+"等"+ex.cm.ups.length+"科" : ex.cm.ups.join("、")}</span>`;
       const radar = (opt.band && ex.cm && ex.subjList.length>=3) ? `<div class="st-radar">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 110)}</div>` : "";
-      const cmHtml = ex.cm ? `<div class="st-cm">🌟 亮點：${ex.cm.hlS}<br>🎯 小行動：${ex.cm.actS.map(t=>`<div class="st-act">• ${t}</div>`).join("")}</div>` : "";
+      const cmHtml = ex.cm ? `<div class="st-cm">🌟 亮點：${ex.cm.hlS}<br>🎯 小行動${ex.cm.actS.map(t=>`<div class="st-act">• ${t}</div>`).join("")}</div>` : "";
       const overall = r.rank===null ? "-" : bandBadgeHtml(r.rank, r.rankTotal);
       return `<div class="strip"><div class="st-head"><span><b>${r.name}</b>（${r.no}號）</span><span class="st-range">${start.slice(5)}～${end.slice(5)}</span></div>
         <div class="st-mid">${radar}<table class="st-table"><thead><tr><th>科目</th><th>成績</th><th>${opt.band?'位置':''}</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
-        <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${opt.band?'　整體 '+overall:''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}
+        <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${opt.band?'　整體 '+overall:''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}${praiseHtml(r,opt).strip}
         <div class="st-progline">${progHtml}</div>${cmHtml}
         <div class="st-sign">家長簽名：＿＿＿＿＿＿＿</div></div>`;
     });
-    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」，並勾選「背景圖形」，色塊才會印出。每頁 8 張，沿虛線剪開。雷達圖：實線＝這次，虛線＝上次段考。</div>`;
+    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」，並勾選「背景圖形」，色塊才會印出。每頁 8 張，沿虛線剪開。雷達圖：實線＝這次，虛線＝上次段考。</div>` + praiseMissingNote(data.rows, opt);
     for (let i=0;i<strips.length;i+=8){
       html += `<div class="strip-page" style="${layoutStyle()}${i+8>=strips.length?'page-break-after:auto;':''}">${strips.slice(i,i+8).join("")}</div>`;
     }
@@ -2573,7 +2596,7 @@ function generateFullReports(){
     const opt = readPersonalOpts();
     const selRows = pickRows(data, opt);
     if (selRows.length===0){ showMsg("reportMsg","找不到這個座號", true); return; }
-    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、勾選「背景圖形」。一人一頁。雷達圖實線＝這次，虛線＝上次段考。</div>`;
+    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、勾選「背景圖形」。一人一頁。雷達圖實線＝這次，虛線＝上次段考。</div>` + praiseMissingNote(data.rows, opt);
     selRows.forEach((r,idx)=>{
       const ex = personalExtras(r, ctx);
       let bars = "", tbl = "";
@@ -2597,6 +2620,7 @@ function generateFullReports(){
         <div class="fp-top">${radar}<div class="fp-bars">${opt.band?'<div style="font-size:12px;font-weight:700;margin-bottom:4px;">各科班級內位置</div>':''}${bars}
           <div style="margin-top:8px;font-size:13px;">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${opt.band?'　整體 '+(r.rank===null?'-':bandBadgeHtml(r.rank,r.rankTotal)):''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}
           <div style="margin-top:4px;">${progHtml}</div></div></div>
+        ${praiseHtml(r,opt).full}
         <table class="fp-table"><thead><tr><th>科目</th><th>成績</th><th>平均</th><th>學習描述</th></tr></thead><tbody>${tbl}</tbody></table>
         ${cmBox}
         <div class="fp-foot"><div>老師的話：＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</div><div style="margin-top:6mm;">＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</div><div style="margin-top:6mm;text-align:right;">家長簽名：＿＿＿＿＿＿＿＿＿＿＿</div></div>
