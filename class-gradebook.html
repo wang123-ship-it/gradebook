@@ -141,6 +141,27 @@
   .st-prog.down{ background:#fff3e0; color:#c96a3e; }
   .st-praise{ font-size:8.5px; line-height:1.3; color:#7a5a00; background:#fff6d6; border:1px solid #e6c458; border-radius:3px; padding:1px 3px; margin-top:1px; }
   .fp-praise{ background:#fff6d6; border:2px solid #e6c458; border-radius:6px; padding:3mm 4mm; margin:3mm 0; font-size:14px; line-height:1.6; color:#6b4f00; text-align:center; }
+  .card4-page{ display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:var(--card-h,140mm); padding-top:var(--page-top,0mm); gap:0; margin-bottom:12px; page-break-after:always; }
+  .card4{ zoom:var(--strip-fs,1); border:1px dashed #666; padding:2.5mm 3.5mm; font-size:10px; line-height:1.25; overflow:hidden; background:#fff; box-sizing:border-box; display:flex; flex-direction:column; }
+  .card4 .st-radar{ width:34mm; }
+  .card4 .band-badge{ padding:0 6px; font-size:9px; white-space:nowrap; }
+  .card4 .st-table td{ padding:1px 3px; line-height:1.4; font-size:11px; }
+  .card4 .st-table th{ font-size:10px; }
+  .card4 .st-total{ font-size:11.5px; margin-top:1mm; }
+  .card4 .st-badge{ width:70px; white-space:nowrap; }
+  .card4 .st-cm{ font-size:9.5px; line-height:1.35; }
+  .card4 .st-cm > div{ margin-bottom:1.2mm; }
+  .c4-foot{ margin-top:auto; font-size:9.5px; color:#444; }
+  .ct-wrap{ margin:1.5mm 0; }
+  .ct-cap{ font-size:9px; color:#2f5d50; font-weight:700; margin-bottom:1px; }
+  .ct-cap span{ font-weight:400; color:#8a6d1f; margin-left:4px; }
+  .ct-table{ width:100%; border-collapse:collapse; table-layout:fixed; margin:0; }
+  .ct-table th, .ct-table td{ border:1px solid #cfd8d3; font-size:9.5px; padding:0 1px; text-align:center; line-height:1.5; }
+  .ct-table th{ background:#e8f0ec; font-weight:700; }
+  .ct-table th.ct-l{ width:13mm; font-size:8.5px; }
+  .ct-up{ color:#2e7d32; font-weight:700; }
+  .ct-down{ color:#c96a3e; font-weight:700; }
+  .ct-flat{ color:#607d8b; }
   .st-rank{ font-size:9px; color:#8a6d1f; background:#fdf3d8; padding:0 3px; border-radius:3px; margin-top:1px; }
   .slip-page{ display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:var(--slip-h,34mm); padding-top:var(--page-top,0mm); margin-bottom:12px; page-break-after:always; }
   .slip{ border:1px dashed #666; padding:2mm 3mm; font-size:11px; box-sizing:border-box; overflow:hidden; background:#fff; }
@@ -177,7 +198,7 @@
     body.print-report #reportOutput{ margin:0; }
     *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     @page{ size:A4; margin:6mm; }
-    .strip-page{ margin:0; }
+    .strip-page, .card4-page{ margin:0; }
   }
 
   .teacher-item{
@@ -478,6 +499,15 @@
       </div>
 
       <div class="card">
+        <h2>🏫 各班平均名次補登（教務處公布後再輸入，不用解鎖成績）</h2>
+        <div class="msg">選段考後，輸入本班各科平均在全校各班的名次（只要 7 個數字）。本班平均由系統用已登打的成績自動算，右側會顯示，方便你和教務處的數字對照。這些資料存在獨立欄位，不會動到任何分數。</div>
+        <div class="row" style="margin:8px 0;"><select id="crExamSelect" onchange="loadClassRankEntry()"></select> <label>全校共 <input id="crTotal" type="number" min="2" max="60" value="16" style="width:60px;"> 班</label></div>
+        <div id="crEntryArea"></div>
+        <div class="row" style="margin-top:8px;"><button onclick="saveClassRankEntry()" class="hidden" id="crSaveBtn">💾 儲存各班名次</button></div>
+        <div class="msg" id="crMsg"></div>
+      </div>
+
+      <div class="card">
         <h2>🗂️ 歷次段考列表（可重新開啟編輯）</h2>
         <table>
           <thead><tr><th>名稱</th><th>日期</th><th>類型</th><th>操作</th></tr></thead>
@@ -578,6 +608,7 @@
               <b style="font-size:12px;width:100%;">🔒 個人報告的排名顯示（只會印在上方「家長同意名單」內的學生，其他人一律不印）</b>
               <label><input type="checkbox" id="optShowClassRank" data-rankopt="class" onchange="setRankOpt(this)" style="width:auto;"> 印班排名（限同意名單）</label>
               <label><input type="checkbox" id="optShowSchoolRank" data-rankopt="school" onchange="setRankOpt(this)" style="width:auto;"> 印校排名（限同意名單，公布前不會有）</label>
+              <label><input type="checkbox" id="optShowClassTable" style="width:auto;" checked> 附「各班平均與全校名次」表（班級整體，非個人排名）</label>
               <label><input type="checkbox" id="optShowPraise" style="width:auto;" checked> 班排前三名印稱讚小語（限同意名單）</label>
               <label><input type="checkbox" id="optShowBand" style="width:auto;" checked> 顯示位置色塊與雷達圖（百分位）</label>
               <label>只印這位座號：<input id="optOnlySeat" style="width:60px;" placeholder="全班"></label>
@@ -588,11 +619,12 @@
             </div>
             <div class="row" style="margin-bottom:6px;padding:6px;background:#eef2f0;border-radius:6px;">
               <b style="font-size:12px;width:100%;">🖨️ 列印版面微調（條子跑掉時調這裡，會記住）</b>
-              <label>成績條高度 <input id="layStripH" type="number" min="55" max="74" step="1" value="68" style="width:60px;" onchange="saveLayout()"> mm</label>
+              <label>成績單高度（一頁4張） <input id="layCardH" type="number" min="100" max="142" step="1" value="140" style="width:60px;" onchange="saveLayout()"> mm</label>
+              <label style="display:none;">成績條高度 <input id="layStripH" type="number" min="55" max="74" step="1" value="68" style="width:60px;" onchange="saveLayout()"> mm</label>
               <label>字級 <input id="layStripFs" type="number" min="70" max="130" step="5" value="100" style="width:60px;" onchange="saveLayout()"> %</label>
               <label>補發小條高度 <input id="laySlipH" type="number" min="25" max="50" step="1" value="34" style="width:60px;" onchange="saveLayout()"> mm</label>
               <label>頁面上方留白 <input id="layTop" type="number" min="0" max="20" step="1" value="0" style="width:60px;" onchange="saveLayout()"> mm</label>
-              <div class="msg" style="width:100%;">列印時：邊界選「無」、取消「頁首和頁尾」、勾選「背景圖形」。A4 一頁 4 排，成績條高度 × 4 ＋ 上方留白 ≤ 285 mm。跑到下一頁就把高度減 2～4 mm 或字級減 5～10%。</div>
+              <div class="msg" style="width:100%;">列印時：邊界選「無」、取消「頁首和頁尾」、勾選「背景圖形」。一頁 2×2 張，成績單高度 × 2 ＋ 上方留白 ≤ 285 mm。內容被切掉就把字級減 5～10%，跑到下一頁就把高度減 2～4 mm。</div>
             </div>
             <div class="row" style="margin-bottom:6px;">
               <label><input type="checkbox" id="reportIncludeQuiz" style="width:auto;" checked> 包含大卷（小老師登記）</label>
@@ -601,9 +633,10 @@
             </div>
             <div class="row"><button onclick="generateTeacherReport()">📋 ① 產生全班合併成績單</button></div>
             <div class="row" style="margin-top:8px;"><button onclick="exportClassReportExcel()">📊 ② 匯出 Excel（全班合併）</button> <button onclick="exportClassReportWord()">📄 匯出 Word</button></div>
-            <div class="row" style="margin-top:8px;"><button onclick="generateStudentReports()">✂️ ③ 個人成績條（一頁8張，印出剪開）</button></div>
+            <div class="row" style="margin-top:8px;"><button onclick="generateStudentReports()">✂️ ③ 個人成績單（一頁4張，印出剪開）</button> <button onclick="generateStrips8()" style="display:none;">舊版 8 張條</button></div>
             <div class="row" style="margin-top:8px;"><button onclick="generateFullReports()">📄 ④ 完整個人頁（一人一頁，家長會用）</button></div>
             <div class="row" style="margin-top:8px;"><button onclick="generateRankSlips()">🏫 ⑤ 校排名公布後補發小條（進退步＋同意者校排名）</button></div>
+            <div class="row" style="margin-top:8px;"><button onclick="generateClassRankSlips()">🏫 ⑥ 各班名次公布後補發小條（全班共用，含進退步）</button></div>
             <div class="row" style="margin-top:8px;display:none;"><button onclick="publishReportToParents()">📢 發布給家長線上查看</button></div>
             <div class="msg" id="reportMsg"></div>
           </div>
@@ -992,6 +1025,7 @@ function initAdmin(){
     examsCache = snap.val() || {};
     renderExamSelect();
     renderSrSelect();
+    renderCrSelect();
     renderExamHistoryTable();
     renderOverviewDashboard();
   });
@@ -1717,6 +1751,7 @@ function deleteExam(key){
     ["scores/"+key]: null,
     ["schoolRank/"+key]: null,
     ["schoolRankMeta/"+key]: null,
+    ["classRank/"+key]: null,
   }).then(()=>{
     if (document.getElementById("examSelect").value === key){
       document.getElementById("examSelect").value = "";
@@ -2489,7 +2524,7 @@ function calcPrevBands(stuKey, examsData, allScores, start, subjList){
 function readPersonalOpts(){
   const g=(id)=>{ const e=document.getElementById(id); return e ? e.checked : false; };
   const seatEl=document.getElementById("optOnlySeat");
-  return { classRank:g("optShowClassRank"), schoolRank:g("optShowSchoolRank"), band:g("optShowBand"), praise:g("optShowPraise"), onlySeat: seatEl ? seatEl.value.trim() : "" };
+  return { classRank:g("optShowClassRank"), schoolRank:g("optShowSchoolRank"), band:g("optShowBand"), praise:g("optShowPraise"), classTable: (document.getElementById("optShowClassTable") ? g("optShowClassTable") : true), onlySeat: seatEl ? seatEl.value.trim() : "" };
 }
 function pickRows(data, opt){
   if (!opt.onlySeat) return data.rows;
@@ -2529,8 +2564,8 @@ function rankLineHtml(r, stuKey, opt, schoolRankData, start, end){
   return parts.length ? `<div class="st-rank">🔒 ${parts.join("　")}（依家長同意提供）</div>` : "";
 }
 function prepPersonalReports(){
-  return Promise.all([ getMergedReport(), db.ref("schoolRank").once("value"), db.ref("scores").once("value") ]).then(([{data,start,end}, rankSnap, scoreSnap])=>{
-    return { data, start, end, schoolRankData: rankSnap.val()||{}, allScores: scoreSnap.val()||{} };
+  return Promise.all([ getMergedReport(), db.ref("schoolRank").once("value"), db.ref("scores").once("value"), db.ref("classRank").once("value") ]).then(([{data,start,end}, rankSnap, scoreSnap, crSnap])=>{
+    return { data, start, end, schoolRankData: rankSnap.val()||{}, allScores: scoreSnap.val()||{}, classRankData: crSnap.val()||{} };
   });
 }
 function personalExtras(r, ctx){
@@ -2541,7 +2576,7 @@ function personalExtras(r, ctx){
   const prevVals = prev ? subjList.map(s=> prev.vals[s]||0) : null;
   return { subjList, prev, cm, cur, prevVals };
 }
-function generateStudentReports(){
+function generateStrips8(){
   showMsg("reportMsg","產生中...");
   prepPersonalReports().then(ctx=>{
     const { data, start, end, schoolRankData } = ctx;
@@ -2585,6 +2620,52 @@ function generateStudentReports(){
     showMsg("reportMsg","已產生 "+selRows.length+" 張個人成績條");
   });
 }
+function generateStudentReports(){
+  showMsg("reportMsg","產生中...");
+  prepPersonalReports().then(ctx=>{
+    const { data, start, end, schoolRankData } = ctx;
+    if (data.subjects.length===0){ showMsg("reportMsg","這個區間沒有資料，請確認日期範圍", true); return; }
+    const showProg = document.getElementById("reportShowProgress").checked;
+    ctx.withComment = document.getElementById("reportShowComment").checked;
+    const opt = readPersonalOpts();
+    const selRows = pickRows(data, opt);
+    if (selRows.length===0){ showMsg("reportMsg","找不到這個座號", true); return; }
+    const ct = opt.classTable ? buildClassTable(ctx) : null;
+    const ctHtml = classTableHtml(ct, data.subjects.map(x=>x.subj), false);
+    const cards = selRows.map(r=>{
+      const ex = personalExtras(r, ctx);
+      let rowsHtml = "";
+      data.subjects.forEach(({subj})=>{
+        const pr = r.per[subj];
+        rowsHtml += `<tr><td class="st-subj">${subj}</td><td class="st-score">${pr.vals.map(fmtScore).join(" / ")}</td><td class="st-badge">${(!opt.band||pr.avg===null)?'':bandBadgeHtml(pr.rank, pr.rankTotal)}</td></tr>`;
+      });
+      let progHtml = "";
+      if (showProg){
+        const pg = calcProgressText(r.stuKey, examsCache, schoolRankData, start, end);
+        if (pg){
+          if (pg.text) progHtml += `<span class="st-prog ${pg.kind}">${pg.text}</span> `;
+          if (pg.record) progHtml += `<span class="st-prog up">🏆 創個人新高</span> `;
+        }
+      }
+      if (ex.cm && ex.cm.ups.length) progHtml += `<span class="st-prog up">👏 進步：${ex.cm.ups.join("、")}</span>`;
+      const radar = (opt.band && ex.cm && ex.subjList.length>=3) ? `<div class="st-radar">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 120)}</div>` : "";
+      const cmHtml = ex.cm ? `<div class="st-cm"><div>🌟 <b>亮點</b>　${ex.cm.hl}</div><div>🌱 <b>可以更好</b>　${ex.cm.imp}</div><div>🎯 <b>下期小行動</b>${ex.cm.act.map(t=>`<div class="st-act">• ${t}</div>`).join("")}</div></div>` : "";
+      const overall = r.rank===null ? "-" : bandBadgeHtml(r.rank, r.rankTotal);
+      return `<div class="card4"><div class="st-head"><span style="font-size:13px;"><b>${r.name}</b>（${r.no}號）</span><span class="st-range">703班　${start.slice(5)}～${end.slice(5)}</span></div>
+        <div class="st-mid">${radar}<table class="st-table"><thead><tr><th>科目</th><th>成績</th><th>${opt.band?'位置':''}</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
+        <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${opt.band?'　整體 '+overall:''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}${praiseHtml(r,opt).strip}
+        <div class="st-progline">${progHtml}</div>${ctHtml}${cmHtml}
+        <div class="c4-foot"><div>老師的話：＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</div><div style="text-align:right;margin-top:1.5mm;">家長簽名：＿＿＿＿＿＿＿＿</div></div></div>`;
+    });
+    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」，並勾選「背景圖形」。每頁 4 張（2×2），沿虛線剪開。雷達圖：實線＝這次，虛線＝上次段考。${ct && !ct.hasRank ? '<br>ℹ️ 這次段考的各班名次還沒輸入，成績單只印「本班各科平均」，名次到了可用 ⑥ 補發小條。' : ''}</div>` + praiseMissingNote(data.rows, opt);
+    for (let i=0;i<cards.length;i+=4){
+      html += `<div class="card4-page" style="${layoutStyle()}${i+4>=cards.length?'page-break-after:auto;':''}">${cards.slice(i,i+4).join("")}</div>`;
+    }
+    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="printReport()">🖨️ 列印全班個人成績單</button></div>`;
+    document.getElementById("reportOutput").innerHTML = html;
+    showMsg("reportMsg","已產生 "+selRows.length+" 張個人成績單");
+  });
+}
 function generateFullReports(){
   showMsg("reportMsg","產生中...");
   prepPersonalReports().then(ctx=>{
@@ -2621,6 +2702,7 @@ function generateFullReports(){
           <div style="margin-top:8px;font-size:13px;">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${opt.band?'　整體 '+(r.rank===null?'-':bandBadgeHtml(r.rank,r.rankTotal)):''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}
           <div style="margin-top:4px;">${progHtml}</div></div></div>
         ${praiseHtml(r,opt).full}
+        ${opt.classTable ? classTableHtml(buildClassTable(ctx), ex.subjList, false) : ""}
         <table class="fp-table"><thead><tr><th>科目</th><th>成績</th><th>平均</th><th>學習描述</th></tr></thead><tbody>${tbl}</tbody></table>
         ${cmBox}
         <div class="fp-foot"><div>老師的話：＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</div><div style="margin-top:6mm;">＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</div><div style="margin-top:6mm;text-align:right;">家長簽名：＿＿＿＿＿＿＿＿＿＿＿</div></div>
@@ -2746,6 +2828,129 @@ function saveSchoolRankEntry(){
   });
 }
 
+/* ---- 各班平均名次補登（新節點 classRank，獨立於成績）---- */
+function renderCrSelect(){
+  const sel = document.getElementById("crExamSelect");
+  if (!sel) return;
+  const keep = sel.value;
+  sel.innerHTML = "<option value=''>-- 選擇要補登各班名次的段考 --</option>";
+  Object.entries(examsCache).filter(([k,e])=>e.isMajor).sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0)).forEach(([k,e])=>{
+    const o = document.createElement("option"); o.value = k; o.textContent = e.name + "（" + (e.date||"") + "）"; sel.appendChild(o);
+  });
+  if (keep && examsCache[keep]) sel.value = keep;
+}
+function loadClassRankEntry(){
+  const key = document.getElementById("crExamSelect").value;
+  const area = document.getElementById("crEntryArea");
+  const btn = document.getElementById("crSaveBtn");
+  if (!key){ area.innerHTML = ""; btn.classList.add("hidden"); return; }
+  let html = "<table><thead><tr><th>科目</th><th>本班平均（系統計算）</th><th>全校各班名次（第幾名）</th></tr></thead><tbody>";
+  SUBJECTS.forEach(sub=>{
+    html += `<tr><td>${sub}</td><td class="crAvg" data-sub="${sub}">-</td><td><input type="number" min="1" class="crInput" data-sub="${sub}" style="width:90px;"></td></tr>`;
+  });
+  html += "</tbody></table>";
+  area.innerHTML = html;
+  enableArrowNav(area.querySelector("table"));
+  btn.classList.remove("hidden");
+  db.ref("scores/"+key).once("value").then(snap=>{
+    const sc = snap.val() || {}; const act = activeStudents().map(([k])=>k);
+    SUBJECTS.forEach(sub=>{
+      const v = act.map(k=> sc[k] && sc[k][sub]).filter(x=>typeof x==="number");
+      const td = area.querySelector(`.crAvg[data-sub="${sub}"]`);
+      if (td) td.textContent = v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) + "（" + v.length + " 人）" : "-";
+    });
+  });
+  db.ref("classRank/"+key).once("value").then(snap=>{
+    const d = snap.val() || {};
+    if (d.total) document.getElementById("crTotal").value = d.total;
+    Object.entries(d.ranks||{}).forEach(([sub,v])=>{ const i = area.querySelector(`.crInput[data-sub="${sub}"]`); if (i) i.value = v; });
+  });
+}
+function saveClassRankEntry(){
+  const key = document.getElementById("crExamSelect").value;
+  if (!key){ showMsg("crMsg","請先選擇段考", true); return; }
+  const total = Number(document.getElementById("crTotal").value) || 16;
+  const payload = { total: total };
+  let any = false;
+  document.querySelectorAll(".crInput").forEach(i=>{
+    if (i.value !== ""){ const n = Number(i.value); if (n>=1){ payload["ranks/"+i.dataset.sub] = n; any = true; } }
+    else payload["ranks/"+i.dataset.sub] = null; // 清空＝移除該科名次
+  });
+  db.ref("classRank/"+key).update(payload).then(()=>{
+    if (any) db.ref("classRank/"+key+"/enteredAt").once("value").then(m=>{ if (!m.exists()) db.ref("classRank/"+key+"/enteredAt").set(Date.now()); });
+    showMsg("crMsg","各班名次已儲存（只更新名次，分數沒有動）");
+  }).catch(err=>showMsg("crMsg","儲存失敗："+err.message, true));
+}
+
+/* ---- 各班平均與全校名次表（班級整體資料，非個別學生排名）---- */
+function buildClassTable(ctx){
+  const { start, end, allScores } = ctx; const crd = ctx.classRankData || {};
+  const byDate = (a,b)=> (a[1].date||"").localeCompare(b[1].date||"") || (a[1].createdAt||0)-(b[1].createdAt||0);
+  const majors = Object.entries(examsCache).filter(([k,e])=>e.isMajor).sort(byDate);
+  const inRange = majors.filter(([k,e])=>(e.date||"")>=start && (e.date||"")<=end);
+  if (!inRange.length) return null;
+  const [ck, ce] = inRange[inRange.length-1];
+  const prevs = majors.filter(([k,e])=> byDate([k,e],[ck,ce])<0);
+  const pk = prevs.length ? prevs[prevs.length-1] : null;
+  const sc = allScores[ck] || {}; const act = activeStudents().map(([k])=>k);
+  const avg = {}, rank = {}, prevRank = {}, delta = {};
+  const cur = crd[ck] || {}, prev = pk ? (crd[pk[0]] || {}) : {};
+  SUBJECTS.forEach(sub=>{
+    const v = act.map(k=> sc[k] && sc[k][sub]).filter(x=>typeof x==="number");
+    avg[sub] = v.length ? v.reduce((a,b)=>a+b,0)/v.length : null;
+    rank[sub] = (cur.ranks && cur.ranks[sub]) || null;
+    prevRank[sub] = (prev.ranks && prev.ranks[sub]) || null;
+    delta[sub] = (rank[sub] && prevRank[sub]) ? prevRank[sub] - rank[sub] : null;
+  });
+  return { examKey: ck, examName: ce.name || "段考", prevName: pk ? (pk[1].name||"上次段考") : null,
+    total: cur.total || 16, prevTotal: prev.total || cur.total || 16, avg, rank, prevRank, delta,
+    hasRank: Object.values(rank).some(x=>x), hasPrev: Object.values(prevRank).some(x=>x) };
+}
+function deltaCell(d){
+  if (d===null || d===undefined) return "";
+  if (Math.abs(d) <= 1) return `<span class="ct-flat">持平</span>`;
+  return d >= 2 ? `<span class="ct-up">▲${d}</span>` : `<span class="ct-down">▼${-d}</span>`;
+}
+function classTableHtml(ct, subjList, onlyRank){
+  if (!ct) return "";
+  const subs = subjList.filter(s=>SUBJECTS.includes(s));
+  if (!subs.length) return "";
+  if (onlyRank && !ct.hasRank) return "";
+  const th = subs.map(s=>`<th>${s}</th>`).join("");
+  let rows = `<tr><th class="ct-l">科目</th>${th}</tr>`;
+  rows += `<tr><th class="ct-l">班平均</th>${subs.map(s=>`<td>${ct.avg[s]===null?'-':ct.avg[s].toFixed(1)}</td>`).join("")}</tr>`;
+  if (ct.hasRank){
+    rows += `<tr><th class="ct-l">班級名次</th>${subs.map(s=>`<td>${ct.rank[s]?('第'+ct.rank[s]+'名'):'-'}</td>`).join("")}</tr>`;
+    rows += `<tr><th class="ct-l">上次名次</th>${subs.map(s=>`<td>${ct.prevRank[s]?('第'+ct.prevRank[s]+'名'):'-'}</td>`).join("")}</tr>`;
+    rows += `<tr><th class="ct-l">進退步</th>${subs.map(s=>`<td>${ct.delta[s]===null?'':deltaCell(ct.delta[s])}</td>`).join("")}</tr>`;
+  }
+  const cap = ct.hasRank ? `🏫 各班平均｜${ct.examName}（全校 ${ct.total} 班）` : `🏫 本班各科平均｜${ct.examName}`;
+  return `<div class="ct-wrap"><div class="ct-cap">${cap}<span>班級整體表現，非個人排名</span></div><table class="ct-table">${rows}</table></div>`;
+}
+
+/* ---- 各班名次公布後的補發小條（全班共用內容，每人一張讓家長簽名）---- */
+function generateClassRankSlips(){
+  showMsg("reportMsg","產生中...");
+  prepPersonalReports().then(ctx=>{
+    const { data } = ctx;
+    const opt = readPersonalOpts();
+    const ct = buildClassTable(ctx);
+    if (!ct || !ct.hasRank){ showMsg("reportMsg","這個區間的段考還沒有各班名次，請先到「段考成績」頁下方「各班平均名次補登」輸入", true); return; }
+    const rows = pickRows(data, opt);
+    const subjList = data.subjects.map(x=>x.subj);
+    const tbl = classTableHtml(ct, subjList, true);
+    const slips = rows.map(r=>`<div class="slip"><div class="slip-head"><span><b>${r.name}</b>（${r.no}號）</span><span class="st-range">${ct.examName}</span></div>${tbl}<div class="st-sign" style="margin-top:1mm;">家長簽名：＿＿＿＿＿＿</div></div>`);
+    const top = Number((document.getElementById("layTop")||{}).value)||0;
+    const h = Math.max(Number((document.getElementById("laySlipH")||{}).value)||34, 40);
+    const per = 2*Math.max(1, Math.floor((285-top)/h));
+    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」、勾選「背景圖形」。每頁 ${per} 張，沿虛線剪開。這是班級整體資料，不含任何個人排名。</div>`;
+    for (let i=0;i<slips.length;i+=per) html += `<div class="slip-page" style="${layoutStyle()}--slip-h:${h}mm;${i+per>=slips.length?'page-break-after:auto;':''}">${slips.slice(i,i+per).join("")}</div>`;
+    html += `<div class="row no-print" style="margin-top:10px;"><button onclick="printReport()">🖨️ 列印補發小條</button></div>`;
+    document.getElementById("reportOutput").innerHTML = html;
+    showMsg("reportMsg","已產生 "+slips.length+" 張各班名次補發小條");
+  });
+}
+
 /* ---- 校排名公布後的補發小條 ---- */
 function generateRankSlips(){
   showMsg("reportMsg","產生中...");
@@ -2796,7 +3001,7 @@ window.addEventListener("beforeprint", ()=>{
   if (tab && out && tab.classList.contains("active") && out.children.length > 0) document.body.classList.add("print-report");
 });
 window.addEventListener("afterprint", ()=> document.body.classList.remove("print-report"));
-const LAYOUT_IDS = ["layStripH","layStripFs","laySlipH","layTop"];
+const LAYOUT_IDS = ["layStripH","layCardH","layStripFs","laySlipH","layTop"];
 function saveLayout(){
   LAYOUT_IDS.forEach(id=>{ const e=document.getElementById(id); if (e) try{ localStorage.setItem("layout_"+id, e.value); }catch(x){} });
 }
@@ -2807,7 +3012,7 @@ window.addEventListener("load", loadLayout);
 function layoutStyle(){
   const g=(id,d)=>{ const e=document.getElementById(id); const v=e?Number(e.value):NaN; return isFinite(v)&&v>0 ? v : d; };
   const top = (()=>{ const e=document.getElementById("layTop"); const v=e?Number(e.value):0; return isFinite(v)&&v>=0?v:0; })();
-  return `--strip-h:${g("layStripH",68)}mm;--strip-fs:${g("layStripFs",100)/100};--slip-h:${g("laySlipH",34)}mm;--page-top:${top}mm;`;
+  return `--strip-h:${g("layStripH",68)}mm;--card-h:${g("layCardH",140)}mm;--strip-fs:${g("layStripFs",100)/100};--slip-h:${g("laySlipH",34)}mm;--page-top:${top}mm;`;
 }
 
 /* ---- 完整資料備份（唯讀，不會動到任何既有資料）---- */
