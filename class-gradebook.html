@@ -2630,7 +2630,7 @@ function generateStrips8(){
       const overall = r.rank===null ? "-" : bandBadgeHtml(r.rank, r.rankTotal);
       return `<div class="strip"><div class="st-head"><span><b>${r.name}</b>（${r.no}號）</span><span class="st-range">${start.slice(5)}～${end.slice(5)}</span></div>
         <div class="st-mid">${radar}<table class="st-table"><thead><tr><th>科目</th><th>成績</th><th>${opt.band?'位置':''}</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
-        <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${opt.band?'　整體 '+overall:''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}${praiseHtml(r,opt).strip}
+        <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${(opt.band && rankOptInCache[r.stuKey])?'　整體 '+overall:''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}${praiseHtml(r,opt).strip}
         <div class="st-progline">${progHtml}</div>${cmHtml}
         <div class="st-sign">家長簽名：＿＿＿＿＿＿＿</div></div>`;
     });
@@ -2689,7 +2689,7 @@ function generateStudentReports(){
       const overall = r.rank===null ? "-" : bandBadgeHtml(r.rank, r.rankTotal);
       return `<div class="card4"><div class="st-head"><span style="font-size:13px;"><b>${r.name}</b>（${r.no}號）</span><span class="st-range">703班　${start.slice(5)}～${end.slice(5)}</span></div>
         <div class="st-mid">${radar}<table class="st-table"><thead><tr><th>科目</th><th>成績</th><th>${opt.band?'位置':''}</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
-        <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${opt.band?'　整體 '+overall:''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}${praiseHtml(r,opt).strip}
+        <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${(opt.band && rankOptInCache[r.stuKey])?'　整體 '+overall:''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}${praiseHtml(r,opt).strip}
         <div class="st-progline">${progHtml}</div>${ctHtml}${cmHtml}
         <div class="c4-foot"><div class="c4-note">位置色塊為班內大致區間，▲▼＝與上次段考相比。</div><div style="text-align:right;margin-top:1mm;">家長簽名：＿＿＿＿＿＿＿＿＿　日期：＿＿／＿＿</div></div></div>`;
     });
@@ -2736,7 +2736,7 @@ function generateFullReports(){
       html += `<div class="full-page"${idx===selRows.length-1?' style="page-break-after:auto;"':""}>
         <div class="fp-head"><h3>703班 個人學習報告</h3><div><b style="font-size:18px;">${r.name}</b>（座號 ${r.no}）<span class="st-range">　區間 ${start} ～ ${end}</span></div></div>
         <div class="fp-top">${radar}<div class="fp-bars">${opt.band?'<div style="font-size:12px;font-weight:700;margin-bottom:4px;">各科班級內位置</div>':''}${bars}
-          <div style="margin-top:8px;font-size:13px;">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${opt.band?'　整體 '+(r.rank===null?'-':bandBadgeHtml(r.rank,r.rankTotal)):''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}
+          <div style="margin-top:8px;font-size:13px;">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${(opt.band && rankOptInCache[r.stuKey])?'　整體 '+(r.rank===null?'-':bandBadgeHtml(r.rank,r.rankTotal)):''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}
           <div style="margin-top:4px;">${progHtml}</div></div></div>
         ${praiseHtml(r,opt).full}
         ${opt.classTable ? classTableHtml(buildClassTable(ctx), ex.subjList, false) : ""}
