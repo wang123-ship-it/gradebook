@@ -145,7 +145,14 @@
   .card4{ zoom:var(--strip-fs,1); border:1px dashed #666; padding:2.5mm 3.5mm; font-size:10px; line-height:1.25; overflow:hidden; background:#fff; box-sizing:border-box; display:flex; flex-direction:column; }
   .card4 .st-radar{ width:36mm; }
   .card4 .band-badge{ padding:0 6px; font-size:9px; white-space:nowrap; }
+  .card4{ font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC","Heiti TC",sans-serif; }
   .card4 > *{ flex-shrink:0; }
+  .card4 .st-cm{ background:#fbf9f1; border-left:3px solid #c9a24a; border-radius:2px; padding:1.5mm 2mm; margin-top:1.5mm; }
+  .card4 .st-cm u{ text-underline-offset:2px; text-decoration-thickness:1px; }
+  .rd-leg{ font-size:8px; line-height:1.2; color:#666; text-align:center; margin-top:0.5mm; }
+  .pos-up{ color:#2e7d32; font-size:10px; font-weight:700; margin-left:2px; }
+  .pos-down{ color:#c96a3e; font-size:10px; font-weight:700; margin-left:2px; }
+  .c4-note{ font-size:8px; color:#777; }
   .card4 .st-progline{ min-height:0; }
   .card4 .st-table{ table-layout:fixed; }
   .card4 .st-table th, .card4 .st-table td{ width:33.33%; }
@@ -158,6 +165,7 @@
   .card4 .st-rank{ font-size:12px; padding:1px 4px; margin-top:1mm; }
   .card4 .st-praise{ font-size:10px; }
   .cm-row{ display:flex; gap:2mm; align-items:flex-start; margin-bottom:1.2mm; }
+  .cm-row:last-child{ margin-bottom:0; }
   .cm-lab{ flex:none; width:6.4em; white-space:nowrap; }
   .cm-txt{ flex:1; min-width:0; }
   .cm-act{ display:flex; gap:1.2mm; align-items:flex-start; }
@@ -2488,6 +2496,7 @@ function radarSvg(labels, cur, prev, px){
 
 // 評語：回傳 {hl, imp, act, hlS, actS, ups, lines:{subj:text}}
 // 亮點仍依班級位置色塊；各科描述與小行動依「該科平均分數區間」，小行動取最低 3 科（81分以上的科目只在全部都 81+ 時取最低 1 科）
+const fmtSubj = s=>`<b><u>${s}</u></b>`;
 function buildComment(r, data, prevBands){
   const subs = data.subjects.map(x=>x.subj).filter(s=> r.per[s].avg!==null && SUBJ_TXT[s]);
   if (subs.length<3) return null;
@@ -2502,19 +2511,19 @@ function buildComment(r, data, prevBands){
     else if (worstB.b<=3){ hl="各科發展均衡，沒有明顯弱科，基礎很扎實。"; hlS="各科發展均衡、基礎扎實"; }
     else { hl="每一科都已有基礎，穩定練習就能一起往上。"; hlS="各科基礎已建立，穩定練習會進步"; }
   } else {
-    hl = `${S}：${SUBJ_TXT[S].strong}`; hlS = `${S}（${SUBJ_TXT[S].ab}）`;
+    hl = `${fmtSubj(S)}：${SUBJ_TXT[S].strong}`; hlS = `${fmtSubj(S)}（${SUBJ_TXT[S].ab}）`;
   }
   const byScore = info.slice().sort((a,b)=> a.avg-b.avg);
   let focus = byScore.filter(x=>x.tier<=2).slice(0,3);
   if (!focus.length) focus = byScore.slice(0,1);
   let act, actS;
   const low = byScore[0];
-  if (low.tier<=2){ imp = `${low.s}：${SUBJ_TXT[low.s].t[low.tier].d}`; }
+  if (low.tier<=2){ imp = `${fmtSubj(low.s)}：${SUBJ_TXT[low.s].t[low.tier].d}`; }
   else { imp = "目前沒有明顯需要加強的科目，保持現在的學習節奏，試著挑戰更有深度的題目。"; }
-  act = focus.map(x=>`${x.s}：${SUBJ_TXT[x.s].t[x.tier].f}`);
-  actS = focus.map(x=>`${x.s}：${SUBJ_TXT[x.s].t[x.tier].s}`);
+  act = focus.map(x=>`${fmtSubj(x.s)}：${SUBJ_TXT[x.s].t[x.tier].f}`);
+  actS = focus.map(x=>`${fmtSubj(x.s)}：${SUBJ_TXT[x.s].t[x.tier].s}`);
   const ups = prevBands ? subs.filter(s=> prevBands[s]!==undefined && prevBands[s]!==null && subjBandOf(r.per[s]) < prevBands[s]) : [];
-  if (ups.length) hl += `（${ups.join("、")}比上次段考更進一步 👏）`;
+  if (ups.length) hl += `（${ups.map(fmtSubj).join("、")}比上次段考更進一步 👏）`;
   const lines = {};
   info.forEach(x=>{ lines[x.s] = SUBJ_TXT[x.s].t[x.tier].d; });
   return { hl, imp, act, hlS, actS, ups, lines };
@@ -2662,7 +2671,9 @@ function generateStudentReports(){
       let rowsHtml = "";
       data.subjects.forEach(({subj})=>{
         const pr = r.per[subj];
-        rowsHtml += `<tr><td class="st-subj">${subj}</td><td class="st-score">${pr.vals.map(fmtScore).join(" / ")}</td><td class="st-badge">${(!opt.band||pr.avg===null)?'':bandBadgeHtml(pr.rank, pr.rankTotal)}</td></tr>`;
+        const pb = ex.prev && ex.prev.bands ? ex.prev.bands[subj] : null, cb = subjBandOf(pr);
+        const arrow = (opt.band && pb!==null && pb!==undefined && cb!==null) ? (cb<pb ? '<span class="pos-up">▲</span>' : (cb>pb ? '<span class="pos-down">▼</span>' : '')) : '';
+        rowsHtml += `<tr><td class="st-subj">${subj}</td><td class="st-score">${pr.vals.map(fmtScore).join(" / ")}</td><td class="st-badge">${(!opt.band||pr.avg===null)?'':bandBadgeHtml(pr.rank, pr.rankTotal)}${arrow}</td></tr>`;
       });
       let progHtml = "";
       if (showProg){
@@ -2673,14 +2684,14 @@ function generateStudentReports(){
         }
       }
       if (ex.cm && ex.cm.ups.length) progHtml += `<span class="st-prog up">👏 進步：${ex.cm.ups.join("、")}</span>`;
-      const radar = (opt.band && ex.cm && ex.subjList.length>=3) ? `<div class="st-radar">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 120)}</div>` : "";
+      const radar = (opt.band && ex.cm && ex.subjList.length>=3) ? `<div class="st-radar">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 120)}<div class="rd-leg">━ 這次　<span style="color:#9aa5a0;">┅ 上次段考</span></div></div>` : "";
       const cmHtml = ex.cm ? `<div class="st-cm"><div class="cm-row"><span class="cm-lab">🌟 <b>亮點</b></span><span class="cm-txt">${ex.cm.hl}</span></div><div class="cm-row"><span class="cm-lab">🌱 <b>可以更好</b></span><span class="cm-txt">${ex.cm.imp}</span></div><div class="cm-row"><span class="cm-lab">🎯 <b>下期小行動</b></span><span class="cm-txt">${ex.cm.act.map(t=>`<div class="cm-act"><span class="cm-dot">•</span><span>${t}</span></div>`).join("")}</span></div></div>` : "";
       const overall = r.rank===null ? "-" : bandBadgeHtml(r.rank, r.rankTotal);
       return `<div class="card4"><div class="st-head"><span style="font-size:13px;"><b>${r.name}</b>（${r.no}號）</span><span class="st-range">703班　${start.slice(5)}～${end.slice(5)}</span></div>
         <div class="st-mid">${radar}<table class="st-table"><thead><tr><th>科目</th><th>成績</th><th>${opt.band?'位置':''}</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
         <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${opt.band?'　整體 '+overall:''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}${praiseHtml(r,opt).strip}
         <div class="st-progline">${progHtml}</div>${ctHtml}${cmHtml}
-        <div class="c4-foot"><div style="text-align:right;">家長簽名：＿＿＿＿＿＿＿＿＿＿</div></div></div>`;
+        <div class="c4-foot"><div class="c4-note">位置色塊為班內大致區間，▲▼＝與上次段考相比。</div><div style="text-align:right;margin-top:1mm;">家長簽名：＿＿＿＿＿＿＿＿＿　日期：＿＿／＿＿</div></div></div>`;
     });
     let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」，並勾選「背景圖形」。每頁 4 張（2×2），沿虛線剪開。雷達圖：實線＝這次，虛線＝上次段考。${ct && !ct.hasRank ? '<br>ℹ️ 這次段考的各班名次還沒輸入，成績單只印「本班各科平均」，名次到了可用 ⑥ 補發小條。' : ''}</div>` + praiseMissingNote(data.rows, opt);
     for (let i=0;i<cards.length;i+=4){
