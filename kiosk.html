@@ -104,7 +104,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-23c</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-23d</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -522,7 +522,7 @@ function statData(){
   const td=todayKey(),d3=dayAgo(2),c={};
   students.forEach(s=>c[s.key]={late:[0,0,0],miss:[0,0,0],leave:0,pend:0});
   Object.keys(status).forEach(tid=>Object.keys(status[tid]||{}).forEach(k=>{
-    const r=status[tid][k],x=c[k];if(!x||!r)return;
+    const r=status[tid][k],x=c[k];if(!x||!r)return;if(settings.statFrom&&r.d<settings.statFrom)return;
     if(r.s==='leave'){x.leave++;return}
     const a=r.s==='late'?x.late:r.s==='miss'?x.miss:null;if(!a)return;
     a[2]++;if(r.d>=d3)a[1]++;if(r.d===td)a[0]++;
@@ -536,13 +536,22 @@ function renderStat(){
   if(statSort==='miss')L.sort((a,b)=>c[b.key].miss[2]-c[a.key].miss[2]||a.no-b.no);
   if(statSort==='late')L.sort((a,b)=>c[b.key].late[2]-c[a.key].late[2]||a.no-b.no);
   const cell=(v,cls)=>`<td class="${v?cls:'z'}">${v||'·'}</td>`;
-  $('#p-stat').innerHTML=`<div class="bar"><span style="font-size:20px;color:var(--mut)">排序：</span>
+  const sf=settings.statFrom||'';
+  $('#p-stat').innerHTML=`<div class="bar"><span style="font-size:22px;font-weight:800">統計起算日：${sf?sf.slice(5).replace('-','/'):'全部紀錄'}</span>
+    <button class="chip" id="stReset">🔄 從今天重新計算</button>
+    <input type="date" class="txt" id="stFrom" value="${sf}" style="min-width:0;font-size:18px;padding:8px">
+    ${sf?'<button class="chip" id="stAll">看全部</button>':''}</div>
+  <div class="bar"><span style="font-size:20px;color:var(--mut)">排序：</span>
     ${[['no','座號'],['miss','缺交多→少'],['late','遲交多→少']].map(x=>`<button class="chip ${statSort===x[0]?'on':''}" data-so="${x[0]}">${x[1]}</button>`).join('')}
     <button class="btn gray" id="stCsv" style="margin-left:auto">匯出 CSV</button></div>
   <table class="st"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th><th rowspan="2">待處理<br>(未交)</th><th colspan="3">遲交（補交）</th><th colspan="3">缺交（封存後）</th><th rowspan="2">請假<br>累計</th></tr>
   <tr><th>今日</th><th>近3日</th><th>累計</th><th>今日</th><th>近3日</th><th>累計</th></tr></thead><tbody>
   ${L.map(s=>{const x=c[s.key];return `<tr><td class="z">${s.no}</td><td class="n">${esc(s.name)}</td>${cell(x.pend,'w')}${cell(x.late[0],'w')}${cell(x.late[1],'w')}${cell(x.late[2],'w')}${cell(x.miss[0],'r')}${cell(x.miss[1],'r')}${cell(x.miss[2],'r')}${cell(x.leave,'w')}</tr>`}).join('')}
   </tbody></table>`;
+  const needPin=f=>{unlocked?f():askPin(f)};
+  $('#stReset').onclick=()=>needPin(()=>askYN('從今天（'+todayKey().slice(5).replace('-','/')+'）重新計算？','遲交、缺交次數會從今天起重新累計；舊紀錄仍保留在歷史作業，不會刪除。',()=>db.ref('kiosk/settings/statFrom').set(todayKey())));
+  $('#stFrom').onchange=e=>needPin(()=>{e.target.value?db.ref('kiosk/settings/statFrom').set(e.target.value):db.ref('kiosk/settings/statFrom').remove()});
+  if($('#stAll'))$('#stAll').onclick=()=>needPin(()=>db.ref('kiosk/settings/statFrom').remove());
   $('#p-stat').querySelectorAll('[data-so]').forEach(b=>b.onclick=()=>{statSort=b.dataset.so;renderStat()});
   $('#stCsv').onclick=()=>{
     const rows=[['座號','姓名','待處理','遲交今日','遲交近3日','遲交累計','缺交今日','缺交近3日','缺交累計','請假累計']].concat(students.map(s=>{const x=c[s.key];return [s.no,s.name,x.pend,...x.late,...x.miss,x.leave]}));
