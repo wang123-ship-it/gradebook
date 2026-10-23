@@ -76,11 +76,14 @@ input.txt{font-size:22px;padding:12px 14px;border:2px solid var(--line);border-r
 .sqbtns{display:flex;gap:6px;flex-wrap:wrap}
 .sqbtns .chip{min-height:48px;padding:8px 16px;font-size:20px}
 button.tile.done{cursor:default}button.tile.done:active{transform:none}
-.bkday{margin-bottom:16px}.bkday h3{margin:0 0 8px;font-size:24px}.bkday h3 small{color:var(--mut);font-weight:600;font-size:18px;margin-left:8px}
-.bkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
-.bk{display:flex;align-items:center;gap:12px;background:#fff;border:3px solid var(--line);border-radius:18px;padding:12px 14px}
-.bks{width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;flex-shrink:0}
-.bkt{font-size:26px;font-weight:800}.bkn{font-size:18px;color:var(--mut)}
+.bkday{margin-bottom:18px}.bkday h3{margin:0 0 8px;font-size:32px;font-weight:900}.bkday h3 small{color:var(--mut);font-weight:700;font-size:24px;margin-left:10px}
+.bkgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.bkrow{background:#fff;border:3px solid var(--line);border-radius:18px;padding:8px 16px 10px}
+.bkhd{display:flex;align-items:center;gap:10px}
+.bs{font-size:36px;font-weight:900}
+.bty{font-size:25px;font-weight:800;padding:1px 14px;border-radius:12px;color:#fff;white-space:nowrap}
+.bnt{display:block;font-size:36px;font-weight:800;line-height:1.25;overflow-wrap:anywhere;min-height:44px;margin-top:2px}
+.bkdiary{position:sticky;bottom:0;margin-top:10px;background:#fff3c4;border:3px solid #e6c34a;border-radius:18px;padding:12px 22px;font-size:34px;font-weight:800}.bkdiary b{color:var(--bad)}.bkdiary small{font-size:22px;color:var(--mut);margin-left:14px;font-weight:600}.bkdiary.off{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
 .lt{background:#fff;border:3px solid var(--late);border-radius:18px;padding:14px;margin-bottom:12px}
 .lt h3{margin:0 0 10px;font-size:24px}.lt h3 small{color:var(--late);font-size:18px;margin-left:8px}
 .nm2{display:inline-block;margin:4px;padding:10px 16px;border-radius:14px;background:var(--latebg);font-size:26px;font-weight:800}
@@ -170,7 +173,7 @@ firebase.initializeApp({
 const db=firebase.database();
 const $=s=>document.querySelector(s);
 const SUBJ=["國","英","數","自","地","歷","公","其他"];
-const TYPES=["作業","訂正","小考","帶物品"];
+const TYPES=["作業","訂正","小考","考試","帶物品"];
 const pad2=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const todayKey=()=>ymd(new Date());
@@ -306,8 +309,16 @@ let tt;function toast(m){
 }
 
 /* ---------- 收作業 ---------- */
+function diaryTask(){
+  const d=new Date();
+  if(d.getDay()==0||d.getDay()==6||settings.diaryOff)return null;
+  if(settings.skip&&settings.skip[todayKey()])return null;
+  return {id:'lj_'+todayKey(),subj:'',type:'聯絡簿',note:'生活札記',due:todayKey(),createdAt:9e15,virtual:true};
+}
 function openTasks(){
-  return Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!t.closed).sort((a,b)=>(a.due||'').localeCompare(b.due||'')||a.createdAt-b.createdAt);
+  const L=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!t.closed).sort((a,b)=>(a.due||'').localeCompare(b.due||'')||a.createdAt-b.createdAt);
+  const dt=diaryTask();if(dt)L.push(dt);
+  return L;
 }
 function sqOf(k){return squads[k]||0}
 function renderHw(){
@@ -422,12 +433,18 @@ function dayLabel(d){
   const nm=n===0?'今天':n===1?'明天':n===2?'後天':'';
   return `${md} ${w}<small>${nm}</small>`;
 }
+const SFULL={國:'國文',英:'英文',數:'數學',自:'自然',地:'地理',歷:'歷史',公:'公民',其他:'其他'};
+const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',考試:'#d9534f',帶物品:'#2e9e6b'};
 function bookHtml(){
   const td=todayKey();
-  const T=openTasks().filter(t=>!t.due||t.due>=td);
-  if(!T.length)return '<div class="nodata">目前沒有登記的聯絡簿 🎉</div>';
-  const g={};T.forEach(t=>(g[t.due||'9999']=g[t.due||'9999']||[]).push(t));
-  return Object.keys(g).sort().map(d=>`<div class="bkday"><h3>${d==='9999'?'未訂日期':dayLabel(d)}<small>繳交</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bk"><div class="bks" style="background:${SCOLOR[t.subj]||'#7a7787'}">${esc(t.subj.slice(0,1))}</div><div><div class="bkt">${esc(t.subj==='其他'?'':t.subj)}${esc(t.type)}</div><div class="bkn">${esc(t.note||'')}</div></div></div>`).join('')}</div></div>`).join('');
+  const T=openTasks().filter(t=>!t.virtual&&(!t.due||t.due>=td));
+  let h='';
+  if(!T.length)h='<div class="nodata">目前沒有登記的聯絡簿項目 🎉</div>';
+  else{
+    const g={};T.forEach(t=>(g[t.due||'9999']=g[t.due||'9999']||[]).push(t));
+    h=Object.keys(g).sort().map(d=>`<div class="bkday"><h3>${d==='9999'?'未訂日期':dayLabel(d)}<small>繳交／考試</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow"><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(t.type)}</span></div><span class="bnt">${esc(t.note||'')}</span></div>`).join('')}</div></div>`).join('');
+  }
+  return h;
 }
 function renderBook(){
   if(curTab!=='book')return;
@@ -435,16 +452,16 @@ function renderBook(){
 }
 function renderLate(){
   if(curTab!=='late')return;
-  const td=todayKey(),T=openTasks().filter(t=>t.due&&t.due<td);
+  const td=todayKey(),T=openTasks().filter(t=>!t.virtual&&t.due&&t.due<=td).sort((a,b)=>a.due.localeCompare(b.due));
   let items=0,ppl=0,h='';
   T.forEach(t=>{
     const miss=students.filter(s=>!(checks[t.id]||{})[s.key]);
     if(!miss.length)return;
     items++;ppl+=miss.length;
     const days=Math.round((new Date(td+'T00:00:00')-new Date(t.due+'T00:00:00'))/864e5);
-    h+=`<div class="lt"><h3>${esc(t.subj==='其他'?'':t.subj)}${esc(t.type)} <small>${esc(t.note||'')}　應交 ${t.due.slice(5).replace('-','/')}　已逾 ${days} 天　尚缺 ${miss.length} 人</small></h3>${miss.map(s=>`<span class="nm2">${esc(s.name)}${att[s.key]?'':'<small>未到</small>'}</span>`).join('')}</div>`;
+    h+=`<div class="lt"><h3>${esc(t.subj==='其他'?'':t.subj)}${esc(t.type)} <small>${esc(t.note||'')}　應交 ${t.due.slice(5).replace('-','/')}　${days>0?'已逾 '+days+' 天':'今天要交'}　尚缺 ${miss.length} 人</small></h3>${miss.map(s=>`<span class="nm2">${esc(s.name)}${att[s.key]?'':'<small>未到</small>'}</span>`).join('')}</div>`;
   });
-  $('#p-late').innerHTML=items?`<div class="bar"><div class="stat" style="color:var(--late)">遲交 ${items} 項<small>共 ${ppl} 人次</small></div></div>`+h:'<div class="nodata">沒有遲交的作業或物品 👏</div>';
+  $('#p-late').innerHTML=items?`<div class="bar"><div class="stat" style="color:var(--late)">遲交 ${items} 項<small>共 ${ppl} 人次</small></div></div>`+h:'<div class="nodata">目前沒有未交的作業或物品 👏</div>';
 }
 function renderCadre(){
   if(curTab!=='cadre')return;
@@ -498,7 +515,7 @@ function renderAdmin(){
   </div>
   <div class="sec"><h3>⚙ 設定</h3>
     <div class="row">遲到時間：<button class="chip" id="lMinus">－5分</button><b style="font-size:26px">${settings.lateTime}</b><button class="chip" id="lPlus">＋5分</button>
-    <span style="width:20px"></span><button class="btn gray" id="chgPin">改密碼</button><button class="btn gray" id="expCsv">匯出今日報到 CSV</button><button class="btn gray" id="clrAtt">清空今日報到</button><button class="btn red" id="lock">🔒 上鎖</button></div>
+    <span style="width:20px"></span><button class="chip ${settings.skip&&settings.skip[todayKey()]?'on':''}" id="skipDiary">📔 今天不用交聯絡簿</button><button class="chip ${settings.diaryOff?'':'on'}" id="diaryOn">每天自動收聯絡簿：${settings.diaryOff?'關':'開'}</button><span style="width:20px"></span><button class="btn gray" id="chgPin">改密碼</button><button class="btn gray" id="expCsv">匯出今日報到 CSV</button><button class="btn gray" id="clrAtt">清空今日報到</button><button class="btn red" id="lock">🔒 上鎖</button></div>
     <div style="margin-top:10px;color:var(--mut);font-size:17px">小提示：長按最上方任一標籤（約 1 秒），可用 ◀ ▶ 調整標籤順序，標籤不會消失。</div>
   </div>`;
   const A=$('#adminBody');
@@ -520,6 +537,8 @@ function renderAdmin(){
   $('#sqPlus').onclick=()=>db.ref('kiosk/settings/squadCount').set(Math.min(12,settings.squadCount+1));
   const shift=m=>{let [h,mi]=settings.lateTime.split(':').map(Number);let t=h*60+mi+m;t=Math.max(0,Math.min(1439,t));db.ref('kiosk/settings/lateTime').set(pad2(Math.floor(t/60))+':'+pad2(t%60))};
   $('#lMinus').onclick=()=>shift(-5);$('#lPlus').onclick=()=>shift(5);
+  $('#skipDiary').onclick=()=>{const r=db.ref('kiosk/settings/skip/'+todayKey());(settings.skip&&settings.skip[todayKey()])?r.remove():r.set(true)};
+  $('#diaryOn').onclick=()=>{const r=db.ref('kiosk/settings/diaryOff');settings.diaryOff?r.remove():r.set(true)};
   $('#chgPin').onclick=()=>askPin(null,'change');
   $('#lock').onclick=()=>{unlocked=false;showTab('checkin')};
   $('#clrAtt').onclick=function(){if(this.dataset.a){db.ref('kiosk/attendance/'+curDay).remove();this.textContent='清空今日報到';delete this.dataset.a}else{this.dataset.a=1;this.textContent='再按一次確認清空'}};
