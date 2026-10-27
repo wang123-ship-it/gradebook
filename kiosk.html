@@ -35,6 +35,7 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 .tile{position:relative;min-height:92px;border-radius:18px;border:3px solid var(--line);background:#fff;padding:8px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:26px;font-weight:800}
 .tile .no{font-size:15px;color:var(--mut);font-weight:600}
 .tile .tm{font-size:17px;font-weight:700;margin-top:2px}
+.tile.abs{background:#eee6f8;border-color:#8e5bd1}
 .tile.in{background:var(--okbg);border-color:var(--ok)}
 .tile.late{background:var(--latebg);border-color:var(--late)}
 .tile.late .tm{color:var(--late)}
@@ -47,6 +48,7 @@ table.hw th{position:sticky;top:0;z-index:3;background:var(--bg);font-size:17px;
 table.hw th .sub{display:block;font-size:13px;color:var(--mut);font-weight:500}
 table.hw td.nm{font-size:23px;font-weight:800;white-space:nowrap;padding:0 10px;background:#fff;border-radius:12px;min-width:150px;width:1%}
 table.hw td.nm small{color:var(--mut);font-weight:600;font-size:14px;margin-right:6px}
+table.hw tr.sq td.sqc{background:#dfe9f8;border-radius:12px;text-align:center;font-size:20px;font-weight:800;padding:8px 6px}
 table.hw tr.sq td.sqh{background:#dfe9f8;border-radius:12px;font-size:20px;font-weight:800;padding:8px 14px}
 .cell{height:68px;min-width:92px;border-radius:14px;border:3px solid var(--line);background:#fff;font-size:30px;font-weight:800;color:#c9c5b8;width:100%}
 .cell.y{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
@@ -84,6 +86,7 @@ button.tile.done{cursor:default}button.tile.done:active{transform:none}
 .bty{font-size:25px;font-weight:800;padding:1px 14px;border-radius:12px;color:#fff;white-space:nowrap}
 .bnt{display:block;font-size:36px;font-weight:800;line-height:1.25;overflow-wrap:anywhere;min-height:44px;margin-top:2px}
 .bkdiary{position:sticky;bottom:0;margin-top:10px;background:#fff3c4;border:3px solid #e6c34a;border-radius:18px;padding:12px 22px;font-size:34px;font-weight:800}.bkdiary b{color:var(--bad)}.bkdiary small{font-size:22px;color:var(--mut);margin-left:14px;font-weight:600}.bkdiary.off{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.nchip{display:inline-flex;align-items:center;gap:2px;background:#f4f1ea;border:2px solid var(--line);border-radius:22px;padding:4px 6px 4px 14px;font-size:22px}.nchip button{border:0;background:#fff;border-radius:10px;min-width:44px;min-height:44px;font-size:18px;font-weight:700;margin-left:2px}
 .fin{min-height:40px;padding:4px 14px;font-size:16px;margin-top:4px}
 .mini{font-size:20px;font-weight:800;margin-left:8px;padding:8px 14px;min-height:52px;border:0;border-radius:12px;background:var(--ok);color:#fff}
 .mini.lv{background:#8e5bd1}.mini:disabled{opacity:.25}
@@ -104,7 +107,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-27a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-27d</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -173,6 +176,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <div class="modal" id="mHist" style="z-index:70"><div class="box" style="width:92vw;max-width:1000px">
   <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">📚 歷史作業（已封存）</h2><button class="btn gray" id="histClose">關閉</button></div>
   <div id="histBody"></div></div></div>
+<div class="modal" id="mMk" style="z-index:55"><div class="box" style="min-width:520px"><div id="mkBody"></div></div></div>
 <div class="modal" id="mCf"><div class="box" style="text-align:center;min-width:460px">
   <div style="font-size:24px;color:var(--mut)">要報到的是</div>
   <div id="cfName" style="font-size:60px;font-weight:900;margin:6px 0"></div>
@@ -193,7 +197,7 @@ firebase.initializeApp({
 const db=firebase.database();
 const $=s=>document.querySelector(s);
 const SUBJ=["國","英","數","自","地","歷","公","其他"];
-const TYPES=["作業","訂正","小考","考試","帶物品"];
+const TYPES=["作業","訂正","小考","考試","寫成績","帶物品"];
 const pad2=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const todayKey=()=>ymd(new Date());
@@ -202,7 +206,7 @@ function nextSchoolDay(from){const d=new Date(from||Date.now());do{d.setDate(d.g
 function prevSchoolDay(){const d=new Date();do{d.setDate(d.getDate()-1)}while(d.getDay()==0||d.getDay()==6);return ymd(d)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-let status={},collect={};
+let status={},collect={},absn={};
 let students=[],settings={lateTime:'07:40',squadCount:6},squads={},att={},tasks={},checks={};
 let hwSquad='all',hwMode='all',picked=new Set(),pickIn=true,pickNoRep=false;
 let unlocked=false,curDay=todayKey();
@@ -224,7 +228,7 @@ function watchAtt(){
   if(attRef)attRef.off();
   curDay=todayKey();
   attRef=db.ref('kiosk/attendance/'+curDay);
-  attRef.on('value',s=>{att=s.val()||{};renderCheckin();if(unlocked)renderAdmin()});
+  attRef.on('value',s=>{const v=s.val()||{};att={};absn={};Object.keys(v).forEach(k=>{v[k]&&v[k].st?absn[k]=v[k]:att[k]=v[k]});renderCheckin();renderHw();if(unlocked)renderAdmin()});
 }
 watchAtt();
 db.ref('.info/connected').on('value',s=>$('#sync').classList.toggle('ok',!!s.val()));
@@ -288,20 +292,22 @@ function isLate(t){return t>settings.lateTime}
 function renderCheckin(){
   const g=$('#gCheck');
   if(!students.length){g.innerHTML='<div class="nodata">讀取學生名單中⋯</div>';return}
-  const order=Object.keys(att).sort((a,b)=>att[a].ts-att[b].ts);
+  const order=Object.keys(att).filter(k=>!att[k].m).sort((a,b)=>att[a].ts-att[b].ts);
   const seq={};order.forEach((k,i)=>seq[k]=i+1);
   let late=0;
   g.innerHTML=students.map(s=>{
     const a=att[s.key];
+    if(!a&&absn[s.key])return `<button class="tile abs" data-k="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}<span class="tm" style="color:#8e5bd1">${absn[s.key].st==='public'?'公假':'請假'}</span></button>`;
     if(!a)return `<button class="tile" data-k="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}</button>`;
     const l=isLate(a.t);if(l)late++;
-    const medal=seq[s.key]<=3?['🥇','🥈','🥉'][seq[s.key]-1]:'';
-    return `<button class="tile in done ${l?'late':''}" data-k="${s.key}"><span class="medal">${medal}</span><span class="seq">第${seq[s.key]}位</span><span class="no">${s.no}</span>${esc(s.name)}<span class="tm">${a.t}${l?' 遲':''}</span></button>`;
+    const medal=seq[s.key]&&seq[s.key]<=3?['🥇','🥈','🥉'][seq[s.key]-1]:'';
+    return `<button class="tile in done ${l?'late':''}" data-k="${s.key}"><span class="medal">${medal}</span><span class="seq">${seq[s.key]?'第'+seq[s.key]+'位':'補登'}</span><span class="no">${s.no}</span>${esc(s.name)}<span class="tm">${a.t}${l?' 遲':''}${a.m?' ·補':''}</span></button>`;
   }).join('');
-  const n=order.filter(k=>students.some(s=>s.key===k)).length;
+  const n=Object.keys(att).filter(k=>students.some(s=>s.key===k)).length;
   $('#stIn').innerHTML=`已到 ${n}<small>/ ${students.length}</small>`;
-  $('#stLate').textContent=late?`遲到 ${late}`:'';
-  const miss=students.filter(s=>!att[s.key]);
+  const lv=students.filter(s=>absn[s.key]&&!att[s.key]).length;
+  $('#stLate').textContent=(late?`遲到 ${late}`:'')+(lv?`　請假 ${lv}`:'');
+  const miss=students.filter(s=>!att[s.key]&&!absn[s.key]);
   $('#stWait').textContent=miss.length&&miss.length<=6?'還沒到：'+miss.map(s=>s.name).join('、'):'';
   g.querySelectorAll('.tile').forEach(b=>b.onclick=()=>tapCheck(b.dataset.k));
 }
@@ -353,7 +359,8 @@ function renderHw(){
   const fil=['all',...Array.from({length:settings.squadCount},(_,i)=>i+1),0];
   $('#hwFilter').innerHTML=
     fil.map(f=>`<button class="chip ${hwSquad===f?'on':''}" data-sq="${f}">${f==='all'?'全班':f===0?'未分排':'第'+f+'排'}</button>`).join('')+
-    `<span style="width:16px"></span><button class="chip ${hwMode==='miss'?'on':''}" id="hwMiss">只看還沒交</button>`;
+    `<span style="width:16px"></span><button class="chip ${hwMode==='miss'?'on':''}" id="hwMiss">只看還沒交</button>`+(collect['lj_'+todayKey()]?`<button class="chip" id="hwReDiary" style="background:#fff3c4">↩ 重開今天的聯絡簿</button>`:'');
+  if($('#hwReDiary'))$('#hwReDiary').onclick=()=>db.ref('kiosk/collect/lj_'+todayKey()).remove();
   $('#hwFilter').querySelectorAll('[data-sq]').forEach(b=>b.onclick=()=>{hwSquad=b.dataset.sq==='all'?'all':+b.dataset.sq;renderHw()});
   $('#hwMiss').onclick=()=>{hwMode=hwMode==='miss'?'all':'miss';renderHw()};
   const body=$('#hwBody');
@@ -362,13 +369,13 @@ function renderHw(){
   if(hwMode==='miss')list=list.filter(s=>T.some(t=>!(checks[t.id]||{})[s.key]&&!att.__none));
   let h='<table class="hw"><thead><tr><th></th>'+T.map(t=>{
     const done=students.filter(s=>(checks[t.id]||{})[s.key]).length;
-    return `<th>${esc(t.subj)}${esc(t.type)}<span class="sub">${esc(t.note||'')}${t.due?' 交'+t.due.slice(5).replace('-','/'):''}</span><span class="sub">${done}/${students.length}</span><button class="chip fin" data-fin="${t.id}">收畢</button></th>`}).join('')+'</tr></thead><tbody>';
+    return `<th>${esc(t.subj)}${esc(t.type)}<span class="sub">${esc(t.note||'')}</span><span class="sub">${t.due?t.due.slice(5).replace('-','/')+'交　':''}全班 ${done}/${students.length}</span><button class="chip fin" data-fin="${t.id}">收畢</button></th>`}).join('')+'</tr></thead><tbody>';
   let lastSq=null;
   list.forEach(s=>{
     const q=sqOf(s.key);
     if(hwSquad==='all'&&q!==lastSq){lastSq=q;
       const mem=students.filter(x=>sqOf(x.key)===q);
-      h+=`<tr class="sq"><td class="sqh" colspan="${T.length+1}">${q?'第'+q+'排':'未分排'}　<small style="font-weight:500">${T.map(t=>esc(t.subj+t.type)+' '+mem.filter(x=>(checks[t.id]||{})[x.key]).length+'/'+mem.length).join('　')}</small></td></tr>`}
+      h+=`<tr class="sq"><td class="sqh">${q?'第'+q+'排':'未分排'}</td>${T.map(t=>`<td class="sqc">${mem.filter(x=>(checks[t.id]||{})[x.key]).length}/${mem.length}</td>`).join('')}</tr>`}
     const away=!att[s.key];
     h+=`<tr><td class="nm"><small>${s.no}</small>${esc(s.name)}${away?' <small>（未到）</small>':''}</td>`+T.map(t=>{
       const y=(checks[t.id]||{})[s.key];
@@ -456,7 +463,8 @@ $('#pinCancel').onclick=closePin;
 
 /* ---------- 老師區 ---------- */
 const SCOLOR={國:'#e0525e',英:'#3b7dd8',數:'#2e9e6b',自:'#8e5bd1',地:'#d98a1f',歷:'#a0643c',公:'#15a0a8',其他:'#7a7787'};
-const NOTES=['習作','學習單','考卷','課本','筆記本'];
+const DEF_NOTES=['習作','學習單','考卷','課本','筆記本','附錄本','講義','句練','國典'];
+function noteList(){return Array.isArray(settings.notes)&&settings.notes.length?settings.notes:DEF_NOTES.slice()}
 let nt={subj:'國',type:'作業',mode:'next',custom:'',note:''},assignSel=null;
 function curDue(){return nt.mode==='today'?todayKey():nt.mode==='custom'&&nt.custom?nt.custom:nextSchoolDay()}
 function dayLabel(d){
@@ -466,7 +474,7 @@ function dayLabel(d){
   return `${md} ${w}<small>${nm}</small>`;
 }
 const SFULL={國:'國文',英:'英文',數:'數學',自:'自然',地:'地理',歷:'歷史',公:'公民',其他:'其他'};
-const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',考試:'#d9534f',帶物品:'#2e9e6b'};
+const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',考試:'#d9534f',帶物品:'#2e9e6b',寫成績:'#8e5bd1'};
 function bookHtml(){
   const td=todayKey();
   const T=openTasks().filter(t=>!t.virtual&&(!t.due||t.due>=td));
@@ -593,7 +601,7 @@ function renderCadre(){
       <button class="chip ${nt.mode==='next'?'on':''}" data-mode="next">下個上學日 ${nsd.slice(5).replace('-','/')}</button>
       <input type="date" class="txt" id="ntDate" value="${due}" style="min-width:0">
     </div>
-    <div class="row" style="margin-bottom:12px">備註：${NOTES.map(v=>`<button class="chip ${nt.note===v?'on':''}" data-note="${v}">${v}</button>`).join('')}
+    <div class="row" style="margin-bottom:12px">備註：${noteList().map(v=>`<button class="chip ${nt.note===v?'on':''}" data-note="${v}">${v}</button>`).join('')}
       <input class="txt" id="ntNote" placeholder="或自己打(選填)" value="${esc(nt.note)}" style="min-width:200px"></div>
     <button class="btn green" id="ntAdd">新增「${nt.subj==='其他'?'':nt.subj}${nt.type}」</button>
   </div>
@@ -611,15 +619,40 @@ function renderCadre(){
   };
 }
 
+function openMk(k){
+  const s=students.find(x=>x.key===k);if(!s)return;
+  const d=new Date(),now=pad2(d.getHours())+':'+pad2(d.getMinutes());
+  $('#mkBody').innerHTML=`<h2>${esc(s.name)}（${s.no}號）</h2>
+    <div class="row" style="margin-bottom:14px"><button class="btn green" data-mkact="now">✔ 現在補報到 ${now}</button></div>
+    <div class="row" style="margin-bottom:14px">指定時間：<input type="time" id="mkTime" class="txt" value="${now}" style="min-width:0"><button class="btn" data-mkact="time">確定補報到</button></div>
+    <div class="row"><button class="chip" data-mkact="leave">請假</button><button class="chip" data-mkact="public">公假</button>${absn[k]?'<button class="chip" data-mkact="clear">取消請假紀錄</button>':''}<button class="btn gray" data-mkact="close">關閉</button></div>`;
+  $('#mMk').classList.add('on');
+  $('#mkBody').querySelectorAll('[data-mkact]').forEach(b=>b.onclick=()=>{
+    const a=b.dataset.mkact,r=db.ref('kiosk/attendance/'+curDay+'/'+k);
+    if(a==='close'){$('#mMk').classList.remove('on');return}
+    if(a==='now'){const dd=new Date();r.set({t:pad2(dd.getHours())+':'+pad2(dd.getMinutes()),ts:dd.getTime(),m:1})}
+    else if(a==='time'){const v=$('#mkTime').value;if(!v)return;r.set({t:v,ts:new Date(todayKey()+'T'+v+':00').getTime(),m:1})}
+    else if(a==='leave'||a==='public')r.set({st:a,ts:Date.now(),m:1});
+    else if(a==='clear')r.remove();
+    $('#mMk').classList.remove('on');toast(s.name+' 已登記');
+  });
+}
 function renderAdmin(){
   if(!unlocked||curTab!=='admin'){return}
+  if(document.activeElement&&document.activeElement.id==='noteNew')return;
   const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)).sort((a,b)=>b.createdAt-a.createdAt);
   const inList=students.filter(s=>att[s.key]);
   $('#adminBody').innerHTML=`
-  <div class="sec"><h3>📋 項目管理（重開收作業／刪除；新增請到「幹部」，封存在「遲交」）</h3><div class="tasklist">${T.length?T.map(t=>{
+  <div class="sec"><h3>📋 項目管理（重開收作業／刪除；新增請到「幹部」，封存在「遲交」）</h3><div class="tasklist">${collect['lj_'+todayKey()]?`<div class="it"><b>📔 聯絡簿（今天） <small style="color:var(--mut);font-weight:500">已收畢</small></b><button class="chip" data-reopen="lj_${todayKey()}">重開收作業</button></div>`:''}${T.length?T.map(t=>{
     const done=students.filter(s=>(checks[t.id]||{})[s.key]).length;
     return `<div class="it"><b>${esc(t.subj)}${esc(t.type)} <small style="color:var(--mut);font-weight:500">${esc(t.note||'')} 交${(t.due||'').slice(5)}　${done}/${students.length}${collect[t.id]?'　（已收畢）':''}</small></b>
     ${collect[t.id]?`<button class="chip" data-reopen="${t.id}">重開收作業</button>`:''}<button class="chip" data-del="${t.id}" style="color:var(--bad)">刪除</button></div>`}).join(''):'<div class="nodata" style="padding:14px">尚無項目</div>'}</div></div>
+  <div class="sec"><h3>📝 備註選項（幹部新增作業時的快速按鈕）</h3>
+    <div class="row" style="margin-bottom:10px">${noteList().map((v,i)=>`<span class="nchip"><b>${esc(v)}</b><button data-nl="${i}">◀</button><button data-nr="${i}">▶</button><button data-nx="${i}" style="color:var(--bad)">✕</button></span>`).join('')}</div>
+    <div class="row"><input class="txt" id="noteNew" placeholder="輸入新的備註，例如：國典" style="min-width:280px"><button class="btn green" id="noteAdd">＋ 新增備註</button><button class="btn gray" id="noteReset">還原預設</button></div>
+  </div>
+  <div class="sec"><h3>🕒 補報到／請假登記（學生太晚到、看板已收起時用）</h3>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">${students.filter(s=>!att[s.key]).map(s=>`<button class="tile ${absn[s.key]?'abs':''}" style="min-height:72px;font-size:21px" data-mk="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}${absn[s.key]?`<span class="tm" style="font-size:14px;color:#8e5bd1">${absn[s.key].st==='public'?'公假':'請假'}</span>`:''}</button>`).join('')||'<span style="color:var(--mut)">全班都已報到 🎉</span>'}</div></div>
   <div class="sec"><h3>🛠 更正報到（點一下，再按一次確認取消該生報到）</h3>
     <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr))">${inList.length?inList.map(s=>`<button class="tile in" style="min-height:64px;font-size:20px" data-unin="${s.key}">${esc(s.name)}<span class="tm" style="font-size:14px">${att[s.key].t}</span></button>`).join(''):'<span style="color:var(--mut)">今天還沒有人報到</span>'}</div></div>
   <div class="sec"><h3>👥 排別設定（先點學生，再點排別）</h3>
@@ -654,12 +687,22 @@ function renderAdmin(){
   $('#lMinus').onclick=()=>shift(-5);$('#lPlus').onclick=()=>shift(5);
   $('#skipDiary').onclick=()=>{const r=db.ref('kiosk/settings/skip/'+todayKey());(settings.skip&&settings.skip[todayKey()])?r.remove():r.set(true)};
   $('#diaryOn').onclick=()=>{const r=db.ref('kiosk/settings/diaryOff');settings.diaryOff?r.remove():r.set(true)};
+  const saveNotes=a=>{settings.notes=a;db.ref('kiosk/settings/notes').set(a);renderAdmin()};
+  A.querySelectorAll('[data-nl]').forEach(b=>b.onclick=()=>{const a=noteList(),i=+b.dataset.nl;if(i>0){[a[i-1],a[i]]=[a[i],a[i-1]];saveNotes(a)}});
+  A.querySelectorAll('[data-nr]').forEach(b=>b.onclick=()=>{const a=noteList(),i=+b.dataset.nr;if(i<a.length-1){[a[i+1],a[i]]=[a[i],a[i+1]];saveNotes(a)}});
+  A.querySelectorAll('[data-nx]').forEach(b=>b.onclick=()=>{
+    if(b.dataset.armed){const a=noteList();a.splice(+b.dataset.nx,1);a.length?saveNotes(a):(settings.notes=null,db.ref('kiosk/settings/notes').remove(),renderAdmin())}
+    else{b.dataset.armed=1;b.textContent='再按刪除'}
+  });
+  $('#noteAdd').onclick=()=>{const v=$('#noteNew').value.trim();if(!v)return;const a=noteList();if(!a.includes(v))a.push(v);saveNotes(a)};
+  $('#noteReset').onclick=function(){if(this.dataset.a){settings.notes=null;db.ref('kiosk/settings/notes').remove();renderAdmin()}else{this.dataset.a=1;this.textContent='再按一次確認'}};
+  A.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>openMk(b.dataset.mk));
   $('#histBtn').onclick=showHist;
   $('#chgPin').onclick=()=>askPin(null,'change');
   $('#lock').onclick=()=>{unlocked=false;showTab('checkin')};
   $('#clrAtt').onclick=function(){if(this.dataset.a){db.ref('kiosk/attendance/'+curDay).remove();this.textContent='清空今日報到';delete this.dataset.a}else{this.dataset.a=1;this.textContent='再按一次確認清空'}};
   $('#expCsv').onclick=()=>{
-    const rows=[['座號','姓名','報到時間','是否遲到']].concat(students.map(s=>[s.no,s.name,att[s.key]?att[s.key].t:'',att[s.key]?(isLate(att[s.key].t)?'遲到':''):'未到']));
+    const rows=[['座號','姓名','報到時間','狀態']].concat(students.map(s=>[s.no,s.name,att[s.key]?att[s.key].t:'',att[s.key]?(isLate(att[s.key].t)?'遲到':'準時'):(absn[s.key]?(absn[s.key].st==='public'?'公假':'請假'):'未到')]));
     const blob=new Blob(['﻿'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='報到_'+curDay+'.csv';a.click();
   };
