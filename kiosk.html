@@ -87,6 +87,7 @@ button.tile.done{cursor:default}button.tile.done:active{transform:none}
 .bnt{display:block;font-size:36px;font-weight:800;line-height:1.25;overflow-wrap:anywhere;min-height:44px;margin-top:2px}
 .bkdiary{position:sticky;bottom:0;margin-top:10px;background:#fff3c4;border:3px solid #e6c34a;border-radius:18px;padding:12px 22px;font-size:34px;font-weight:800}.bkdiary b{color:var(--bad)}.bkdiary small{font-size:22px;color:var(--mut);margin-left:14px;font-weight:600}.bkdiary.off{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
 .nchip{display:inline-flex;align-items:center;gap:2px;background:#f4f1ea;border:2px solid var(--line);border-radius:22px;padding:4px 6px 4px 14px;font-size:22px}.nchip button{border:0;background:#fff;border-radius:10px;min-width:44px;min-height:44px;font-size:18px;font-weight:700;margin-left:2px}
+.ttl{display:inline-block;padding:2px 12px;border-radius:12px;cursor:pointer;border:2px dashed var(--line)}.ttl.foc{background:var(--pri);color:#fff;border-style:solid;border-color:var(--pri)}
 .fin{min-height:40px;padding:4px 14px;font-size:16px;margin-top:4px}
 .mini{font-size:20px;font-weight:800;margin-left:8px;padding:8px 14px;min-height:52px;border:0;border-radius:12px;background:var(--ok);color:#fff}
 .mini.lv{background:#8e5bd1}.mini:disabled{opacity:.25}
@@ -107,7 +108,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-27d</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-27e</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -206,7 +207,7 @@ function nextSchoolDay(from){const d=new Date(from||Date.now());do{d.setDate(d.g
 function prevSchoolDay(){const d=new Date();do{d.setDate(d.getDate()-1)}while(d.getDay()==0||d.getDay()==6);return ymd(d)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-let status={},collect={},absn={};
+let status={},collect={},absn={},hwFocus=null;
 let students=[],settings={lateTime:'07:40',squadCount:6},squads={},att={},tasks={},checks={};
 let hwSquad='all',hwMode='all',picked=new Set(),pickIn=true,pickNoRep=false;
 let unlocked=false,curDay=todayKey();
@@ -346,6 +347,7 @@ function diaryTask(){
   const d=new Date();
   if(d.getDay()==0||d.getDay()==6||settings.diaryOff)return null;
   if(settings.skip&&settings.skip[todayKey()])return null;
+  if(tasks['lj_'+todayKey()])return null;
   return {id:'lj_'+todayKey(),subj:'',type:'聯絡簿',note:'生活札記',due:todayKey(),createdAt:9e15,virtual:true};
 }
 function openTasks(){
@@ -360,16 +362,22 @@ function renderHw(){
   $('#hwFilter').innerHTML=
     fil.map(f=>`<button class="chip ${hwSquad===f?'on':''}" data-sq="${f}">${f==='all'?'全班':f===0?'未分排':'第'+f+'排'}</button>`).join('')+
     `<span style="width:16px"></span><button class="chip ${hwMode==='miss'?'on':''}" id="hwMiss">只看還沒交</button>`+(collect['lj_'+todayKey()]?`<button class="chip" id="hwReDiary" style="background:#fff3c4">↩ 重開今天的聯絡簿</button>`:'');
+  {const fo=hwFocus&&T.find(x=>x.id===hwFocus),dj=T.find(x=>String(x.id).startsWith('lj_'));
+   $('#hwFilter').insertAdjacentHTML('beforeend',(fo?`<button class="chip on" id="hwUnf">✕ 只看「${esc(fo.subj+fo.type)}」未交</button>`:(dj?`<button class="chip" id="hwDj">📔 只看聯絡簿未交</button>`:''))+'<span style="font-size:15px;color:var(--mut);margin-left:8px">小提示：點欄位標題，可只看那一項還沒交的人</span>');
+   if($('#hwUnf'))$('#hwUnf').onclick=()=>{hwFocus=null;renderHw()};
+   if($('#hwDj'))$('#hwDj').onclick=()=>{hwFocus=dj.id;renderHw()};}
   if($('#hwReDiary'))$('#hwReDiary').onclick=()=>db.ref('kiosk/collect/lj_'+todayKey()).remove();
   $('#hwFilter').querySelectorAll('[data-sq]').forEach(b=>b.onclick=()=>{hwSquad=b.dataset.sq==='all'?'all':+b.dataset.sq;renderHw()});
   $('#hwMiss').onclick=()=>{hwMode=hwMode==='miss'?'all':'miss';renderHw()};
   const body=$('#hwBody');
   if(!T.length){body.innerHTML='<div class="nodata">目前沒有要收的項目 🎉<br><small>幹部在「幹部」標籤新增作業</small></div>';return}
   let list=students.filter(s=>hwSquad==='all'||sqOf(s.key)===hwSquad);
-  if(hwMode==='miss')list=list.filter(s=>T.some(t=>!(checks[t.id]||{})[s.key]&&!att.__none));
+  if(hwFocus&&!T.some(x=>x.id===hwFocus))hwFocus=null;
+  if(hwFocus)list=list.filter(s=>!(checks[hwFocus]||{})[s.key]);
+  else if(hwMode==='miss')list=list.filter(s=>T.some(t=>!(checks[t.id]||{})[s.key]));
   let h='<table class="hw"><thead><tr><th></th>'+T.map(t=>{
     const done=students.filter(s=>(checks[t.id]||{})[s.key]).length;
-    return `<th>${esc(t.subj)}${esc(t.type)}<span class="sub">${esc(t.note||'')}</span><span class="sub">${t.due?t.due.slice(5).replace('-','/')+'交　':''}全班 ${done}/${students.length}</span><button class="chip fin" data-fin="${t.id}">收畢</button></th>`}).join('')+'</tr></thead><tbody>';
+    return `<th><span class="ttl ${hwFocus===t.id?'foc':''}" data-focus="${t.id}">${esc(t.subj)}${esc(t.type)}</span><span class="sub">${esc(t.note||'')}</span><span class="sub">${t.due?t.due.slice(5).replace('-','/')+'交　':''}全班 ${done}/${students.length}</span><button class="chip fin" data-fin="${t.id}">收畢</button></th>`}).join('')+'</tr></thead><tbody>';
   let lastSq=null;
   list.forEach(s=>{
     const q=sqOf(s.key);
@@ -382,9 +390,13 @@ function renderHw(){
       return `<td><button class="cell ${y?'y':''}${away&&!y?' absent':''}" data-t="${t.id}" data-k="${s.key}">${y?'✓':'○'}</button></td>`}).join('')+'</tr>';
   });
   body.innerHTML=h+'</tbody></table>';
+  body.querySelectorAll('[data-focus]').forEach(b=>b.onclick=()=>{hwFocus=hwFocus===b.dataset.focus?null:b.dataset.focus;renderHw()});
   body.querySelectorAll('[data-fin]').forEach(b=>b.onclick=()=>{
     const t=T.find(x=>x.id===b.dataset.fin);
-    askYN('「'+(t.subj==='其他'?'':t.subj)+t.type+'」收畢？','此項會從「收作業」消失；沒交的人會留在「遲交」。',()=>db.ref('kiosk/collect/'+t.id).set(true));
+    askYN('「'+(t.subj==='其他'?'':t.subj)+t.type+'」收畢？','此項會從「收作業」消失；沒交的人會留在「遲交」。',()=>{
+      if(t.virtual)db.ref('kiosk').update({['collect/'+t.id]:true,['tasks/'+t.id]:{subj:'',type:'聯絡簿',note:'生活札記',due:t.due,createdAt:Date.now(),closed:false,diary:true}});
+      else db.ref('kiosk/collect/'+t.id).set(true);
+    });
   });
   body.querySelectorAll('.cell').forEach(c=>c.onclick=()=>{
     const r=db.ref('kiosk/checks/'+c.dataset.t+'/'+c.dataset.k);
@@ -477,7 +489,7 @@ const SFULL={國:'國文',英:'英文',數:'數學',自:'自然',地:'地理',�
 const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',考試:'#d9534f',帶物品:'#2e9e6b',寫成績:'#8e5bd1'};
 function bookHtml(){
   const td=todayKey();
-  const T=openTasks().filter(t=>!t.virtual&&(!t.due||t.due>=td));
+  const T=openTasks().filter(t=>!t.virtual&&!String(t.id).startsWith('lj_')&&(!t.due||t.due>=td));
   let h='';
   if(!T.length)h='<div class="nodata">目前沒有登記的聯絡簿項目 🎉</div>';
   else{
@@ -535,7 +547,7 @@ function statData(){
     const a=r.s==='late'?x.late:r.s==='miss'?x.miss:null;if(!a)return;
     a[2]++;if(r.d>=d3)a[1]++;if(r.d===td)a[0]++;
   }));
-  openTasks().filter(t=>!t.virtual&&t.due&&(t.due<td||collect[t.id])).forEach(t=>students.forEach(s=>{if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key))c[s.key].pend++}));
+  openTasks().filter(t=>t.due&&(t.due<td||collect[t.id])).forEach(t=>students.forEach(s=>{if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key))c[s.key].pend++}));
   return c;
 }
 function renderStat(){
@@ -643,7 +655,7 @@ function renderAdmin(){
   const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)).sort((a,b)=>b.createdAt-a.createdAt);
   const inList=students.filter(s=>att[s.key]);
   $('#adminBody').innerHTML=`
-  <div class="sec"><h3>📋 項目管理（重開收作業／刪除；新增請到「幹部」，封存在「遲交」）</h3><div class="tasklist">${collect['lj_'+todayKey()]?`<div class="it"><b>📔 聯絡簿（今天） <small style="color:var(--mut);font-weight:500">已收畢</small></b><button class="chip" data-reopen="lj_${todayKey()}">重開收作業</button></div>`:''}${T.length?T.map(t=>{
+  <div class="sec"><h3>📋 項目管理（重開收作業／刪除；新增請到「幹部」，封存在「遲交」）</h3><div class="tasklist">${collect['lj_'+todayKey()]&&!tasks['lj_'+todayKey()]?`<div class="it"><b>📔 聯絡簿（今天） <small style="color:var(--mut);font-weight:500">已收畢</small></b><button class="chip" data-reopen="lj_${todayKey()}">重開收作業</button></div>`:''}${T.length?T.map(t=>{
     const done=students.filter(s=>(checks[t.id]||{})[s.key]).length;
     return `<div class="it"><b>${esc(t.subj)}${esc(t.type)} <small style="color:var(--mut);font-weight:500">${esc(t.note||'')} 交${(t.due||'').slice(5)}　${done}/${students.length}${collect[t.id]?'　（已收畢）':''}</small></b>
     ${collect[t.id]?`<button class="chip" data-reopen="${t.id}">重開收作業</button>`:''}<button class="chip" data-del="${t.id}" style="color:var(--bad)">刪除</button></div>`}).join(''):'<div class="nodata" style="padding:14px">尚無項目</div>'}</div></div>
