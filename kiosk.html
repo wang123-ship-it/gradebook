@@ -108,7 +108,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-28a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-28c</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -178,6 +178,9 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
   <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">📚 歷史作業（已封存）</h2><button class="btn gray" id="histClose">關閉</button></div>
   <div id="histBody"></div></div></div>
 <div class="modal" id="mMk" style="z-index:55"><div class="box" style="min-width:520px"><div id="mkBody"></div></div></div>
+<div class="modal" id="mBk" style="z-index:70"><div class="box" style="width:94vw;max-width:1200px;background:#f4f1ea">
+  <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">🗓 近 7 天聯絡簿</h2><span class="row"><button class="btn" id="bk7Img">📷 存成圖片</button><button class="btn gray" id="bk7Close">關閉</button></span></div>
+  <div id="bk7Body"></div></div></div>
 <div class="modal" id="mDet" style="z-index:70"><div class="box" style="width:90vw;max-width:820px">
   <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 id="detT" style="margin:0"></h2><button class="btn gray" id="detClose">關閉</button></div>
   <div id="detBody" style="font-size:20px;line-height:1.7"></div></div></div>
@@ -494,7 +497,7 @@ const SFULL={國:'國文',英:'英文',數:'數學',自:'自然',地:'地理',�
 const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',考試:'#d9534f',帶物品:'#2e9e6b',寫成績:'#8e5bd1'};
 function bookHtml(){
   const td=todayKey();
-  const T=openTasks().filter(t=>!t.virtual&&!String(t.id).startsWith('lj_')&&(!t.due||t.due>=td));
+  const T=openTasks().filter(t=>!t.virtual&&!String(t.id).startsWith('lj_')&&!collect[t.id]&&(!t.due||t.due>td||(t.due===td&&t.createdAt&&ymd(new Date(t.createdAt))===td)));
   let h='';
   if(!T.length)h='<div class="nodata">目前沒有登記的聯絡簿項目 🎉</div>';
   else{
@@ -505,8 +508,30 @@ function bookHtml(){
 }
 function renderBook(){
   if(curTab!=='book')return;
-  $('#p-book').innerHTML=bookHtml();
+  $('#p-book').innerHTML='<div class="bar"><button class="chip" id="bkHist">🗓 查看近7天聯絡簿</button><span style="font-size:16px;color:var(--mut)">只顯示「明天以後」要交的項目；前一天登記、今天要交的，請到「收作業」查看</span></div>'+bookHtml();
+  $('#bkHist').onclick=showBk7;
 }
+function bk7Html(){
+  const from=dayAgo(6),td=todayKey();
+  const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!String(t.id).startsWith('lj_')&&t.createdAt&&ymd(new Date(t.createdAt))>=from).sort((a,b)=>a.createdAt-b.createdAt);
+  if(!T.length)return '<div class="nodata">近 7 天沒有登記的聯絡簿</div>';
+  const g={};T.forEach(t=>{const d=ymd(new Date(t.createdAt));(g[d]=g[d]||[]).push(t)});
+  return Object.keys(g).sort().reverse().map(d=>{
+    const x=new Date(d+'T00:00:00'),n=Math.round((x-new Date(td+'T00:00:00'))/864e5);
+    return `<div class="bkday"><h3>${x.getMonth()+1}/${x.getDate()} (週${WD[x.getDay()]})<small>${n===0?'今天登記':n===-1?'昨天登記':'登記'}</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow"><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(t.type)}</span></div><span class="bnt">${esc(t.note||'')}</span><div style="font-size:18px;color:var(--mut);font-weight:700">${t.due?t.due.slice(5).replace('-','/')+' 交／考':''}</div></div>`).join('')}</div></div>`}).join('');
+}
+function showBk7(){
+  $('#bk7Body').innerHTML=bk7Html();
+  $('#mBk').classList.add('on');
+}
+$('#bk7Close').onclick=()=>$('#mBk').classList.remove('on');
+$('#bk7Img').onclick=()=>{
+  toast('製作圖片中⋯');
+  const go=()=>html2canvas($('#bk7Body'),{backgroundColor:'#f4f1ea',scale:2}).then(cv=>{const a=document.createElement('a');a.href=cv.toDataURL('image/png');a.download='近7天聯絡簿_'+todayKey()+'.png';a.click();toast('已下載圖片')}).catch(()=>toast('產生圖片失敗，請改用平板截圖'));
+  if(window.html2canvas)return go();
+  const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+  sc.onload=go;sc.onerror=()=>toast('圖片元件載入失敗，請改用平板截圖');document.head.appendChild(sc);
+};
 function stOf(tid,k){return (status[tid]||{})[k]}
 function tLabel(t){return (t.subj==='其他'||!t.subj?'':t.subj)+t.type}
 function renderLate(){
