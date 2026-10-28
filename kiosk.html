@@ -108,7 +108,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-27e</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-27f</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -399,8 +399,9 @@ function renderHw(){
     });
   });
   body.querySelectorAll('.cell').forEach(c=>c.onclick=()=>{
-    const r=db.ref('kiosk/checks/'+c.dataset.t+'/'+c.dataset.k);
-    (checks[c.dataset.t]||{})[c.dataset.k]?r.remove():r.set(true);
+    const t=c.dataset.t,k=c.dataset.k;
+    if((checks[t]||{})[k])db.ref('kiosk/checks/'+t+'/'+k).remove();
+    else db.ref('kiosk').update({['checks/'+t+'/'+k]:true,['status/'+t+'/'+k]:null}); // 打勾＝已交，同時清掉該項的補交／缺交／請假紀錄
   });
 }
 
@@ -542,7 +543,7 @@ function statData(){
   const td=todayKey(),d3=dayAgo(2),c={};
   students.forEach(s=>c[s.key]={late:[0,0,0],miss:[0,0,0],leave:0,pend:0});
   Object.keys(status).forEach(tid=>Object.keys(status[tid]||{}).forEach(k=>{
-    const r=status[tid][k],x=c[k];if(!x||!r)return;if(settings.statFrom&&r.d<settings.statFrom)return;
+    const r=status[tid][k],x=c[k];if(!x||!r)return;if((checks[tid]||{})[k])return;if(settings.statFrom&&r.d<settings.statFrom)return;
     if(r.s==='leave'){x.leave++;return}
     const a=r.s==='late'?x.late:r.s==='miss'?x.miss:null;if(!a)return;
     a[2]++;if(r.d>=d3)a[1]++;if(r.d===td)a[0]++;
@@ -583,7 +584,7 @@ function showHist(){
   const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>t.closed||t.sealed).sort((a,b)=>(b.sealedAt||0)-(a.sealedAt||0));
   $('#histBody').innerHTML=T.length?T.map(t=>{
     const ok=students.filter(s=>(checks[t.id]||{})[s.key]);
-    const by=k=>students.filter(s=>{const r=stOf(t.id,s.key);return r&&r.s===k});
+    const by=k=>students.filter(s=>{const r=stOf(t.id,s.key);return r&&r.s===k&&!(checks[t.id]||{})[s.key]});
     const late=by('late'),leave=by('leave'),miss=by('miss');
     const nm=a=>a.map(s=>esc(s.name)).join('、')||'—';
     return `<div class="hrow"><b>${esc(tLabel(t))}</b> <span style="color:var(--mut)">${esc(t.note||'')} 應交 ${(t.due||'').slice(5)}　封存 ${(t.sealedDay||'').slice(5)||'—'}</span>　<button class="chip" style="min-height:40px;padding:4px 14px;font-size:16px" data-unseal="${t.id}">還原</button><br>
