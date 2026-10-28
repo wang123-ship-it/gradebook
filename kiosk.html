@@ -108,7 +108,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-27f</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-28a</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -178,6 +178,9 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
   <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">📚 歷史作業（已封存）</h2><button class="btn gray" id="histClose">關閉</button></div>
   <div id="histBody"></div></div></div>
 <div class="modal" id="mMk" style="z-index:55"><div class="box" style="min-width:520px"><div id="mkBody"></div></div></div>
+<div class="modal" id="mDet" style="z-index:70"><div class="box" style="width:90vw;max-width:820px">
+  <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 id="detT" style="margin:0"></h2><button class="btn gray" id="detClose">關閉</button></div>
+  <div id="detBody" style="font-size:20px;line-height:1.7"></div></div></div>
 <div class="modal" id="mCf"><div class="box" style="text-align:center;min-width:460px">
   <div style="font-size:24px;color:var(--mut)">要報到的是</div>
   <div id="cfName" style="font-size:60px;font-weight:900;margin:6px 0"></div>
@@ -207,7 +210,7 @@ function nextSchoolDay(from){const d=new Date(from||Date.now());do{d.setDate(d.g
 function prevSchoolDay(){const d=new Date();do{d.setDate(d.getDate()-1)}while(d.getDay()==0||d.getDay()==6);return ymd(d)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-let status={},collect={},absn={},hwFocus=null;
+let status={},collect={},absn={},hwFocus=null,allAtt={};
 let students=[],settings={lateTime:'07:40',squadCount:6},squads={},att={},tasks={},checks={};
 let hwSquad='all',hwMode='all',picked=new Set(),pickIn=true,pickNoRep=false;
 let unlocked=false,curDay=todayKey();
@@ -221,6 +224,7 @@ db.ref('students').on('value',s=>{
 db.ref('kiosk/settings').on('value',s=>{settings=Object.assign({lateTime:'07:40',squadCount:6},s.val()||{});renderAll()});
 db.ref('kiosk/squads').on('value',s=>{squads=s.val()||{};renderAll()});
 db.ref('kiosk/tasks').on('value',s=>{tasks=s.val()||{};renderAll()});
+db.ref('kiosk/attendance').on('value',s=>{allAtt=s.val()||{};renderStat()});
 db.ref('kiosk/status').on('value',s=>{status=s.val()||{};renderLate();renderStat();if(unlocked&&curTab==='admin')renderAdmin()});
 db.ref('kiosk/collect').on('value',s=>{collect=s.val()||{};renderHw();renderLate();renderStat()});
 db.ref('kiosk/checks').on('value',s=>{checks=s.val()||{};renderHw();if(unlocked)renderAdmin()});
@@ -332,7 +336,7 @@ $('#cfYes').onclick=()=>{
   const s=students.find(x=>x.key===k);
   if(!s||att[k])return;
   const d=new Date(),t=pad2(d.getHours())+':'+pad2(d.getMinutes());
-  db.ref('kiosk/attendance/'+curDay+'/'+k).set({t,ts:d.getTime()});
+  db.ref('kiosk/attendance/'+curDay+'/'+k).set({t,ts:d.getTime(),l:isLate(t)?1:0});
   const late=isLate(t);
   toast((late?'⏰ ':'✅ ')+s.name+' '+t+(late?'（遲到）':' 報到成功'));
   setTimeout(()=>{if(Object.keys(att).length>=students.length&&students.length)boom()},400);
@@ -537,49 +541,95 @@ function sealTask(t){
   up['tasks/'+t.id+'/sealed']=true;up['tasks/'+t.id+'/sealedAt']=Date.now();up['tasks/'+t.id+'/sealedDay']=td;
   db.ref('kiosk').update(up);toast('已封存 '+tLabel(t));
 }
-let statSort='no';
+let statMode='since',statCF='',statCT='',statSort='no';
 function dayAgo(n){const d=new Date();d.setDate(d.getDate()-n);return ymd(d)}
-function statData(){
-  const td=todayKey(),d3=dayAgo(2),c={};
-  students.forEach(s=>c[s.key]={late:[0,0,0],miss:[0,0,0],leave:0,pend:0});
-  Object.keys(status).forEach(tid=>Object.keys(status[tid]||{}).forEach(k=>{
-    const r=status[tid][k],x=c[k];if(!x||!r)return;if((checks[tid]||{})[k])return;if(settings.statFrom&&r.d<settings.statFrom)return;
-    if(r.s==='leave'){x.leave++;return}
-    const a=r.s==='late'?x.late:r.s==='miss'?x.miss:null;if(!a)return;
-    a[2]++;if(r.d>=d3)a[1]++;if(r.d===td)a[0]++;
-  }));
-  openTasks().filter(t=>t.due&&(t.due<td||collect[t.id])).forEach(t=>students.forEach(s=>{if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key))c[s.key].pend++}));
-  return c;
+function mondayOf(){const d=new Date(),w=(d.getDay()+6)%7;d.setDate(d.getDate()-w);return ymd(d)}
+function statRange(){
+  const td=todayKey();
+  if(statMode==='today')return [td,td];
+  if(statMode==='d3')return [dayAgo(2),td];
+  if(statMode==='week')return [mondayOf(),td];
+  if(statMode==='month')return [td.slice(0,8)+'01',td];
+  if(statMode==='custom')return [statCF||'0000-00-00',statCT||'9999-12-31'];
+  if(statMode==='all')return ['0000-00-00','9999-12-31'];
+  return [settings.statFrom||'0000-00-00',td];
 }
+function statCompute(){
+  const [from,to]=statRange(),td=todayKey(),c={};
+  students.forEach(s=>c[s.key]={arr:0,late:0,leave:0,pub:0,none:0,hl:0,hm:0,hv:0,pend:0,dLate:[],dNone:[],dLeave:[],hw:[]});
+  const days=Object.keys(allAtt).filter(d=>d>=from&&d<=to&&Object.values(allAtt[d]||{}).filter(r=>r&&!r.st).length>=3).sort();
+  days.forEach(d=>students.forEach(s=>{
+    const r=(allAtt[d]||{})[s.key],x=c[s.key];
+    if(!r){if(d<td||true){x.none++;x.dNone.push(d)}return}
+    if(r.st){r.st==='public'?x.pub++:x.leave++;x.dLeave.push(d+(r.st==='public'?'（公假）':'（請假）'));return}
+    x.arr++;const l=r.l!==undefined?!!r.l:isLate(r.t);if(l){x.late++;x.dLate.push(d+' '+r.t)}
+  }));
+  Object.keys(status).forEach(tid=>Object.keys(status[tid]||{}).forEach(k=>{
+    const r=status[tid][k],x=c[k];if(!x||!r||(checks[tid]||{})[k]||r.d<from||r.d>to)return;
+    if(r.s==='late')x.hl++;else if(r.s==='miss')x.hm++;else if(r.s==='leave')x.hv++;else return;
+    x.hw.push({d:r.d,nm:tasks[tid]?tLabel(tasks[tid]):'聯絡簿',s:r.s});
+  }));
+  if(to>=td)openTasks().filter(t=>t.due&&(t.due<td||collect[t.id])).forEach(t=>students.forEach(s=>{if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key))c[s.key].pend++}));
+  return {c,days,from,to};
+}
+const SMODES=[['today','今日'],['d3','近3日'],['week','本週'],['month','本月'],['since','自起算日'],['all','全部']];
+function rangeLabel(){const [f,t]=statRange();const m=SMODES.find(x=>x[0]===statMode);return (m?m[1]+'：':'自訂：')+(f<'1'?'最早':f.slice(5).replace('-','/'))+' ～ '+(t>'9'?'今':t.slice(5).replace('-','/'))}
 function renderStat(){
   if(curTab!=='stat')return;
-  const c=statData();let L=students.slice();
-  if(statSort==='miss')L.sort((a,b)=>c[b.key].miss[2]-c[a.key].miss[2]||a.no-b.no);
-  if(statSort==='late')L.sort((a,b)=>c[b.key].late[2]-c[a.key].late[2]||a.no-b.no);
+  if(document.activeElement&&document.activeElement.type==='date')return;
+  const {c,days,from,to}=statCompute();let L=students.slice();
+  const key={miss:x=>x.hm,late:x=>x.late,none:x=>x.none,hl:x=>x.hl}[statSort];
+  if(key)L.sort((a,b)=>key(c[b.key])-key(c[a.key])||a.no-b.no);
+  const sum=f=>students.reduce((n,s)=>n+f(c[s.key]),0);
+  const perfect=students.filter(s=>{const x=c[s.key];return x.late+x.none+x.hm+x.hl===0&&(x.arr>0)});
   const cell=(v,cls)=>`<td class="${v?cls:'z'}">${v||'·'}</td>`;
   const sf=settings.statFrom||'';
-  $('#p-stat').innerHTML=`<div class="bar"><span style="font-size:22px;font-weight:800">統計起算日：${sf?sf.slice(5).replace('-','/'):'全部紀錄'}</span>
-    <button class="chip" id="stReset">🔄 從今天重新計算</button>
-    <input type="date" class="txt" id="stFrom" value="${sf}" style="min-width:0;font-size:18px;padding:8px">
-    ${sf?'<button class="chip" id="stAll">看全部</button>':''}</div>
+  $('#p-stat').innerHTML=`
+  <div class="bar">${SMODES.map(m=>`<button class="chip ${statMode===m[0]?'on':''}" data-sm="${m[0]}">${m[1]}${m[0]==='since'&&sf?' '+sf.slice(5).replace('-','/'):''}</button>`).join('')}
+    <span style="font-size:18px;color:var(--mut);margin-left:8px">自訂：</span>
+    <input type="date" class="txt" id="stCF" value="${statCF}" style="min-width:0;font-size:18px;padding:8px"><span>～</span>
+    <input type="date" class="txt" id="stCT" value="${statCT}" style="min-width:0;font-size:18px;padding:8px">
+    <button class="chip" id="stReset">🔄 起算日設為今天</button></div>
+  <div class="bar" style="gap:10px">
+    <div class="sec" style="margin:0;padding:10px 16px"><div style="font-size:15px;color:var(--mut)">統計區間</div><b style="font-size:22px">${rangeLabel()}</b></div>
+    <div class="sec" style="margin:0;padding:10px 16px"><div style="font-size:15px;color:var(--mut)">到校日數</div><b style="font-size:26px">${days.length}</b></div>
+    <div class="sec" style="margin:0;padding:10px 16px"><div style="font-size:15px;color:var(--mut)">遲到人次</div><b style="font-size:26px;color:var(--late)">${sum(x=>x.late)}</b></div>
+    <div class="sec" style="margin:0;padding:10px 16px"><div style="font-size:15px;color:var(--mut)">無紀錄人次</div><b style="font-size:26px;color:var(--bad)">${sum(x=>x.none)}</b></div>
+    <div class="sec" style="margin:0;padding:10px 16px"><div style="font-size:15px;color:var(--mut)">作業遲交／缺交</div><b style="font-size:26px;color:var(--late)">${sum(x=>x.hl)}</b> / <b style="font-size:26px;color:var(--bad)">${sum(x=>x.hm)}</b></div>
+    <div class="sec" style="margin:0;padding:10px 16px;flex:1;min-width:220px"><div style="font-size:15px;color:var(--mut)">🏅 全勤守時（零遲到、零缺交、零遲交、零無紀錄）${perfect.length}人</div><div style="font-size:18px;font-weight:700">${perfect.map(s=>esc(s.name)).join('、')||'—'}</div></div>
+  </div>
   <div class="bar"><span style="font-size:20px;color:var(--mut)">排序：</span>
-    ${[['no','座號'],['miss','缺交多→少'],['late','遲交多→少']].map(x=>`<button class="chip ${statSort===x[0]?'on':''}" data-so="${x[0]}">${x[1]}</button>`).join('')}
-    <button class="btn gray" id="stCsv" style="margin-left:auto">匯出 CSV</button></div>
-  <table class="st"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th><th rowspan="2">待處理<br>(未交)</th><th colspan="3">遲交（補交）</th><th colspan="3">缺交（封存後）</th><th rowspan="2">請假<br>累計</th></tr>
-  <tr><th>今日</th><th>近3日</th><th>累計</th><th>今日</th><th>近3日</th><th>累計</th></tr></thead><tbody>
-  ${L.map(s=>{const x=c[s.key];return `<tr><td class="z">${s.no}</td><td class="n">${esc(s.name)}</td>${cell(x.pend,'w')}${cell(x.late[0],'w')}${cell(x.late[1],'w')}${cell(x.late[2],'w')}${cell(x.miss[0],'r')}${cell(x.miss[1],'r')}${cell(x.miss[2],'r')}${cell(x.leave,'w')}</tr>`}).join('')}
-  </tbody></table>`;
-  const needPin=f=>{unlocked?f():askPin(f)};
-  $('#stReset').onclick=()=>needPin(()=>askYN('從今天（'+todayKey().slice(5).replace('-','/')+'）重新計算？','遲交、缺交次數會從今天起重新累計；舊紀錄仍保留在歷史作業，不會刪除。',()=>db.ref('kiosk/settings/statFrom').set(todayKey())));
-  $('#stFrom').onchange=e=>needPin(()=>{e.target.value?db.ref('kiosk/settings/statFrom').set(e.target.value):db.ref('kiosk/settings/statFrom').remove()});
-  if($('#stAll'))$('#stAll').onclick=()=>needPin(()=>db.ref('kiosk/settings/statFrom').remove());
-  $('#p-stat').querySelectorAll('[data-so]').forEach(b=>b.onclick=()=>{statSort=b.dataset.so;renderStat()});
+    ${[['no','座號'],['late','遲到多→少'],['none','無紀錄多→少'],['miss','缺交多→少'],['hl','遲交多→少']].map(x=>`<button class="chip ${statSort===x[0]?'on':''}" data-so="${x[0]}">${x[1]}</button>`).join('')}
+    <span style="font-size:15px;color:var(--mut)">點任一列看明細</span><button class="btn gray" id="stCsv" style="margin-left:auto">匯出 CSV</button></div>
+  <table class="st"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th><th colspan="5">出缺勤</th><th colspan="4">作業</th></tr>
+  <tr><th>到校</th><th>遲到</th><th>請假</th><th>公假</th><th>無紀錄</th><th>待處理</th><th>遲交</th><th>缺交</th><th>請假</th></tr></thead><tbody>
+  ${L.map(s=>{const x=c[s.key];return `<tr data-det="${s.key}" style="cursor:pointer"><td class="z">${s.no}</td><td class="n">${esc(s.name)}</td>${cell(x.arr,'')}${cell(x.late,'w')}${cell(x.leave,'w')}${cell(x.pub,'w')}${cell(x.none,'r')}${cell(x.pend,'w')}${cell(x.hl,'w')}${cell(x.hm,'r')}${cell(x.hv,'w')}</tr>`}).join('')}
+  </tbody></table>
+  <div style="margin-top:8px;font-size:15px;color:var(--mut)">「無紀錄」＝到校日（當天至少 3 人報到）卻沒有報到、也沒登記請假／公假的次數；遇到停課日若有人報到，可能會多算，請以明細為準。</div>`;
+  const P=$('#p-stat'),needPin=f=>{unlocked?f():askPin(f)};
+  P.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{statMode=b.dataset.sm;renderStat()});
+  $('#stCF').onchange=e=>{statCF=e.target.value;statMode='custom';renderStat()};
+  $('#stCT').onchange=e=>{statCT=e.target.value;statMode='custom';renderStat()};
+  P.querySelectorAll('[data-so]').forEach(b=>b.onclick=()=>{statSort=b.dataset.so;renderStat()});
+  $('#stReset').onclick=()=>needPin(()=>askYN('把起算日設為今天（'+todayKey().slice(5).replace('-','/')+'）？','「自起算日」的統計會從今天重新累計；舊紀錄不會刪除，選「全部」或自訂日期隨時看得到。',()=>{db.ref('kiosk/settings/statFrom').set(todayKey());statMode='since'}));
+  P.querySelectorAll('[data-det]').forEach(r=>r.onclick=()=>showDet(r.dataset.det,c[r.dataset.det]));
   $('#stCsv').onclick=()=>{
-    const rows=[['座號','姓名','待處理','遲交今日','遲交近3日','遲交累計','缺交今日','缺交近3日','缺交累計','請假累計']].concat(students.map(s=>{const x=c[s.key];return [s.no,s.name,x.pend,...x.late,...x.miss,x.leave]}));
+    const rows=[['區間',rangeLabel()],['座號','姓名','到校','遲到','請假','公假','無紀錄','待處理(作業)','作業遲交','作業缺交','作業請假']].concat(students.map(s=>{const x=c[s.key];return [s.no,s.name,x.arr,x.late,x.leave,x.pub,x.none,x.pend,x.hl,x.hm,x.hv]}));
     const blob=new Blob(['﻿'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='作業遲交缺交_'+todayKey()+'.csv';a.click();
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='出缺勤與作業統計_'+todayKey()+'.csv';a.click();
   };
 }
+function showDet(k,x){
+  const s=students.find(z=>z.key===k);if(!s||!x)return;
+  const lst=(t,a)=>`<div><b>${t}（${a.length}）</b>：${a.length?a.map(esc).join('、'):'—'}</div>`;
+  $('#detT').textContent=s.name+'（'+s.no+'號）　'+rangeLabel();
+  $('#detBody').innerHTML=lst('遲到',x.dLate)+lst('請假／公假',x.dLeave)+lst('無紀錄（疑似缺席）',x.dNone)+
+    lst('作業遲交（補交）',x.hw.filter(h=>h.s==='late').map(h=>h.d.slice(5)+' '+h.nm))+
+    lst('作業缺交',x.hw.filter(h=>h.s==='miss').map(h=>h.d.slice(5)+' '+h.nm))+
+    lst('作業請假',x.hw.filter(h=>h.s==='leave').map(h=>h.d.slice(5)+' '+h.nm));
+  $('#mDet').classList.add('on');
+}
+$('#detClose').onclick=()=>$('#mDet').classList.remove('on');
 function showHist(){
   const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>t.closed||t.sealed).sort((a,b)=>(b.sealedAt||0)-(a.sealedAt||0));
   $('#histBody').innerHTML=T.length?T.map(t=>{
@@ -643,8 +693,8 @@ function openMk(k){
   $('#mkBody').querySelectorAll('[data-mkact]').forEach(b=>b.onclick=()=>{
     const a=b.dataset.mkact,r=db.ref('kiosk/attendance/'+curDay+'/'+k);
     if(a==='close'){$('#mMk').classList.remove('on');return}
-    if(a==='now'){const dd=new Date();r.set({t:pad2(dd.getHours())+':'+pad2(dd.getMinutes()),ts:dd.getTime(),m:1})}
-    else if(a==='time'){const v=$('#mkTime').value;if(!v)return;r.set({t:v,ts:new Date(todayKey()+'T'+v+':00').getTime(),m:1})}
+    if(a==='now'){const dd=new Date();{const tt=pad2(dd.getHours())+':'+pad2(dd.getMinutes());r.set({t:tt,ts:dd.getTime(),m:1,l:isLate(tt)?1:0})}}
+    else if(a==='time'){const v=$('#mkTime').value;if(!v)return;r.set({t:v,ts:new Date(todayKey()+'T'+v+':00').getTime(),m:1,l:isLate(v)?1:0})}
     else if(a==='leave'||a==='public')r.set({st:a,ts:Date.now(),m:1});
     else if(a==='clear')r.remove();
     $('#mMk').classList.remove('on');toast(s.name+' 已登記');
