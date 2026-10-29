@@ -47,6 +47,7 @@ table.hw{border-collapse:separate;border-spacing:6px;width:100%}
 table.hw th{position:sticky;top:0;z-index:3;background:var(--bg);font-size:17px;font-weight:700;padding:6px;vertical-align:bottom}
 table.hw th .sub{display:block;font-size:13px;color:var(--mut);font-weight:500}
 table.hw td.nm{font-size:23px;font-weight:800;white-space:nowrap;padding:0 10px;background:#fff;border-radius:12px;min-width:150px;width:1%}
+table.hw .cell.nw{background:#fde2e2;border-color:#d9534f;color:#b02a2a;font-size:15px;font-weight:800}
 table.hw td.nm small{color:var(--mut);font-weight:600;font-size:14px;margin-right:6px}
 table.hw tr.sq td.sqc{background:#dfe9f8;border-radius:12px;text-align:center;font-size:20px;font-weight:800;padding:8px 6px}
 table.hw tr.sq td.sqh{background:#dfe9f8;border-radius:12px;font-size:20px;font-weight:800;padding:8px 14px}
@@ -108,7 +109,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-29a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-29b</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -206,6 +207,7 @@ const $=s=>document.querySelector(s);
 const SUBJ=["國","英","數","自","地","歷","公","其他"];
 const TYPES=["作業","訂正","寫成績","帶物品"],EXAMS=["小考","大卷"];
 function isExam(t){return t.type==="小考"||t.type==="大卷"||t.type==="考試"}
+function noCol(t){return isExam(t)||t.type==="寫成績"}
 const pad2=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const todayKey=()=>ymd(new Date());
@@ -359,7 +361,7 @@ function diaryTask(){
   return {id:'lj_'+todayKey(),subj:'',type:'聯絡簿',note:'生活札記',due:todayKey(),createdAt:9e15,virtual:true};
 }
 function openTasks(){
-  const L=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!isExam(t)).sort((a,b)=>(a.due||'').localeCompare(b.due||'')||a.createdAt-b.createdAt);
+  const L=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!noCol(t)).sort((a,b)=>(a.due||'').localeCompare(b.due||'')||a.createdAt-b.createdAt);
   const dt=diaryTask();if(dt)L.unshift(dt);
   return L;
 }
@@ -394,8 +396,8 @@ function renderHw(){
       h+=`<tr class="sq"><td class="sqh">${q?'第'+q+'排':'未分排'}</td>${T.map(t=>`<td class="sqc">${mem.filter(x=>(checks[t.id]||{})[x.key]).length}/${mem.length}</td>`).join('')}</tr>`}
     const away=!att[s.key];
     h+=`<tr><td class="nm"><small>${s.no}</small>${esc(s.name)}${away?' <small>（未到）</small>':''}</td>`+T.map(t=>{
-      const y=(checks[t.id]||{})[s.key];
-      return `<td><button class="cell ${y?'y':''}${away&&!y?' absent':''}" data-t="${t.id}" data-k="${s.key}">${y?'✓':'○'}</button></td>`}).join('')+'</tr>';
+      const y=(checks[t.id]||{})[s.key],dj=String(t.id).startsWith('lj_')||t.diary,nw=dj&&y&&(stOf(t.id,s.key)||{}).s==='nw';
+      return `<td><button class="cell ${nw?'nw':y?'y':''}${away&&!y?' absent':''}" data-t="${t.id}" data-k="${s.key}">${nw?'✗札記':y?'✓':'○'}</button></td>`}).join('')+'</tr>';
   });
   body.innerHTML=h+'</tbody></table>';
   body.querySelectorAll('[data-focus]').forEach(b=>b.onclick=()=>{hwFocus=hwFocus===b.dataset.focus?null:b.dataset.focus;renderHw()});
@@ -408,7 +410,9 @@ function renderHw(){
   });
   body.querySelectorAll('.cell').forEach(c=>c.onclick=()=>{
     const t=c.dataset.t,k=c.dataset.k;
-    if((checks[t]||{})[k])db.ref('kiosk/checks/'+t+'/'+k).remove();
+    const dj=t.startsWith('lj_'),y=(checks[t]||{})[k],nw=(stOf(t,k)||{}).s==='nw';
+    if(dj&&y&&!nw){db.ref('kiosk/status/'+t+'/'+k).set({s:'nw',d:todayKey(),t:Date.now()});toast('已記：沒寫札記，缺交 2 次（再點一下可還原）');return}
+    if(y)db.ref('kiosk').update({['checks/'+t+'/'+k]:null,['status/'+t+'/'+k]:null});
     else db.ref('kiosk').update({['checks/'+t+'/'+k]:true,['status/'+t+'/'+k]:null}); // 打勾＝已交，同時清掉該項的補交／缺交／請假紀錄
   });
 }
@@ -498,7 +502,7 @@ const SFULL={國:'國文',英:'英文',數:'數學',自:'自然',地:'地理',�
 const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',大卷:'#b02a2a',考試:'#d9534f',帶物品:'#2e9e6b',寫成績:'#8e5bd1'};
 function bookHtml(){
   const td=todayKey();
-  const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!String(t.id).startsWith('lj_')&&!t.diary&&!collect[t.id]&&(!t.due||t.due>td||(t.due===td&&(isExam(t)||(t.createdAt&&ymd(new Date(t.createdAt))===td))))).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||(isExam(b)-isExam(a))||a.createdAt-b.createdAt);
+  const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!String(t.id).startsWith('lj_')&&!t.diary&&!collect[t.id]&&(!t.due||t.due>td||(t.due===td&&(noCol(t)||(t.createdAt&&ymd(new Date(t.createdAt))===td))))).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||(isExam(b)-isExam(a))||a.createdAt-b.createdAt);
   let h='';
   if(!T.length)h='<div class="nodata">目前沒有登記的聯絡簿項目 🎉</div>';
   else{
@@ -591,7 +595,8 @@ function statCompute(){
     x.arr++;const l=r.l!==undefined?!!r.l:isLate(r.t);if(l){x.late++;x.dLate.push(d+' '+r.t)}
   }));
   Object.keys(status).forEach(tid=>Object.keys(status[tid]||{}).forEach(k=>{
-    const r=status[tid][k],x=c[k];if(!x||!r||(checks[tid]||{})[k]||r.d<from||r.d>to)return;
+    const r=status[tid][k],x=c[k];if(!x||!r||((checks[tid]||{})[k]&&r.s!=='nw')||r.d<from||r.d>to)return;
+    if(r.s==='nw'){x.hm+=2;x.hw.push({d:r.d,nm:'聯絡簿（未寫札記，記2次）',s:'miss'});return}
     if(r.s==='late')x.hl++;else if(r.s==='miss')x.hm++;else if(r.s==='leave')x.hv++;else return;
     x.hw.push({d:r.d,nm:tasks[tid]?tLabel(tasks[tid]):'聯絡簿',s:r.s});
   }));
@@ -661,10 +666,10 @@ function showHist(){
   $('#histBody').innerHTML=T.length?T.map(t=>{
     const ok=students.filter(s=>(checks[t.id]||{})[s.key]);
     const by=k=>students.filter(s=>{const r=stOf(t.id,s.key);return r&&r.s===k&&!(checks[t.id]||{})[s.key]});
-    const late=by('late'),leave=by('leave'),miss=by('miss');
+    const late=by('late'),leave=by('leave'),miss=by('miss'),nwr=students.filter(s=>(stOf(t.id,s.key)||{}).s==='nw');
     const nm=a=>a.map(s=>esc(s.name)).join('、')||'—';
     return `<div class="hrow"><b>${esc(tLabel(t))}</b> <span style="color:var(--mut)">${esc(t.note||'')} 應交 ${(t.due||'').slice(5)}　封存 ${(t.sealedDay||'').slice(5)||'—'}</span>　<button class="chip" style="min-height:40px;padding:4px 14px;font-size:16px" data-unseal="${t.id}">還原</button><br>
-      準時 ${ok.length}　補交 ${late.length}（${nm(late)}）　請假 ${leave.length}（${nm(leave)}）　<span style="color:var(--bad);font-weight:800">缺交 ${miss.length}（${nm(miss)}）</span></div>`}).join(''):'<div class="nodata">還沒有封存的作業</div>';
+      準時 ${ok.length}　補交 ${late.length}（${nm(late)}）　請假 ${leave.length}（${nm(leave)}）　<span style="color:var(--bad);font-weight:800">缺交 ${miss.length}（${nm(miss)}）</span>${nwr.length?`　<span style="color:var(--bad);font-weight:800">未寫札記 ${nwr.length}（${nm(nwr)}，各記2次）</span>`:''}</div>`}).join(''):'<div class="nodata">還沒有封存的作業</div>';
   $('#mHist').classList.add('on');
   $('#histBody').querySelectorAll('[data-unseal]').forEach(b=>b.onclick=()=>{
     const t=T.find(x=>x.id===b.dataset.unseal);
@@ -685,7 +690,7 @@ function renderCadre(){
   <div class="sec"><h3>➕ 新增聯絡簿（點選即可，免打字）</h3>
     <div class="row" style="margin-bottom:8px">科目：${chips(SUBJ,'subj')}</div>
     <div class="row" style="margin-bottom:8px">類型：${chips(TYPES,'type')}</div>
-    <div class="row" style="margin-bottom:8px">📝 考試：${chips(EXAMS,'type')}<small style="color:var(--mut);font-size:16px">（考試只顯示在聯絡簿，不會進「收作業」）</small></div>
+    <div class="row" style="margin-bottom:8px">📝 考試：${chips(EXAMS,'type')}<small style="color:var(--mut);font-size:16px">（考試與「寫成績」只顯示在聯絡簿，不會進「收作業」）</small></div>
     <div class="row" style="margin-bottom:8px">繳交日：
       <button class="chip ${nt.mode==='today'?'on':''}" data-mode="today">今天 ${tdy.slice(5).replace('-','/')}</button>
       <button class="chip ${nt.mode==='next'?'on':''}" data-mode="next">下個上學日 ${nsd.slice(5).replace('-','/')}</button>
