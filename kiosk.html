@@ -43,21 +43,21 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 .tile .seq{position:absolute;top:4px;right:8px;font-size:14px;color:var(--mut);font-weight:700}
 .tile .medal{position:absolute;top:2px;left:6px;font-size:20px}
 .hwwrap{}
-table.hw{border-collapse:separate;border-spacing:2px;width:100%}
+table.hw{border-collapse:separate;border-spacing:4px;width:100%}
 .hwcols{display:flex;gap:10px;align-items:flex-start}.hwcols>div{flex:1;min-width:0}
-table.hw th{position:sticky;top:0;z-index:3;background:var(--bg);font-size:14px;font-weight:700;padding:2px;vertical-align:bottom;line-height:1.2}
-table.hw th .chip.fin{min-height:26px;padding:1px 10px;font-size:13px;margin-top:2px}
-table.hw th .sub{display:block;font-size:11px;color:var(--mut);font-weight:500}
-table.hw td.nm{font-size:15px;font-weight:800;white-space:nowrap;padding:0 6px;height:28px;background:#fff;border-radius:8px;min-width:96px;width:1%}
-table.hw td.nm small.aw{font-size:10px;margin:0 0 0 3px;color:#c0392b}
-table.hw .cell{height:28px;min-width:44px;font-size:15px;border-width:2px;border-radius:7px;line-height:1;padding:0}
+table.hw th{position:sticky;top:0;z-index:3;background:var(--bg);font-size:16px;font-weight:700;padding:2px;vertical-align:bottom;line-height:1.2}
+table.hw th .chip.fin{min-height:34px;padding:2px 14px;font-size:15px;margin-top:2px}
+table.hw th .sub{display:block;font-size:12px;color:var(--mut);font-weight:500}
+table.hw td.nm{font-size:22px;font-weight:800;white-space:nowrap;padding:0 10px;height:56px;background:#fff;border-radius:8px;min-width:140px;width:1%}
+table.hw td.nm small.aw{font-size:12px;margin:0 0 0 3px;color:#c0392b}
+table.hw .cell{height:56px;min-width:84px;font-size:24px;border-width:3px;border-radius:12px;line-height:1;padding:0}
 table.hw td{padding:0;line-height:1}
-#hwFilter .chip{min-height:34px;padding:2px 14px;font-size:16px}
+#hwFilter .chip{min-height:44px;padding:4px 16px;font-size:18px}
 #hwFilter{gap:6px}
-table.hw .cell.nw{background:#fde2e2;border-color:#d9534f;color:#b02a2a;font-size:11px;font-weight:800}
-table.hw td.nm small{color:var(--mut);font-weight:600;font-size:11px;margin-right:4px}
-table.hw tr.sq td.sqc{background:#dfe9f8;border-radius:8px;text-align:center;font-size:12px;font-weight:800;padding:0 4px;height:20px}
-table.hw tr.sq td.sqh{background:#dfe9f8;border-radius:8px;font-size:12px;font-weight:800;padding:0 8px;height:20px}
+table.hw .cell.nw{background:#fde2e2;border-color:#d9534f;color:#b02a2a;font-size:16px;font-weight:800}
+table.hw td.nm small{color:var(--mut);font-weight:600;font-size:13px;margin-right:6px}
+table.hw tr.sq td.sqc{background:#dfe9f8;border-radius:8px;text-align:center;font-size:16px;font-weight:800;padding:0 4px;height:30px}
+table.hw tr.sq td.sqh{background:#dfe9f8;border-radius:8px;font-size:16px;font-weight:800;padding:0 10px;height:30px}
 .cell{height:68px;min-width:92px;border-radius:14px;border:3px solid var(--line);background:#fff;font-size:30px;font-weight:800;color:#c9c5b8;width:100%}
 .cell.y{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
 .cell.absent{background:#eee;color:#bbb}
@@ -116,7 +116,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-29d</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-29e</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -420,15 +420,7 @@ function renderHw(){
     return h+g.rows.map(rowHtml).join('')};
   const tbl=gs=>'<table class="hw">'+head+'<tbody>'+gs.map(grpHtml).join('')+'</tbody></table>';
   const total=groups.reduce((n,g)=>n+g.rows.length+(g.plain?0:1),0);
-  let cols=[groups];
-  if(total>13&&groups.length>1){
-    let best=1,bd=1e9,acc=0;
-    for(let i=1;i<groups.length;i++){acc+=groups[i-1].rows.length+1;const d=Math.abs(acc-(total-acc));if(d<bd){bd=d;best=i}}
-    cols=[groups.slice(0,best),groups.slice(best)];
-  }else if(total>13&&groups.length===1){
-    const g=groups[0],m=Math.ceil(g.rows.length/2);
-    cols=[[{q:g.q,rows:g.rows.slice(0,m),plain:g.plain}],[{q:g.q,rows:g.rows.slice(m),plain:g.plain}]];
-  }
+  const cols=[groups];
   body.innerHTML='<div class="hwcols">'+cols.map(c=>'<div>'+tbl(c)+'</div>').join('')+'</div>';
   body.querySelectorAll('[data-focus]').forEach(b=>b.onclick=()=>{hwFocus=hwFocus===b.dataset.focus?null:b.dataset.focus;renderHw()});
   body.querySelectorAll('[data-fin]').forEach(b=>b.onclick=()=>{
