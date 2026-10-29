@@ -109,7 +109,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-29b</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-29c</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -320,7 +320,16 @@ function renderCheckin(){
   $('#stLate').textContent=(late?`遲到 ${late}`:'')+(lv?`　請假 ${lv}`:'');
   const miss=students.filter(s=>!att[s.key]&&!absn[s.key]);
   $('#stWait').textContent=miss.length&&miss.length<=6?'還沒到：'+miss.map(s=>s.name).join('、'):'';
-  g.querySelectorAll('.tile').forEach(b=>b.onclick=()=>tapCheck(b.dataset.k));
+  g.querySelectorAll('.tile').forEach(b=>{
+    const k=b.dataset.k;let tm=null,lp=false;
+    const clr=()=>{if(tm){clearTimeout(tm);tm=null}};
+    if(!att[k]){ // 還沒報到的格子：長按 0.8 秒＝請假／公假／補報到（需老師密碼）
+      b.addEventListener('pointerdown',()=>{lp=false;clr();tm=setTimeout(()=>{tm=null;lp=true;if(navigator.vibrate)try{navigator.vibrate(30)}catch(e){}unlocked?openMk(k):askPin(()=>openMk(k))},800)});
+      ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,clr));
+      b.addEventListener('contextmenu',e=>e.preventDefault());
+    }
+    b.onclick=()=>{if(lp){lp=false;return}tapCheck(k)};
+  });
 }
 let ynCb=null;
 function askYN(t,sub,cb){ynCb=cb;$('#ynT').textContent=t;$('#ynS').textContent=sub||'';$('#mYN').classList.add('on')}
