@@ -108,7 +108,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-28c</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-29a</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -204,7 +204,8 @@ firebase.initializeApp({
 const db=firebase.database();
 const $=s=>document.querySelector(s);
 const SUBJ=["國","英","數","自","地","歷","公","其他"];
-const TYPES=["作業","訂正","小考","考試","寫成績","帶物品"];
+const TYPES=["作業","訂正","寫成績","帶物品"],EXAMS=["小考","大卷"];
+function isExam(t){return t.type==="小考"||t.type==="大卷"||t.type==="考試"}
 const pad2=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const todayKey=()=>ymd(new Date());
@@ -358,7 +359,7 @@ function diaryTask(){
   return {id:'lj_'+todayKey(),subj:'',type:'聯絡簿',note:'生活札記',due:todayKey(),createdAt:9e15,virtual:true};
 }
 function openTasks(){
-  const L=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)).sort((a,b)=>(a.due||'').localeCompare(b.due||'')||a.createdAt-b.createdAt);
+  const L=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!isExam(t)).sort((a,b)=>(a.due||'').localeCompare(b.due||'')||a.createdAt-b.createdAt);
   const dt=diaryTask();if(dt)L.unshift(dt);
   return L;
 }
@@ -494,15 +495,15 @@ function dayLabel(d){
   return `${md} ${w}<small>${nm}</small>`;
 }
 const SFULL={國:'國文',英:'英文',數:'數學',自:'自然',地:'地理',歷:'歷史',公:'公民',其他:'其他'};
-const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',考試:'#d9534f',帶物品:'#2e9e6b',寫成績:'#8e5bd1'};
+const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',大卷:'#b02a2a',考試:'#d9534f',帶物品:'#2e9e6b',寫成績:'#8e5bd1'};
 function bookHtml(){
   const td=todayKey();
-  const T=openTasks().filter(t=>!t.virtual&&!String(t.id).startsWith('lj_')&&!collect[t.id]&&(!t.due||t.due>td||(t.due===td&&t.createdAt&&ymd(new Date(t.createdAt))===td)));
+  const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!String(t.id).startsWith('lj_')&&!t.diary&&!collect[t.id]&&(!t.due||t.due>td||(t.due===td&&(isExam(t)||(t.createdAt&&ymd(new Date(t.createdAt))===td))))).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||(isExam(b)-isExam(a))||a.createdAt-b.createdAt);
   let h='';
   if(!T.length)h='<div class="nodata">目前沒有登記的聯絡簿項目 🎉</div>';
   else{
     const g={};T.forEach(t=>(g[t.due||'9999']=g[t.due||'9999']||[]).push(t));
-    h=Object.keys(g).sort().map(d=>`<div class="bkday"><h3>${d==='9999'?'未訂日期':dayLabel(d)}<small>繳交／考試</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow"><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(t.type)}</span></div><span class="bnt">${esc(t.note||'')}</span></div>`).join('')}</div></div>`).join('');
+    h=Object.keys(g).sort().map(d=>`<div class="bkday"><h3>${d==='9999'?'未訂日期':dayLabel(d)}<small>繳交／考試</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow"${isExam(t)?' style="border-color:#d9534f;border-width:3px"':''}><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(t.type)}</span></div><span class="bnt">${esc(t.note||'')}</span></div>`).join('')}</div></div>`).join('');
   }
   return h;
 }
@@ -684,6 +685,7 @@ function renderCadre(){
   <div class="sec"><h3>➕ 新增聯絡簿（點選即可，免打字）</h3>
     <div class="row" style="margin-bottom:8px">科目：${chips(SUBJ,'subj')}</div>
     <div class="row" style="margin-bottom:8px">類型：${chips(TYPES,'type')}</div>
+    <div class="row" style="margin-bottom:8px">📝 考試：${chips(EXAMS,'type')}<small style="color:var(--mut);font-size:16px">（考試只顯示在聯絡簿，不會進「收作業」）</small></div>
     <div class="row" style="margin-bottom:8px">繳交日：
       <button class="chip ${nt.mode==='today'?'on':''}" data-mode="today">今天 ${tdy.slice(5).replace('-','/')}</button>
       <button class="chip ${nt.mode==='next'?'on':''}" data-mode="next">下個上學日 ${nsd.slice(5).replace('-','/')}</button>
