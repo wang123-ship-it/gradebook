@@ -86,6 +86,7 @@ input.txt{font-size:22px;padding:12px 14px;border:2px solid var(--line);border-r
 .sqbtns{display:flex;gap:6px;flex-wrap:wrap}
 .sqbtns .chip{min-height:48px;padding:8px 16px;font-size:20px}
 button.tile.done{cursor:default}button.tile.done:active{transform:none}
+.bkrow[data-id]{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}.bkrow.dragging{opacity:.3}
 .bkday{margin-bottom:18px}.bkday h3{margin:0 0 8px;font-size:32px;font-weight:900}.bkday h3 small{color:var(--mut);font-weight:700;font-size:24px;margin-left:10px}
 .bkgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .bkrow{background:#fff;border:3px solid var(--line);border-radius:18px;padding:8px 16px 10px}
@@ -116,7 +117,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-29e</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-30a</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -214,6 +215,10 @@ const $=s=>document.querySelector(s);
 const SUBJ=["國","英","數","自","地","歷","公","其他"];
 const TYPES=["作業","訂正","寫成績","帶物品","提醒"],EXAMS=["小考","大卷"];
 function isExam(t){return t.type==="小考"||t.type==="大卷"||t.type==="考試"}
+const TRANK={大卷:0,小考:1,考試:1,作業:2,訂正:3,寫成績:4,提醒:5,帶物品:6};
+function rankOf(t){return TRANK[t.type]!==undefined?TRANK[t.type]:7}
+function ordCmp(a,b){if(a.ord!=null&&b.ord!=null&&a.ord!==b.ord)return a.ord-b.ord;return (rankOf(a)-rankOf(b))||((a.createdAt||0)-(b.createdAt||0))}
+function tyLabel(t){return t.type==='大卷'?'考試・大卷':t.type==='小考'?'考試・小考':t.type==='考試'?'考試':t.type}
 function noCol(t){return isExam(t)||t.type==="寫成績"||t.type==="帶物品"||t.type==="提醒"}
 const pad2=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
@@ -524,14 +529,45 @@ const SFULL={國:'國文',英:'英文',數:'數學',自:'自然',地:'地理',�
 const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',大卷:'#b02a2a',考試:'#d9534f',帶物品:'#2e9e6b',提醒:'#d4a017',寫成績:'#8e5bd1'};
 function bookHtml(){
   const td=todayKey();
-  const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!String(t.id).startsWith('lj_')&&!t.diary&&!collect[t.id]&&(!t.due||t.due>td||(t.due===td&&(noCol(t)||(t.createdAt&&ymd(new Date(t.createdAt))===td))))).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||(isExam(b)-isExam(a))||a.createdAt-b.createdAt);
+  const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!String(t.id).startsWith('lj_')&&!t.diary&&!collect[t.id]&&(!t.due||t.due>td||(t.due===td&&(noCol(t)||(t.createdAt&&ymd(new Date(t.createdAt))===td))))).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||ordCmp(a,b));
   let h='';
   if(!T.length)h='<div class="nodata">目前沒有登記的聯絡簿項目 🎉</div>';
   else{
     const g={};T.forEach(t=>(g[t.due||'9999']=g[t.due||'9999']||[]).push(t));
-    h=Object.keys(g).sort().map(d=>`<div class="bkday"><h3>${d==='9999'?'未訂日期':dayLabel(d)}<small>繳交／考試</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow"${isExam(t)?' style="border-color:#d9534f;border-width:3px"':''}><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(t.type)}</span></div><span class="bnt">${esc(t.note||'')}</span></div>`).join('')}</div></div>`).join('');
+    h=Object.keys(g).sort().map(d=>`<div class="bkday"><h3>${d==='9999'?'未訂日期':dayLabel(d)}<small>繳交／考試</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow" data-id="${t.id}"${isExam(t)?' style="border-color:#d9534f;border-width:3px"':''}><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(tyLabel(t))}</span></div><span class="bnt">${esc(t.note||'')}</span></div>`).join('')}</div></div>`).join('');
   }
   return h;
+}
+function enableDrag(root){
+  root.querySelectorAll('.bkrow[data-id]').forEach(card=>{
+    let timer=null,sx=0,sy=0,on=false,ghost=null,grid=null;
+    const cancel=()=>{if(timer){clearTimeout(timer);timer=null}};
+    const move=e=>{
+      if(!on){if(timer&&Math.hypot(e.clientX-sx,e.clientY-sy)>12)cancel();return}
+      const rc=ghost.getBoundingClientRect();ghost.style.left=(rc.left+e.clientX-sx)+'px';ghost.style.top=(rc.top+e.clientY-sy)+'px';sx=e.clientX;sy=e.clientY;
+      ghost.style.display='none';const el=document.elementFromPoint(e.clientX,e.clientY);ghost.style.display='';
+      const tg=el&&el.closest&&el.closest('.bkrow[data-id]');
+      if(tg&&tg!==card&&tg.parentElement===grid){const r2=tg.getBoundingClientRect();grid.insertBefore(card,e.clientX>r2.left+r2.width/2?tg.nextSibling:tg)}
+    };
+    const tm=e=>{if(on)e.preventDefault()};
+    const done=save=>{
+      cancel();document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',cx);document.removeEventListener('touchmove',tm);
+      if(!on)return;on=false;
+      card.classList.remove('dragging');if(ghost){ghost.remove();ghost=null}
+      if(save&&grid){const ids=[...grid.querySelectorAll('.bkrow[data-id]')].map(e=>e.dataset.id),up2={};ids.forEach((id,i)=>up2['tasks/'+id+'/ord']=(i+1)*10);db.ref('kiosk').update(up2);toast('順序已儲存')}
+    };
+    const up=()=>done(true),cx=()=>done(false);
+    card.addEventListener('pointerdown',e=>{
+      if(e.pointerType==='mouse'&&e.button!==0)return;
+      sx=e.clientX;sy=e.clientY;cancel();
+      document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',cx);document.addEventListener('touchmove',tm,{passive:false});
+      timer=setTimeout(()=>{timer=null;on=true;grid=card.parentElement;
+        ghost=card.cloneNode(true);const rc=card.getBoundingClientRect();ghost.style.cssText=`position:fixed;left:${rc.left}px;top:${rc.top}px;width:${rc.width}px;pointer-events:none;z-index:99;opacity:.9;box-shadow:0 8px 24px rgba(0,0,0,.3)`;document.body.appendChild(ghost);
+        card.classList.add('dragging');
+        if(navigator.vibrate)try{navigator.vibrate(30)}catch(_){}},450);
+    });
+    card.addEventListener('contextmenu',e=>e.preventDefault());
+  });
 }
 function renderBook(){
   if(curTab!=='book')return;
@@ -545,7 +581,7 @@ function bk7Html(){
   const g={};T.forEach(t=>{const d=ymd(new Date(t.createdAt));(g[d]=g[d]||[]).push(t)});
   return Object.keys(g).sort().reverse().map(d=>{
     const x=new Date(d+'T00:00:00'),n=Math.round((x-new Date(td+'T00:00:00'))/864e5);
-    return `<div class="bkday"><h3>${x.getMonth()+1}/${x.getDate()} (週${WD[x.getDay()]})<small>${n===0?'今天登記':n===-1?'昨天登記':'登記'}</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow"><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(t.type)}</span></div><span class="bnt">${esc(t.note||'')}</span><div style="font-size:18px;color:var(--mut);font-weight:700">${t.due?t.due.slice(5).replace('-','/')+' 交／考':''}</div></div>`).join('')}</div></div>`}).join('');
+    return `<div class="bkday"><h3>${x.getMonth()+1}/${x.getDate()} (週${WD[x.getDay()]})<small>${n===0?'今天登記':n===-1?'昨天登記':'登記'}</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow"><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(tyLabel(t))}</span></div><span class="bnt">${esc(t.note||'')}</span><div style="font-size:18px;color:var(--mut);font-weight:700">${t.due?t.due.slice(5).replace('-','/')+' 交／考':''}</div></div>`).join('')}</div></div>`}).join('');
 }
 function showBk7(){
   $('#bk7Body').innerHTML=bk7Html();
@@ -721,16 +757,22 @@ function renderCadre(){
       <input class="txt" id="ntNote" placeholder="或自己打(選填)" value="${esc(nt.note)}" style="min-width:200px"></div>
     <button class="btn green" id="ntAdd">新增「${nt.subj==='其他'?'':nt.subj}${nt.type}」→ ${due.slice(5).replace('-','/')} 交／考</button>
   </div>
-  <div class="sec"><h3>📒 新增後的樣子（聯絡簿）</h3>${bookHtml()}</div>`;
+  <div class="sec"><h3>📒 新增後的樣子（聯絡簿）<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">內定：考試→作業→訂正→寫成績→提醒｜長按卡片 0.5 秒可拖曳換順序，聯絡簿會同步</small></h3>${bookHtml()}</div>`;
   const A=$('#p-cadre');
   A.querySelectorAll('[data-nt]').forEach(b=>b.onclick=()=>{nt[b.dataset.nt]=b.dataset.v;renderCadre()});
   A.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{nt.custom=b.dataset.day;nt.mode='custom';renderCadre()});
   A.querySelectorAll('[data-note]').forEach(b=>b.onclick=()=>{nt.note=nt.note===b.dataset.note?'':b.dataset.note;renderCadre()});
   $('#ntDate').onchange=e=>{if(e.target.value){nt.custom=e.target.value;nt.mode='custom'}renderCadre()};
   $('#ntNote').oninput=e=>nt.note=e.target.value;
+  enableDrag(A);
   $('#ntAdd').onclick=()=>{
     nt.note=$('#ntNote').value.trim();
-    db.ref('kiosk/tasks').push({subj:nt.subj,type:nt.type,due:curDue(),note:nt.note,createdAt:Date.now(),closed:false});
+    {const dueD=curDue(),nid='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),nw={subj:nt.subj,type:nt.type,due:dueD,note:nt.note,createdAt:Date.now(),closed:false};
+     const L=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!String(t.id).startsWith('lj_')&&!t.diary&&t.due===dueD).sort(ordCmp);
+     let at=L.findIndex(e=>rankOf(e)>rankOf(nw));if(at<0)at=L.length;
+     const up={};L.splice(at,0,Object.assign({id:nid},nw));
+     L.forEach((e,i)=>{if(e.id===nid)nw.ord=(i+1)*10;else up['tasks/'+e.id+'/ord']=(i+1)*10});
+     up['tasks/'+nid]=nw;db.ref('kiosk').update(up)}
     toast('已新增 '+(nt.subj==='其他'?'':nt.subj)+nt.type);nt.note='';
   };
 }
