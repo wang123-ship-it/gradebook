@@ -43,14 +43,21 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 .tile .seq{position:absolute;top:4px;right:8px;font-size:14px;color:var(--mut);font-weight:700}
 .tile .medal{position:absolute;top:2px;left:6px;font-size:20px}
 .hwwrap{}
-table.hw{border-collapse:separate;border-spacing:6px;width:100%}
-table.hw th{position:sticky;top:0;z-index:3;background:var(--bg);font-size:17px;font-weight:700;padding:6px;vertical-align:bottom}
-table.hw th .sub{display:block;font-size:13px;color:var(--mut);font-weight:500}
-table.hw td.nm{font-size:23px;font-weight:800;white-space:nowrap;padding:0 10px;background:#fff;border-radius:12px;min-width:150px;width:1%}
-table.hw .cell.nw{background:#fde2e2;border-color:#d9534f;color:#b02a2a;font-size:15px;font-weight:800}
-table.hw td.nm small{color:var(--mut);font-weight:600;font-size:14px;margin-right:6px}
-table.hw tr.sq td.sqc{background:#dfe9f8;border-radius:12px;text-align:center;font-size:20px;font-weight:800;padding:8px 6px}
-table.hw tr.sq td.sqh{background:#dfe9f8;border-radius:12px;font-size:20px;font-weight:800;padding:8px 14px}
+table.hw{border-collapse:separate;border-spacing:2px;width:100%}
+.hwcols{display:flex;gap:10px;align-items:flex-start}.hwcols>div{flex:1;min-width:0}
+table.hw th{position:sticky;top:0;z-index:3;background:var(--bg);font-size:14px;font-weight:700;padding:2px;vertical-align:bottom;line-height:1.2}
+table.hw th .chip.fin{min-height:26px;padding:1px 10px;font-size:13px;margin-top:2px}
+table.hw th .sub{display:block;font-size:11px;color:var(--mut);font-weight:500}
+table.hw td.nm{font-size:15px;font-weight:800;white-space:nowrap;padding:0 6px;height:28px;background:#fff;border-radius:8px;min-width:96px;width:1%}
+table.hw td.nm small.aw{font-size:10px;margin:0 0 0 3px;color:#c0392b}
+table.hw .cell{height:28px;min-width:44px;font-size:15px;border-width:2px;border-radius:7px;line-height:1;padding:0}
+table.hw td{padding:0;line-height:1}
+#hwFilter .chip{min-height:34px;padding:2px 14px;font-size:16px}
+#hwFilter{gap:6px}
+table.hw .cell.nw{background:#fde2e2;border-color:#d9534f;color:#b02a2a;font-size:11px;font-weight:800}
+table.hw td.nm small{color:var(--mut);font-weight:600;font-size:11px;margin-right:4px}
+table.hw tr.sq td.sqc{background:#dfe9f8;border-radius:8px;text-align:center;font-size:12px;font-weight:800;padding:0 4px;height:20px}
+table.hw tr.sq td.sqh{background:#dfe9f8;border-radius:8px;font-size:12px;font-weight:800;padding:0 8px;height:20px}
 .cell{height:68px;min-width:92px;border-radius:14px;border:3px solid var(--line);background:#fff;font-size:30px;font-weight:800;color:#c9c5b8;width:100%}
 .cell.y{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
 .cell.absent{background:#eee;color:#bbb}
@@ -109,7 +116,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-29c</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-29d</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -205,9 +212,9 @@ firebase.initializeApp({
 const db=firebase.database();
 const $=s=>document.querySelector(s);
 const SUBJ=["國","英","數","自","地","歷","公","其他"];
-const TYPES=["作業","訂正","寫成績","帶物品"],EXAMS=["小考","大卷"];
+const TYPES=["作業","訂正","寫成績","帶物品","提醒"],EXAMS=["小考","大卷"];
 function isExam(t){return t.type==="小考"||t.type==="大卷"||t.type==="考試"}
-function noCol(t){return isExam(t)||t.type==="寫成績"}
+function noCol(t){return isExam(t)||t.type==="寫成績"||t.type==="帶物品"||t.type==="提醒"}
 const pad2=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const todayKey=()=>ymd(new Date());
@@ -382,7 +389,7 @@ function renderHw(){
     fil.map(f=>`<button class="chip ${hwSquad===f?'on':''}" data-sq="${f}">${f==='all'?'全班':f===0?'未分排':'第'+f+'排'}</button>`).join('')+
     `<span style="width:16px"></span><button class="chip ${hwMode==='miss'?'on':''}" id="hwMiss">只看還沒交</button>`+(collect['lj_'+todayKey()]?`<button class="chip" id="hwReDiary" style="background:#fff3c4">↩ 重開今天的聯絡簿</button>`:'');
   {const fo=hwFocus&&T.find(x=>x.id===hwFocus),dj=T.find(x=>String(x.id).startsWith('lj_'));
-   $('#hwFilter').insertAdjacentHTML('beforeend',(fo?`<button class="chip on" id="hwUnf">✕ 只看「${esc(fo.subj+fo.type)}」未交</button>`:(dj?`<button class="chip" id="hwDj">📔 只看聯絡簿未交</button>`:''))+'<span style="font-size:15px;color:var(--mut);margin-left:8px">小提示：點欄位標題，可只看那一項還沒交的人</span>');
+   $('#hwFilter').insertAdjacentHTML('beforeend',(fo?`<button class="chip on" id="hwUnf">✕ 只看「${esc(fo.subj+fo.type)}」未交</button>`:(dj?`<button class="chip" id="hwDj">📔 只看聯絡簿未交</button>`:''))+'<span style="font-size:13px;color:var(--mut);margin-left:6px">點欄位標題＝只看那項沒交的人</span>');
    if($('#hwUnf'))$('#hwUnf').onclick=()=>{hwFocus=null;renderHw()};
    if($('#hwDj'))$('#hwDj').onclick=()=>{hwFocus=dj.id;renderHw()};}
   if($('#hwReDiary'))$('#hwReDiary').onclick=()=>db.ref('kiosk/collect/lj_'+todayKey()).remove();
@@ -394,21 +401,35 @@ function renderHw(){
   if(hwFocus&&!T.some(x=>x.id===hwFocus))hwFocus=null;
   if(hwFocus)list=list.filter(s=>!(checks[hwFocus]||{})[s.key]);
   else if(hwMode==='miss')list=list.filter(s=>T.some(t=>!(checks[t.id]||{})[s.key]));
-  let h='<table class="hw"><thead><tr><th></th>'+T.map(t=>{
+  const head='<thead><tr><th></th>'+T.map(t=>{
     const done=students.filter(s=>(checks[t.id]||{})[s.key]).length;
-    return `<th><span class="ttl ${hwFocus===t.id?'foc':''}" data-focus="${t.id}">${esc(t.subj)}${esc(t.type)}</span><span class="sub">${esc(t.note||'')}</span><span class="sub">${t.due?t.due.slice(5).replace('-','/')+'交　':''}全班 ${done}/${students.length}</span><button class="chip fin" data-fin="${t.id}">收畢</button></th>`}).join('')+'</tr></thead><tbody>';
-  let lastSq=null;
-  list.forEach(s=>{
-    const q=sqOf(s.key);
-    if(hwSquad==='all'&&q!==lastSq){lastSq=q;
-      const mem=students.filter(x=>sqOf(x.key)===q);
-      h+=`<tr class="sq"><td class="sqh">${q?'第'+q+'排':'未分排'}</td>${T.map(t=>`<td class="sqc">${mem.filter(x=>(checks[t.id]||{})[x.key]).length}/${mem.length}</td>`).join('')}</tr>`}
+    return `<th><span class="ttl ${hwFocus===t.id?'foc':''}" data-focus="${t.id}">${esc(t.subj)}${esc(t.type)}</span><span class="sub">${esc(t.note||'')}</span><span class="sub">${t.due?t.due.slice(5).replace('-','/')+'交 ':''}${done}/${students.length}</span><button class="chip fin" data-fin="${t.id}">收畢</button></th>`}).join('')+'</tr></thead>';
+  const rowHtml=s=>{
     const away=!att[s.key];
-    h+=`<tr><td class="nm"><small>${s.no}</small>${esc(s.name)}${away?' <small>（未到）</small>':''}</td>`+T.map(t=>{
+    return `<tr><td class="nm"><small>${s.no}</small>${esc(s.name)}${away?'<small class="aw">未到</small>':''}</td>`+T.map(t=>{
       const y=(checks[t.id]||{})[s.key],dj=String(t.id).startsWith('lj_')||t.diary,nw=dj&&y&&(stOf(t.id,s.key)||{}).s==='nw';
-      return `<td><button class="cell ${nw?'nw':y?'y':''}${away&&!y?' absent':''}" data-t="${t.id}" data-k="${s.key}">${nw?'✗札記':y?'✓':'○'}</button></td>`}).join('')+'</tr>';
-  });
-  body.innerHTML=h+'</tbody></table>';
+      return `<td><button class="cell ${nw?'nw':y?'y':''}${away&&!y?' absent':''}" data-t="${t.id}" data-k="${s.key}">${nw?'✗札記':y?'✓':'○'}</button></td>`}).join('')+'</tr>'};
+  // 依排分組；人多時左右分成兩欄，免下拉
+  const groups=[];
+  if(hwSquad==='all'){let lastSq=null;list.forEach(s=>{const q=sqOf(s.key);if(q!==lastSq||!groups.length){lastSq=q;groups.push({q,rows:[]})}groups[groups.length-1].rows.push(s)})}
+  else groups.push({q:null,rows:list,plain:true});
+  const grpHtml=g=>{
+    let h='';
+    if(!g.plain){const mem=students.filter(x=>sqOf(x.key)===g.q);
+      h+=`<tr class="sq"><td class="sqh">${g.q?'第'+g.q+'排':'未分排'}</td>${T.map(t=>`<td class="sqc">${mem.filter(x=>(checks[t.id]||{})[x.key]).length}/${mem.length}</td>`).join('')}</tr>`}
+    return h+g.rows.map(rowHtml).join('')};
+  const tbl=gs=>'<table class="hw">'+head+'<tbody>'+gs.map(grpHtml).join('')+'</tbody></table>';
+  const total=groups.reduce((n,g)=>n+g.rows.length+(g.plain?0:1),0);
+  let cols=[groups];
+  if(total>13&&groups.length>1){
+    let best=1,bd=1e9,acc=0;
+    for(let i=1;i<groups.length;i++){acc+=groups[i-1].rows.length+1;const d=Math.abs(acc-(total-acc));if(d<bd){bd=d;best=i}}
+    cols=[groups.slice(0,best),groups.slice(best)];
+  }else if(total>13&&groups.length===1){
+    const g=groups[0],m=Math.ceil(g.rows.length/2);
+    cols=[[{q:g.q,rows:g.rows.slice(0,m),plain:g.plain}],[{q:g.q,rows:g.rows.slice(m),plain:g.plain}]];
+  }
+  body.innerHTML='<div class="hwcols">'+cols.map(c=>'<div>'+tbl(c)+'</div>').join('')+'</div>';
   body.querySelectorAll('[data-focus]').forEach(b=>b.onclick=()=>{hwFocus=hwFocus===b.dataset.focus?null:b.dataset.focus;renderHw()});
   body.querySelectorAll('[data-fin]').forEach(b=>b.onclick=()=>{
     const t=T.find(x=>x.id===b.dataset.fin);
@@ -508,7 +529,7 @@ function dayLabel(d){
   return `${md} ${w}<small>${nm}</small>`;
 }
 const SFULL={國:'國文',英:'英文',數:'數學',自:'自然',地:'地理',歷:'歷史',公:'公民',其他:'其他'};
-const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',大卷:'#b02a2a',考試:'#d9534f',帶物品:'#2e9e6b',寫成績:'#8e5bd1'};
+const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',大卷:'#b02a2a',考試:'#d9534f',帶物品:'#2e9e6b',提醒:'#d4a017',寫成績:'#8e5bd1'};
 function bookHtml(){
   const td=todayKey();
   const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!String(t.id).startsWith('lj_')&&!t.diary&&!collect[t.id]&&(!t.due||t.due>td||(t.due===td&&(noCol(t)||(t.createdAt&&ymd(new Date(t.createdAt))===td))))).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||(isExam(b)-isExam(a))||a.createdAt-b.createdAt);
@@ -693,26 +714,25 @@ $('#histClose').onclick=()=>$('#mHist').classList.remove('on');
 function renderCadre(){
   if(curTab!=='cadre')return;
   if(document.activeElement&&document.activeElement.id==='ntNote')return;
-  const nsd=nextSchoolDay(),tdy=todayKey(),due=curDue();
+  const nsd=nextSchoolDay(),due=curDue(),days=[];{let d=nsd;for(let i=0;i<7;i++){days.push(d);d=nextSchoolDay(d+'T00:00:00')}}
   const chips=(arr,key)=>arr.map(v=>`<button class="chip ${nt[key]===v?'on':''}" data-nt="${key}" data-v="${v}">${v}</button>`).join('');
   $('#p-cadre').innerHTML=`
   <div class="sec"><h3>➕ 新增聯絡簿（點選即可，免打字）</h3>
     <div class="row" style="margin-bottom:8px">科目：${chips(SUBJ,'subj')}</div>
     <div class="row" style="margin-bottom:8px">類型：${chips(TYPES,'type')}</div>
-    <div class="row" style="margin-bottom:8px">📝 考試：${chips(EXAMS,'type')}<small style="color:var(--mut);font-size:16px">（考試與「寫成績」只顯示在聯絡簿，不會進「收作業」）</small></div>
+    <div class="row" style="margin-bottom:8px">📝 考試：${chips(EXAMS,'type')}<small style="color:var(--mut);font-size:16px">（考試、寫成績、帶物品、提醒只顯示在聯絡簿，不會進「收作業」）</small></div>
     <div class="row" style="margin-bottom:8px">繳交日：
-      <button class="chip ${nt.mode==='today'?'on':''}" data-mode="today">今天 ${tdy.slice(5).replace('-','/')}</button>
-      <button class="chip ${nt.mode==='next'?'on':''}" data-mode="next">下個上學日 ${nsd.slice(5).replace('-','/')}</button>
-      <input type="date" class="txt" id="ntDate" value="${due}" style="min-width:0">
+      ${days.map((d,i)=>{const x=new Date(d+'T00:00:00');return `<button class="chip ${due===d?'on':''}" data-day="${d}">${(x.getMonth()+1)+'/'+x.getDate()}（${WD[x.getDay()]}）${i===0?'<small style="font-size:14px"> 下個上學日</small>':''}</button>`}).join('')}
+      <span style="font-size:16px;color:var(--mut);margin-left:6px">其他日期：</span><input type="date" class="txt" id="ntDate" value="${days.includes(due)?'':due}" style="min-width:0">
     </div>
     <div class="row" style="margin-bottom:12px">備註：${noteList().map(v=>`<button class="chip ${nt.note===v?'on':''}" data-note="${v}">${v}</button>`).join('')}
       <input class="txt" id="ntNote" placeholder="或自己打(選填)" value="${esc(nt.note)}" style="min-width:200px"></div>
-    <button class="btn green" id="ntAdd">新增「${nt.subj==='其他'?'':nt.subj}${nt.type}」</button>
+    <button class="btn green" id="ntAdd">新增「${nt.subj==='其他'?'':nt.subj}${nt.type}」→ ${due.slice(5).replace('-','/')} 交／考</button>
   </div>
   <div class="sec"><h3>📒 新增後的樣子（聯絡簿）</h3>${bookHtml()}</div>`;
   const A=$('#p-cadre');
   A.querySelectorAll('[data-nt]').forEach(b=>b.onclick=()=>{nt[b.dataset.nt]=b.dataset.v;renderCadre()});
-  A.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{nt.mode=b.dataset.mode;renderCadre()});
+  A.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{nt.custom=b.dataset.day;nt.mode='custom';renderCadre()});
   A.querySelectorAll('[data-note]').forEach(b=>b.onclick=()=>{nt.note=nt.note===b.dataset.note?'':b.dataset.note;renderCadre()});
   $('#ntDate').onchange=e=>{if(e.target.value){nt.custom=e.target.value;nt.mode='custom'}renderCadre()};
   $('#ntNote').oninput=e=>nt.note=e.target.value;
