@@ -104,6 +104,8 @@ button.tile.done{cursor:default}button.tile.done:active{transform:none}
 .dn{margin-top:8px;color:var(--mut);font-size:18px}.dnb{font-size:18px;margin:3px;padding:6px 12px;border:2px solid var(--line);border-radius:12px;background:#f4f1ea;color:var(--mut)}
 table.st{border-collapse:collapse;width:100%;background:#fff;border-radius:14px;overflow:hidden;font-size:24px}
 table.st th{background:#dfe9f8;padding:8px 6px;font-size:18px}table.st td{padding:6px 8px;text-align:center;border-top:1px solid var(--line);font-weight:700}
+table.st th.hwh{background:#fbdca6;color:#7a4a00}table.st th.atth{background:#cfe3fa;color:#1d4a80}table.st th.top{font-size:20px}
+table.st td.hwc{background:#fff6e4}table.st td.attc{background:#eef5ff}table.st .bl{border-left:4px solid #fff}table.st td.bl{border-left:4px solid #fff}
 table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{color:#c9c5b8;font-weight:500}table.st td.w{color:var(--late)}table.st td.r{color:var(--bad)}
 .hrow{padding:10px 0;border-bottom:1px solid var(--line);font-size:20px}.hrow b{font-size:24px}
 .lt{background:#fff;border:3px solid var(--late);border-radius:18px;padding:14px;margin-bottom:12px}
@@ -117,7 +119,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-30a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-30b</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -671,7 +673,7 @@ function renderStat(){
   if(key)L.sort((a,b)=>key(c[b.key])-key(c[a.key])||a.no-b.no);
   const sum=f=>students.reduce((n,s)=>n+f(c[s.key]),0);
   const perfect=students.filter(s=>{const x=c[s.key];return x.late+x.none+x.hm+x.hl===0&&(x.arr>0)});
-  const cell=(v,cls)=>`<td class="${v?cls:'z'}">${v||'·'}</td>`;
+  const cell=(v,cls,g)=>`<td class="${v?cls:'z'} ${g||''}">${v||'·'}</td>`;
   const sf=settings.statFrom||'';
   $('#p-stat').innerHTML=`
   <div class="bar">${SMODES.map(m=>`<button class="chip ${statMode===m[0]?'on':''}" data-sm="${m[0]}">${m[1]}${m[0]==='since'&&sf?' '+sf.slice(5).replace('-','/'):''}</button>`).join('')}
@@ -681,18 +683,18 @@ function renderStat(){
     <button class="chip" id="stReset">🔄 起算日設為今天</button></div>
   <div class="bar" style="gap:10px">
     <div class="sec" style="margin:0;padding:10px 16px"><div style="font-size:15px;color:var(--mut)">統計區間</div><b style="font-size:22px">${rangeLabel()}</b></div>
-    <div class="sec" style="margin:0;padding:10px 16px"><div style="font-size:15px;color:var(--mut)">到校日數</div><b style="font-size:26px">${days.length}</b></div>
-    <div class="sec" style="margin:0;padding:10px 16px"><div style="font-size:15px;color:var(--mut)">遲到人次</div><b style="font-size:26px;color:var(--late)">${sum(x=>x.late)}</b></div>
-    <div class="sec" style="margin:0;padding:10px 16px"><div style="font-size:15px;color:var(--mut)">無紀錄人次</div><b style="font-size:26px;color:var(--bad)">${sum(x=>x.none)}</b></div>
-    <div class="sec" style="margin:0;padding:10px 16px"><div style="font-size:15px;color:var(--mut)">作業遲交／缺交</div><b style="font-size:26px;color:var(--late)">${sum(x=>x.hl)}</b> / <b style="font-size:26px;color:var(--bad)">${sum(x=>x.hm)}</b></div>
+    <div class="sec" style="margin:0;padding:10px 16px;background:#fff6e4;border:2px solid #fbdca6"><div style="font-size:15px;color:var(--mut)">📚 作業　遲交／缺交</div><b style="font-size:26px;color:var(--late)">${sum(x=>x.hl)}</b> / <b style="font-size:26px;color:var(--bad)">${sum(x=>x.hm)}</b></div>
+    <div class="sec" style="margin:0;padding:10px 16px;background:#eef5ff;border:2px solid #cfe3fa"><div style="font-size:15px;color:var(--mut)">🕖 到校日數</div><b style="font-size:26px">${days.length}</b></div>
+    <div class="sec" style="margin:0;padding:10px 16px;background:#eef5ff;border:2px solid #cfe3fa"><div style="font-size:15px;color:var(--mut)">🕖 遲到人次</div><b style="font-size:26px;color:var(--late)">${sum(x=>x.late)}</b></div>
+    <div class="sec" style="margin:0;padding:10px 16px;background:#eef5ff;border:2px solid #cfe3fa"><div style="font-size:15px;color:var(--mut)">🕖 無紀錄人次</div><b style="font-size:26px;color:var(--bad)">${sum(x=>x.none)}</b></div>
     <div class="sec" style="margin:0;padding:10px 16px;flex:1;min-width:220px"><div style="font-size:15px;color:var(--mut)">🏅 全勤守時（零遲到、零缺交、零遲交、零無紀錄）${perfect.length}人</div><div style="font-size:18px;font-weight:700">${perfect.map(s=>esc(s.name)).join('、')||'—'}</div></div>
   </div>
   <div class="bar"><span style="font-size:20px;color:var(--mut)">排序：</span>
-    ${[['no','座號'],['late','遲到多→少'],['none','無紀錄多→少'],['miss','缺交多→少'],['hl','遲交多→少']].map(x=>`<button class="chip ${statSort===x[0]?'on':''}" data-so="${x[0]}">${x[1]}</button>`).join('')}
+    ${[['no','座號'],['miss','缺交多→少'],['hl','遲交多→少'],['late','遲到多→少'],['none','無紀錄多→少']].map(x=>`<button class="chip ${statSort===x[0]?'on':''}" data-so="${x[0]}">${x[1]}</button>`).join('')}
     <span style="font-size:15px;color:var(--mut)">點任一列看明細</span><button class="btn gray" id="stCsv" style="margin-left:auto">匯出 CSV</button></div>
-  <table class="st"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th><th colspan="5">出缺勤</th><th colspan="4">作業</th></tr>
-  <tr><th>到校</th><th>遲到</th><th>請假</th><th>公假</th><th>無紀錄</th><th>待處理</th><th>遲交</th><th>缺交</th><th>請假</th></tr></thead><tbody>
-  ${L.map(s=>{const x=c[s.key];return `<tr data-det="${s.key}" style="cursor:pointer"><td class="z">${s.no}</td><td class="n">${esc(s.name)}</td>${cell(x.arr,'')}${cell(x.late,'w')}${cell(x.leave,'w')}${cell(x.pub,'w')}${cell(x.none,'r')}${cell(x.pend,'w')}${cell(x.hl,'w')}${cell(x.hm,'r')}${cell(x.hv,'w')}</tr>`}).join('')}
+  <table class="st"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th><th colspan="4" class="hwh top">📚 作業</th><th colspan="5" class="atth top">🕖 出缺勤</th></tr>
+  <tr><th class="hwh bl">待處理</th><th class="hwh">遲交</th><th class="hwh">缺交</th><th class="hwh">請假</th><th class="atth bl">到校</th><th class="atth">遲到</th><th class="atth">請假</th><th class="atth">公假</th><th class="atth">無紀錄</th></tr></thead><tbody>
+  ${L.map(s=>{const x=c[s.key];return `<tr data-det="${s.key}" style="cursor:pointer"><td class="z">${s.no}</td><td class="n">${esc(s.name)}</td>${cell(x.pend,'w','hwc bl')}${cell(x.hl,'w','hwc')}${cell(x.hm,'r','hwc')}${cell(x.hv,'w','hwc')}${cell(x.arr,'','attc bl')}${cell(x.late,'w','attc')}${cell(x.leave,'w','attc')}${cell(x.pub,'w','attc')}${cell(x.none,'r','attc')}</tr>`}).join('')}
   </tbody></table>
   <div style="margin-top:8px;font-size:15px;color:var(--mut)">「無紀錄」＝到校日（當天至少 3 人報到）卻沒有報到、也沒登記請假／公假的次數；遇到停課日若有人報到，可能會多算，請以明細為準。</div>`;
   const P=$('#p-stat'),needPin=f=>{unlocked?f():askPin(f)};
