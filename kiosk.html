@@ -46,11 +46,13 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 table.hw{border-collapse:separate;border-spacing:4px;width:100%}
 .hwcols{display:flex;gap:10px;align-items:flex-start}.hwcols>div{flex:1;min-width:0}
 table.hw th{position:sticky;top:0;z-index:3;background:var(--bg);font-size:16px;font-weight:700;padding:2px;vertical-align:bottom;line-height:1.2}
-table.hw th .chip.fin{min-height:34px;padding:2px 14px;font-size:15px;margin-top:2px}
+table.hw th .chip.fin{min-height:30px;padding:0 14px;font-size:15px;margin:0}
+table.hw th .hnote{font-size:15px;color:var(--mut);font-weight:600;margin-left:6px}
+table.hw th .hl2{display:flex;justify-content:center;align-items:center;gap:8px;font-size:14px;color:var(--mut);font-weight:700;margin-top:2px}
 table.hw th .sub{display:block;font-size:12px;color:var(--mut);font-weight:500}
-table.hw td.nm{font-size:22px;font-weight:800;white-space:nowrap;padding:0 10px;height:56px;background:#fff;border-radius:8px;min-width:140px;width:1%}
+table.hw td.nm{font-size:22px;font-weight:800;white-space:nowrap;padding:0 10px;height:var(--rh,56px);background:#fff;border-radius:8px;min-width:140px;width:1%}
 table.hw td.nm small.aw{font-size:12px;margin:0 0 0 3px;color:#c0392b}
-table.hw .cell{height:56px;min-width:84px;font-size:24px;border-width:3px;border-radius:12px;line-height:1;padding:0}
+table.hw .cell{height:var(--rh,56px);min-width:84px;font-size:24px;border-width:3px;border-radius:12px;line-height:1;padding:0}
 table.hw td{padding:0;line-height:1}
 #hwFilter .chip{min-height:44px;padding:4px 16px;font-size:18px}
 #hwFilter{gap:6px}
@@ -119,7 +121,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-30b</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-30c</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -389,6 +391,17 @@ function openTasks(){
   return L;
 }
 function sqOf(k){return squads[k]||0}
+function fitHw(){
+  const body=$('#hwBody');if(!body||curTab!=='hw')return;
+  if(hwSquad==='all'){document.documentElement.style.removeProperty('--rh');return}
+  const tb=body.querySelector('table.hw');if(!tb)return;
+  const n=tb.querySelectorAll('tbody tr:not(.sq)').length;if(!n)return;
+  const top=body.getBoundingClientRect().top,th=tb.querySelector('thead').offsetHeight;
+  const avail=window.innerHeight-top-th-28-n*4;
+  const h=Math.max(34,Math.min(64,Math.floor(avail/Math.max(n,6))));
+  document.documentElement.style.setProperty('--rh',h+'px');
+}
+window.addEventListener('resize',()=>fitHw());
 function renderHw(){
   const T=openTasks().filter(t=>!collect[t.id]);
   const fil=['all',...Array.from({length:settings.squadCount},(_,i)=>i+1),0];
@@ -410,7 +423,7 @@ function renderHw(){
   else if(hwMode==='miss')list=list.filter(s=>T.some(t=>!(checks[t.id]||{})[s.key]));
   const head='<thead><tr><th></th>'+T.map(t=>{
     const done=students.filter(s=>(checks[t.id]||{})[s.key]).length;
-    return `<th><span class="ttl ${hwFocus===t.id?'foc':''}" data-focus="${t.id}">${esc(t.subj)}${esc(t.type)}</span><span class="sub">${esc(t.note||'')}</span><span class="sub">${t.due?t.due.slice(5).replace('-','/')+'交 ':''}${done}/${students.length}</span><button class="chip fin" data-fin="${t.id}">收畢</button></th>`}).join('')+'</tr></thead>';
+    return `<th><span class="ttl ${hwFocus===t.id?'foc':''}" data-focus="${t.id}">${esc(t.subj)}${esc(t.type)}</span><span class="hnote">${esc(t.note||'')}</span><div class="hl2"><span>${done}/${students.length}</span><button class="chip fin" data-fin="${t.id}">收畢</button></div></th>`}).join('')+'</tr></thead>';
   const rowHtml=s=>{
     const away=!att[s.key];
     return `<tr><td class="nm"><small>${s.no}</small>${esc(s.name)}${away?'<small class="aw">未到</small>':''}</td>`+T.map(t=>{
@@ -429,6 +442,7 @@ function renderHw(){
   const total=groups.reduce((n,g)=>n+g.rows.length+(g.plain?0:1),0);
   const cols=[groups];
   body.innerHTML='<div class="hwcols">'+cols.map(c=>'<div>'+tbl(c)+'</div>').join('')+'</div>';
+  fitHw();
   body.querySelectorAll('[data-focus]').forEach(b=>b.onclick=()=>{hwFocus=hwFocus===b.dataset.focus?null:b.dataset.focus;renderHw()});
   body.querySelectorAll('[data-fin]').forEach(b=>b.onclick=()=>{
     const t=T.find(x=>x.id===b.dataset.fin);
