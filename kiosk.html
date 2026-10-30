@@ -43,6 +43,11 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 .tile .seq{position:absolute;top:4px;right:8px;font-size:14px;color:var(--mut);font-weight:700}
 .tile .medal{position:absolute;top:2px;left:6px;font-size:20px}
 .hwwrap{}
+#p-late .slgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:10px}
+.sl{display:flex;align-items:center;gap:12px;background:#fff;border:3px solid #f0c9a0;border-radius:16px;padding:8px 14px}
+.sl .sno{font-size:20px;color:var(--mut);font-weight:700;min-width:30px}.sl .snm{font-size:26px;font-weight:900;min-width:110px}.sl .snm small{font-size:12px;color:#c0392b;margin-left:4px}
+.sl .scnt{font-size:28px;font-weight:900;color:var(--bad);min-width:64px}.sl .sbt{display:flex;flex-wrap:nowrap;gap:5px;margin-left:auto}
+.sl .sbt .mini{font-size:15px;padding:6px 8px;min-height:44px;margin:0}
 table.hw{border-collapse:separate;border-spacing:4px;width:100%}
 .hwcols{display:flex;gap:10px;align-items:flex-start}.hwcols>div{flex:1;min-width:0}
 table.hw th{position:sticky;top:0;z-index:3;background:var(--bg);font-size:16px;font-weight:700;padding:2px;vertical-align:bottom;line-height:1.2}
@@ -121,7 +126,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-30c</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-30e</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -545,7 +550,7 @@ const SFULL={國:'國文',英:'英文',數:'數學',自:'自然',地:'地理',�
 const TCOL={作業:'#3b7dd8',訂正:'#e67e22',小考:'#d9534f',大卷:'#b02a2a',考試:'#d9534f',帶物品:'#2e9e6b',提醒:'#d4a017',寫成績:'#8e5bd1'};
 function bookHtml(){
   const td=todayKey();
-  const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!String(t.id).startsWith('lj_')&&!t.diary&&!collect[t.id]&&(!t.due||t.due>td||(t.due===td&&(noCol(t)||(t.createdAt&&ymd(new Date(t.createdAt))===td))))).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||ordCmp(a,b));
+  const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)&&!String(t.id).startsWith('lj_')&&!t.diary&&!collect[t.id]&&(!t.due||t.due>td||(t.due===td&&t.createdAt&&ymd(new Date(t.createdAt))===td))).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||ordCmp(a,b));
   let h='';
   if(!T.length)h='<div class="nodata">目前沒有登記的聯絡簿項目 🎉</div>';
   else{
@@ -613,9 +618,25 @@ $('#bk7Img').onclick=()=>{
 };
 function stOf(tid,k){return (status[tid]||{})[k]}
 function tLabel(t){return (t.subj==='其他'||!t.subj?'':t.subj)+t.type}
+let lateView='stu';
 function renderLate(){
   if(curTab!=='late')return;
   const td=todayKey(),T=openTasks().filter(t=>!t.virtual&&t.due&&t.due<=td).sort((a,b)=>a.due.localeCompare(b.due));
+  const tog=`<div class="bar"><button class="chip ${lateView==='stu'?'on':''}" data-lv="stu">👤 依學生（簡易）</button><button class="chip ${lateView==='task'?'on':''}" data-lv="task">📋 依作業（詳細）</button></div>`;
+  const bindLv=el=>el.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{lateView=b.dataset.lv;renderLate()});
+  if(lateView==='stu'){
+    const per={};let total=0;
+    T.forEach(t=>{if(!(t.due<td||collect[t.id]))return;students.forEach(s=>{if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key)){(per[s.key]=per[s.key]||[]).push(t.id);total++}})});
+    const L=students.filter(s=>per[s.key]).sort((a,b)=>per[b.key].length-per[a.key].length||a.no-b.no);
+    const el=$('#p-late');
+    el.innerHTML=tog+(L.length?`<div class="bar"><div class="stat" style="color:var(--late)">${L.length} 人<small>共欠 ${total} 項次（只列已收畢或已逾期的項目）</small></div></div><div class="slgrid">`+L.map(s=>`<div class="sl"><span class="sno">${s.no}</span><span class="snm">${esc(s.name)}${att[s.key]?'':'<small>未到</small>'}</span><span class="scnt">缺 ${per[s.key].length}</span><span class="sbt"><button class="mini" data-sa="late" data-k="${s.key}" data-n="1">補交1項</button><button class="mini" data-sa="late" data-k="${s.key}" data-n="0">全補交</button><button class="mini lv" data-sa="leave" data-k="${s.key}" data-n="1">請假1項</button><button class="mini lv" data-sa="leave" data-k="${s.key}" data-n="0">全請假</button></span></div>`).join('')+'</div>':'<div class="nodata">目前沒有人欠交 👏</div>');
+    el.querySelectorAll('[data-sa]').forEach(b=>b.onclick=()=>{
+      const ids=per[b.dataset.k]||[],pick=b.dataset.n==='1'?ids.slice(0,1):ids,up={};
+      pick.forEach(id=>up['status/'+id+'/'+b.dataset.k]={s:b.dataset.sa,d:td,t:Date.now()});
+      if(pick.length)db.ref('kiosk').update(up);
+    });
+    bindLv(el);return;
+  }
   let items=0,pendN=0,h='';
   T.forEach(t=>{
     const canLate=t.due<td||!!collect[t.id];
@@ -630,7 +651,8 @@ function renderLate(){
       (done.length?`<div class="dn">已處理（點一下可還原）：${done.map(s=>`<button class="dnb" data-undo="${t.id}" data-k="${s.key}">${esc(s.name)} ${stOf(t.id,s.key).s==='late'?'補交':'請假'} ✕</button>`).join('')}</div>`:'')+'</div>';
   });
   const el=$('#p-late');
-  el.innerHTML=items?`<div class="bar"><div class="stat" style="color:var(--late)">${items} 項<small>待處理 ${pendN} 人次</small></div></div>`+h:'<div class="nodata">目前沒有未交的作業或物品 👏</div>';
+  el.innerHTML=tog+(items?`<div class="bar"><div class="stat" style="color:var(--late)">${items} 項<small>待處理 ${pendN} 人次</small></div></div>`+h:'<div class="nodata">目前沒有未交的作業或物品 👏</div>');
+  bindLv(el);
   el.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>db.ref('kiosk/status/'+b.dataset.t+'/'+b.dataset.k).set({s:b.dataset.st,d:todayKey(),t:Date.now()}));
   el.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>db.ref('kiosk/status/'+b.dataset.undo+'/'+b.dataset.k).remove());
   el.querySelectorAll('[data-seal]').forEach(b=>b.onclick=()=>{
