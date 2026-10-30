@@ -126,7 +126,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-30e</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-30f</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -409,7 +409,8 @@ function fitHw(){
 window.addEventListener('resize',()=>fitHw());
 function renderHw(){
   const T=openTasks().filter(t=>!collect[t.id]);
-  const fil=['all',...Array.from({length:settings.squadCount},(_,i)=>i+1),0];
+  const fil=['all',...Array.from({length:settings.squadCount},(_,i)=>i+1),...(students.some(s=>!sqOf(s.key))?[0]:[])];
+  if(hwSquad===0&&!students.some(s=>!sqOf(s.key)))hwSquad='all';
   $('#hwFilter').innerHTML=
     fil.map(f=>`<button class="chip ${hwSquad===f?'on':''}" data-sq="${f}">${f==='all'?'全班':f===0?'未分排':'第'+f+'排'}</button>`).join('')+
     `<span style="width:16px"></span><button class="chip ${hwMode==='miss'?'on':''}" id="hwMiss">只看還沒交</button>`+(collect['lj_'+todayKey()]?`<button class="chip" id="hwReDiary" style="background:#fff3c4">↩ 重開今天的聯絡簿</button>`:'');
@@ -423,6 +424,7 @@ function renderHw(){
   const body=$('#hwBody');
   if(!T.length){body.innerHTML='<div class="nodata">目前沒有要收的項目 🎉<br><small>幹部在「幹部」標籤新增作業</small></div>';return}
   let list=students.filter(s=>hwSquad==='all'||sqOf(s.key)===hwSquad);
+  if(hwSquad==='all')list=list.slice().sort((a,b)=>((sqOf(a.key)||99)-(sqOf(b.key)||99))||a.no-b.no);
   if(hwFocus&&!T.some(x=>x.id===hwFocus))hwFocus=null;
   if(hwFocus)list=list.filter(s=>!(checks[hwFocus]||{})[s.key]);
   else if(hwMode==='miss')list=list.filter(s=>T.some(t=>!(checks[t.id]||{})[s.key]));
