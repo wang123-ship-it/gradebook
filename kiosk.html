@@ -144,7 +144,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v10-31a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-02a</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -1048,16 +1048,20 @@ function adminTT(){
   sec.querySelectorAll('.bellin').forEach(i=>i.onchange=()=>{i.value?db.ref('kiosk/settings/bell/'+i.dataset.b).set(i.value):db.ref('kiosk/settings/bell/'+i.dataset.b).remove()});
   sec.querySelectorAll('.ttb').forEach(b=>b.onclick=()=>openTTCell(+b.dataset.d,b.dataset.p));
 }
+let ttSel='';
 function openTTCell(d,p){
   const lab=(PERIODS.find(x=>x[0]===p)||[])[1];
-  pkOpen(box=>{const cur=(ttab[d]||{})[p]||'';
-    box.innerHTML=`<h2 style="margin:0 0 8px">週${WD[d]} ${lab}</h2><div class="row" style="margin-bottom:10px">${TT_SUBJ.map(s=>`<button class="chip ${cur===s?'on':''}" data-s="${s}">${s}</button>`).join('')}</div>
-    <div class="row"><input class="txt pkin" id="pkC" placeholder="或自己打（例如：英語會話）" value="${TT_SUBJ.includes(cur)?'':esc(cur)}" style="min-width:260px"><button class="btn green" id="pkOk">確定</button><button class="chip" id="pkWk">📋 這一節整週都一樣</button><button class="chip" id="pkClr" style="color:var(--bad)">清空</button><button class="btn gray" id="pkX">關閉</button></div>`;
+  ttSel=((ttab[d]||{})[p])||'';
+  pkOpen(box=>{
+    const cur=((ttab[d]||{})[p])||'';
+    box.innerHTML=`<h2 style="margin:0 0 8px">週${WD[d]} ${lab}　<small style="color:var(--mut);font-size:16px">目前：${esc(cur||'空白')}　→ 選好後按「確定」</small></h2><div class="row" style="margin-bottom:10px">${TT_SUBJ.map(s=>`<button class="chip ${ttSel===s?'on':''}" data-s="${s}">${s}</button>`).join('')}</div>
+    <div class="row"><input class="txt pkin" id="pkC" placeholder="或自己打（例如：英語會話）" value="${TT_SUBJ.includes(ttSel)?'':esc(ttSel)}" style="min-width:260px"><button class="btn green" id="pkOk">確定：${esc(ttSel||'清空')}</button><button class="chip" id="pkWk">📋 整週這一節都設成「${esc(ttSel||'空')}」</button><button class="chip" id="pkClr" style="color:var(--bad)">清空</button><button class="btn gray" id="pkX">取消</button></div>`;
     const set=v=>{v?db.ref('kiosk/timetable/'+d+'/'+p).set(v):db.ref('kiosk/timetable/'+d+'/'+p).remove()};
-    box.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{set(b.dataset.s);pkClose()});
-    $('#pkOk').onclick=()=>{set($('#pkC').value.trim());pkClose()};
+    box.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{ttSel=b.dataset.s;pkDraw()});
+    $('#pkC').oninput=e=>{ttSel=e.target.value.trim();const ok=$('#pkOk'),wk=$('#pkWk');if(ok)ok.textContent='確定：'+(ttSel||'清空');if(wk)wk.textContent='📋 整週這一節都設成「'+(ttSel||'空')+'」';box.querySelectorAll('[data-s]').forEach(b=>b.classList.toggle('on',b.dataset.s===ttSel))};
+    $('#pkOk').onclick=()=>{set(ttSel);pkClose();toast(ttSel?'已設定 週'+WD[d]+lab+'：'+ttSel:'已清空')};
     $('#pkClr').onclick=()=>{set('');pkClose()};
-    $('#pkWk').onclick=()=>{const v=$('#pkC').value.trim()||cur;if(!v)return;const up={};[1,2,3,4,5].forEach(x=>up['timetable/'+x+'/'+p]=v);db.ref('kiosk').update(up);pkClose()};
+    $('#pkWk').onclick=()=>{if(!ttSel)return;const up={};[1,2,3,4,5].forEach(x=>up['timetable/'+x+'/'+p]=ttSel);db.ref('kiosk').update(up);pkClose();toast('整週'+lab+'都設成 '+ttSel)};
     $('#pkX').onclick=pkClose})}
 
 renderNav();
