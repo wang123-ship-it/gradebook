@@ -64,7 +64,7 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 .pkg{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px}
 .pkt{position:relative;border:3px solid var(--line);background:#fff;border-radius:12px;min-height:56px;font-size:20px;padding:4px 6px;text-align:center}.pkt small{display:block;font-size:12px;color:var(--mut)}.pkt.on{background:#dff3e8;border-color:var(--ok)}
 .pkt em{display:block;font-style:normal;font-size:13px;color:#8e5bd1;font-weight:800}.pkt em.red{color:var(--bad);font-size:15px}
-#pkBox{min-width:min(900px,92vw)}table.ttadm{border-collapse:separate;border-spacing:3px}table.ttadm th{font-size:16px;padding:4px}table.ttadm td.pl{font-size:15px;font-weight:800;white-space:nowrap}table.ttadm .bellin{display:block;font-size:14px;margin-top:2px;width:104px}
+#pkBox{min-width:min(900px,92vw)}table.ttadm{border-collapse:separate;border-spacing:3px}table.ttadm th{font-size:16px;padding:4px}table.ttadm td.pl{font-size:15px;font-weight:800;white-space:nowrap}table.ttadm .bellin{display:block;font-size:14px;margin-top:2px;width:132px}
 table.ttadm .ttb{min-width:84px;min-height:40px;border:2px solid var(--line);background:#fff;border-radius:8px;font-size:17px;font-weight:800}table.ttadm td.nz{text-align:center;background:#eef5ff;border-radius:8px}
 table.hw{border-collapse:separate;border-spacing:4px;width:100%}
 .hwcols{display:flex;gap:10px;align-items:flex-start}.hwcols>div{flex:1;min-width:0}
@@ -144,7 +144,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-02a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-02b</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -935,7 +935,7 @@ const TODO_DEF=['小考','考試','上課','訂正','複習','自習','發考卷
 const NAP_WHERE=['保健室','輔導室','導師室','教務處','學務處','家長接走','其他'];
 const COACH_T=['國文','英文','數學','自然','地理','歷史','公民','導師','其他'];
 let ttab={},dayD={},dayRef=null;window.__tdReady=true;
-db.ref('kiosk/timetable').on('value',s=>{ttab=s.val()||{};renderToday();pkDraw()});
+db.ref('kiosk/timetable').on('value',s=>{ttab=s.val()||{};renderToday();pkDraw();if(unlocked&&curTab==='admin')renderAdmin()});
 function watchDay(){
   if(dayRef)dayRef.off();
   dayRef=db.ref('kiosk/day/'+todayKey());
