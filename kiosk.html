@@ -144,7 +144,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-02b</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-02c</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -1023,16 +1023,22 @@ function openNoise(){
     box.querySelectorAll('.pkt').forEach(b=>b.onclick=()=>{const k=b.dataset.k,n=(nz[k]||0)+(noiseMinus?-1:1);n>0?dref('noise/'+k).set(n):dref('noise/'+k).remove()});
     $('#pkX').onclick=pkClose})}
 function todoList(){return Array.isArray(settings.todoPresets)&&settings.todoPresets.length?settings.todoPresets:TODO_DEF}
+let todoManage=false;
 function openPeriod(pid){
+  todoManage=false;
   const lab=(PERIODS.find(p=>p[0]===pid)||[])[1];
   pkOpen(box=>{const {g,wk}=ttDay(),todo=(dayD.todo||{})[pid]||'',base=(ttab[g]||{})[pid]||'',now=subjAt(pid,g,wk);
     box.innerHTML=`<h2 style="margin:0 0 8px">${lab}　<small style="color:var(--mut);font-size:16px">今天的設定（只影響今天，課表本身不變）</small></h2>
     ${pid==='noon'?'':`<div class="row" style="margin-bottom:6px;font-weight:800">今天這節上：${TT_SUBJ.map(s=>`<button class="chip ${now===s?'on':''}" data-s="${s}">${s}</button>`).join('')}${(dayD.tt||{})[pid]?`<button class="chip" id="pkRs">↩ 還原成課表（${esc(base||'空')}）</button>`:''}</div>`}
-    <div class="row" style="margin:10px 0 6px;font-weight:800">這節要做什麼：${todoList().map(s=>`<button class="chip ${todo===s?'on':''}" data-d="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+    <div class="row" style="margin:10px 0 6px;font-weight:800">這節要做什麼：${todoList().map(s=>`<button class="chip ${todoManage?'':(todo===s?'on':'')}" ${todoManage?'style="border-color:#d9534f;color:#b02a2a" ':''}data-d="${esc(s)}">${todoManage?'✕ ':''}${esc(s)}</button>`).join('')}<button class="chip ${todoManage?'on':''}" id="pkMg">${todoManage?'✔ 管理完成':'🗑 管理常用'}</button>${todoManage?'<button class="chip" id="pkRst">↩ 還原預設</button>':''}</div>${todoManage?'<div style="color:#b02a2a;font-size:16px;margin-bottom:6px">管理模式：點一下常用項目＝從清單刪除</div>':''}
     <div class="row"><input class="txt pkin" id="pkT" placeholder="或自己打，例如：第二單元小考" value="${esc(todo)}" style="min-width:320px"><button class="btn green" id="pkSave">儲存</button><button class="chip" id="pkAdd">＋存成常用</button><button class="chip" id="pkClr" style="color:var(--bad)">清除</button><button class="btn gray" id="pkX">關閉</button></div>`;
     box.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{const s=b.dataset.s;(s===base&&!wk)?dref('tt/'+pid).remove():dref('tt/'+pid).set(s)});
     if($('#pkRs'))$('#pkRs').onclick=()=>dref('tt/'+pid).remove();
-    box.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{const v=b.dataset.d;todo===v?dref('todo/'+pid).remove():dref('todo/'+pid).set(v)});
+    box.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{const v=b.dataset.d;
+      if(todoManage){const a=todoList().filter(x=>x!==v);a.length?db.ref('kiosk/settings/todoPresets').set(a):db.ref('kiosk/settings/todoPresets').remove();return}
+      todo===v?dref('todo/'+pid).remove():dref('todo/'+pid).set(v)});
+    $('#pkMg').onclick=()=>{todoManage=!todoManage;pkDraw()};
+    if($('#pkRst'))$('#pkRst').onclick=()=>{todoManage=false;db.ref('kiosk/settings/todoPresets').remove();pkDraw()};
     $('#pkSave').onclick=()=>{const v=$('#pkT').value.trim();v?dref('todo/'+pid).set(v):dref('todo/'+pid).remove();pkClose()};
     $('#pkAdd').onclick=()=>{const v=$('#pkT').value.trim();if(!v)return;const a=todoList().slice();if(!a.includes(v)){a.push(v);db.ref('kiosk/settings/todoPresets').set(a)}dref('todo/'+pid).set(v)};
     $('#pkClr').onclick=()=>{dref('todo/'+pid).remove();dref('tt/'+pid).remove();pkClose()};
