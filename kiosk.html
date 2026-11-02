@@ -49,6 +49,7 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 .sl .scnt{font-size:28px;font-weight:900;color:var(--bad);min-width:64px}.sl .sbt{display:flex;flex-wrap:nowrap;gap:5px;margin-left:auto}
 .sl .sbt .mini{font-size:15px;padding:6px 8px;min-height:44px;margin:0}
 #p-today .tdbar{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:20px;flex-wrap:wrap}.mut{color:var(--mut);font-weight:600}
+.vds{display:inline-flex;gap:4px;margin-left:8px}.vd{border:2px solid var(--line);background:#fff;border-radius:16px;padding:2px 10px;font-size:15px;font-weight:700;min-height:34px}.vd.on{background:var(--pri);border-color:var(--pri);color:#fff}
 .exb{background:#fde2e2;color:#b02a2a;font-weight:900;border-radius:10px;padding:2px 12px;font-size:20px}
 #p-today .tdwrap{display:grid;grid-template-columns:minmax(420px,.95fr) 1.35fr;gap:10px;height:calc(100vh - 170px);min-height:420px}
 .ttcol{display:flex;flex-direction:column;gap:3px;overflow:auto}
@@ -144,7 +145,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-02c</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-02d</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -289,7 +290,7 @@ function tick(){
   const d=new Date();
   $('#clock').textContent=pad2(d.getHours())+':'+pad2(d.getMinutes());
   $('#dateTxt').innerHTML=(d.getMonth()+1)+'月'+d.getDate()+'日<br>星期'+WD[d.getDay()];
-  if(ymd(d)!==curDay){watchAtt();if(window.__tdReady)watchDay();renderAll()}
+  if(ymd(d)!==curDay){watchAtt();if(window.__tdReady){viewDate=null;watchDay()}renderAll()}
   {const mm=pad2(d.getHours())+':'+pad2(d.getMinutes());if(window._lm!==mm){window._lm=mm;if(window.__tdReady)renderToday()}}
 }
 setInterval(tick,5000);tick();
@@ -934,16 +935,18 @@ const TT_SUBJ=['國文','英文','數學','自然','地理','歷史','公民','�
 const TODO_DEF=['小考','考試','上課','訂正','複習','自習','發考卷','看影片','實驗','整理'];
 const NAP_WHERE=['保健室','輔導室','導師室','教務處','學務處','家長接走','其他'];
 const COACH_T=['國文','英文','數學','自然','地理','歷史','公民','導師','其他'];
-let ttab={},dayD={},dayRef=null;window.__tdReady=true;
+let ttab={},dayD={},dayRef=null,viewDate=null;
+function vdate(){return viewDate||todayKey()}window.__tdReady=true;
 db.ref('kiosk/timetable').on('value',s=>{ttab=s.val()||{};renderToday();pkDraw();if(unlocked&&curTab==='admin')renderAdmin()});
 function watchDay(){
   if(dayRef)dayRef.off();
-  dayRef=db.ref('kiosk/day/'+todayKey());
+  if(viewDate&&viewDate<=todayKey())viewDate=null;
+  dayRef=db.ref('kiosk/day/'+vdate());
   dayRef.on('value',s=>{dayD=s.val()||{};renderToday();pkDraw()});
 }
 watchDay();
 function bellOf(p){return (settings.bell&&settings.bell[p])||BELL_DEF[p]}
-function ttDay(){const d=new Date();let g=d.getDay(),wk=false;if(g===0||g===6){g=new Date(nextSchoolDay()+'T00:00:00').getDay();wk=true}return {g,wk}}
+function ttDay(){const d=new Date(vdate()+'T00:00:00');let g=d.getDay(),wk=false;if(g===0||g===6){g=new Date(nextSchoolDay()+'T00:00:00').getDay();wk=true}return {g,wk}}
 function subjAt(p,g,wk){const o=!wk&&dayD.tt&&dayD.tt[p];return o||((ttab[g]||{})[p])||''}
 function ttColor(s){const c=s.charAt(0);return {'國':'#e0525e','英':'#3b7dd8','數':'#2e9e6b','自':'#8e5bd1','地':'#d98a1f','歷':'#a0643c','公':'#15a0a8','體':'#e67e22','音':'#c2548a','美':'#c2548a','綜':'#15a0a8','輔':'#15a0a8','班':'#7a7787'}[c]||'#4a4958'}
 function stuByKey(k){return students.find(x=>x.key===k)}
@@ -952,42 +955,46 @@ function keysSorted(o){return Object.keys(o||{}).filter(k=>stuByKey(k)).sort((a,
 function pendPer(){const td=todayKey(),per={};openTasks().filter(t=>!t.virtual&&t.due&&t.due<=td).forEach(t=>{if(!(t.due<td||collect[t.id]))return;students.forEach(s=>{if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key))per[s.key]=(per[s.key]||0)+1})});return per}
 function renderToday(){
   if(curTab!=='today')return;
-  const {g,wk}=ttDay(),now=new Date(),nm=now.getHours()*60+now.getMinutes();
+  const {g,wk}=ttDay(),now=new Date(),nm=now.getHours()*60+now.getMinutes(),isT=vdate()===todayKey(),vd=new Date(vdate()+'T00:00:00');
   let cur=-1;
-  if(!wk){PERIODS.forEach((p,i)=>{const [h,m]=bellOf(p[0]).split(':').map(Number);if(h*60+m<=nm)cur=i});
+  if(!wk&&isT){PERIODS.forEach((p,i)=>{const [h,m]=bellOf(p[0]).split(':').map(Number);if(h*60+m<=nm)cur=i});
     const [h9,m9]=bellOf('9').split(':').map(Number);if(cur===PERIODS.length-1&&nm>h9*60+m9+50)cur=99}
   const todo=dayD.todo||{};
   const rows=PERIODS.map((p,i)=>{
     const sb=p[0]==='noon'?'🍱':subjAt(p[0],g,wk),td=todo[p[0]]||'';
     return `<div class="ttr ${i<cur?'past':''} ${i===cur?'cur':''} ${p[0]==='noon'?'noon':''}" data-p="${p[0]}"><span class="ttl1">${p[1]}<small>${bellOf(p[0])}</small></span><span class="tts" style="color:${sb&&p[0]!=='noon'?ttColor(sb):'#bbb'}">${sb?esc(sb):'—'}</span><span class="ttd">${esc(td)}</span></div>`}).join('');
-  const dayT=todayKey(),exams=Object.keys(tasks).map(id=>tasks[id]).filter(t=>!(t.closed||t.sealed)&&isExam(t)&&t.due===dayT);
+  const dayT=vdate(),exams=Object.keys(tasks).map(id=>tasks[id]).filter(t=>!(t.closed||t.sealed)&&isExam(t)&&t.due===dayT);
   const per=pendPer(),pk=Object.keys(per).filter(k=>stuByKey(k)).sort((a,b)=>per[b]-per[a]||stuByKey(a).no-stuByKey(b).no);
   const noise=dayD.noise||{},nk=Object.keys(noise).filter(k=>stuByKey(k)&&noise[k]>0).sort((a,b)=>noise[b]-noise[a]||stuByKey(a).no-stuByKey(b).no);
   const nap=dayD.nap||{},napK=keysSorted(nap),coach=dayD.coach||{};
   const coachH=Object.keys(coach).map(t=>{const ks=keysSorted(coach[t]);return ks.length?`<div><b class="ct">${esc(t)}老師</b>${ks.map(k=>tchip(k)).join('')}</div>`:''}).join('');
+  const vdays=[todayKey()];{let d=todayKey();for(let i=0;i<5;i++){d=nextSchoolDay(d+'T00:00:00');vdays.push(d)}}
+  const viewBtns='<span class="vds">'+vdays.map((d,i)=>{const x=new Date(d+'T00:00:00');return `<button class="vd ${vdate()===d?'on':''}" data-vd="${d}">${i===0?'今天':i===1?'明天':(x.getMonth()+1)+'/'+x.getDate()+'(週'+WD[x.getDay()]+')'}</button>`}).join('')+'</span>';
+  const dueList=Object.keys(tasks).map(id=>tasks[id]).filter(t=>!(t.closed||t.sealed)&&t.due===vdate());
   const card=(id,cls,h,body)=>`<div class="tdc ${cls}" data-c="${id}"><h4>${h}</h4>${body||'<span class="mut">點一下設定</span>'}</div>`;
   $('#p-today').innerHTML=`
-  <div class="tdbar"><b>${(now.getMonth()+1)}/${now.getDate()}（週${WD[now.getDay()]}）今日課表</b>${wk?`<span class="mut">　週末：顯示下個上學日（週${WD[g]}）的課表</span>`:''}${exams.length?`<span class="exb">📝 今日考試：${exams.map(t=>esc((SFULL[t.subj]||t.subj)+t.type)).join('、')}</span>`:''}<span class="mut" style="margin-left:auto;font-size:14px">點課表任一節＝改課／填「這節要做什麼」</span></div>
+  <div class="tdbar"><b>${(vd.getMonth()+1)}/${vd.getDate()}（週${WD[vd.getDay()]}）${isT?'今日課表':'課表預排'}</b>${viewBtns}${wk?`<span class="mut">　週末：顯示下個上學日（週${WD[g]}）的課表</span>`:''}${exams.length?`<span class="exb">📝 ${isT?'今日':'當日'}考試：${exams.map(t=>esc((SFULL[t.subj]||t.subj)+t.type)).join('、')}</span>`:''}<span class="mut" style="margin-left:auto;font-size:14px">點課表任一節＝改課／填「這節要做什麼」</span></div>
   <div class="tdwrap"><div class="ttcol">${rows}</div><div class="tdcards">
    ${card('duty','','🧹 值日生',keysSorted(dayD.duty).map(k=>tchip(k)).join(''))}
    ${card('meal','','🍱 抬餐',keysSorted(dayD.meal).map(k=>tchip(k)).join(''))}
    ${card('nap','','😴 午休缺席・去哪',napK.map(k=>tchip(k,`<span class="wh">→ ${esc(nap[k])}</span>`)).join(''))}
    ${card('coach','','📖 午休加強',coachH)}
    ${card('noise','red','📢 風紀登記（吵鬧）',nk.map(k=>tchip(k,`<span class="cn">×${noise[k]}</span>`)).join(''))}
-   <div class="tdc hw" data-c="hw"><h4>⚠️ 作業未交（連動遲交）</h4>${pk.length?pk.slice(0,14).map(k=>tchip(k,`<span class="cn">缺${per[k]}</span>`)).join('')+(pk.length>14?'<span class="mut"> …共 '+pk.length+' 人</span>':''):'<span class="mut">目前沒有人欠交 👏</span>'}</div>
+   ${!isT?`<div class="tdc hw" data-c="bk"><h4>📒 這天要交／要考（來自聯絡簿）</h4>${dueList.length?dueList.map(t=>`<span class="tc">${esc((SFULL[t.subj]||t.subj)+tyLabel(t))}${t.note?`<small style="margin-left:4px">${esc(t.note)}</small>`:''}</span>`).join(''):'<span class="mut">這天還沒有登記項目</span>'}</div>`:`<div class="tdc hw" data-c="hw"><h4>⚠️ 作業未交（連動遲交）</h4>${pk.length?pk.slice(0,14).map(k=>tchip(k,`<span class="cn">缺${per[k]}</span>`)).join('')+(pk.length>14?'<span class="mut"> …共 '+pk.length+' 人</span>':''):'<span class="mut">目前沒有人欠交 👏</span>'}</div>`}
   </div></div>`;
   const A=$('#p-today');
   A.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>openPeriod(b.dataset.p));
   A.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{const c=b.dataset.c;
     if(c==='duty')openStuPick('🧹 值日生','duty');else if(c==='meal')openStuPick('🍱 抬餐','meal');
-    else if(c==='nap')openNap();else if(c==='coach')openCoach();else if(c==='noise')openNoise();else showTab('late')});
+    else if(c==='nap')openNap();else if(c==='coach')openCoach();else if(c==='noise')openNoise();else if(c==='bk')showTab('book');else showTab('late')});
+  A.querySelectorAll('[data-vd]').forEach(b=>b.onclick=e=>{e.stopPropagation();const d=b.dataset.vd;viewDate=d===todayKey()?null:d;watchDay();renderToday()});
 }
 /* ----- 通用彈窗 ----- */
 let pkFn=null;
 function pkOpen(fn){if(!$('#mPk')){const d=document.createElement('div');d.className='modal';d.id='mPk';d.innerHTML='<div class="box" id="pkBox"></div>';document.body.appendChild(d);d.addEventListener('click',e=>{if(e.target===d)pkClose()})}pkFn=fn;$('#mPk').classList.add('on');pkFn($('#pkBox'))}
 function pkDraw(){if(!pkFn||!$('#mPk')||!$('#mPk').classList.contains('on'))return;const a=document.activeElement;if(a&&a.classList&&a.classList.contains('pkin'))return;pkFn($('#pkBox'))}
 function pkClose(){pkFn=null;if($('#mPk'))$('#mPk').classList.remove('on')}
-function dref(p){return db.ref('kiosk/day/'+todayKey()+'/'+p)}
+function dref(p){return db.ref('kiosk/day/'+vdate()+'/'+p)}
 function pkGrid(sel,badge){return '<div class="pkg">'+students.map(s=>`<button class="pkt ${sel(s.key)?'on':''}" data-k="${s.key}"><small>${s.no}</small><b>${esc(s.name)}</b>${badge?badge(s.key):''}</button>`).join('')+'</div>'}
 function openStuPick(title,path){
   pkOpen(box=>{const cur=dayD[path]||{};
