@@ -60,6 +60,7 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 .tdcards{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,1fr);gap:8px;min-height:0}
 .tdc{background:#fff;border-radius:14px;padding:6px 10px;border:3px solid var(--line);cursor:pointer;overflow:auto;min-height:0}
 .tdc.red{border-color:#e8b4b4}.tdc.hw{border-color:#f0c9a0}
+.cnote{margin-top:4px;font-size:18px;font-weight:800;color:#2b6cb0;line-height:1.25}
 .tdc h4{margin:0 0 3px;font-size:17px}.tc{display:inline-block;background:#f4f1ea;border-radius:10px;padding:1px 9px;margin:2px 3px 2px 0;font-size:21px;font-weight:800}
 .tc small{font-size:12px;color:var(--mut);margin-right:3px}.tc .cn{color:var(--bad);margin-left:4px;font-size:18px}.tc .wh{color:#8e5bd1;margin-left:4px;font-size:17px}.ct{font-size:17px;margin-right:4px;color:#2b6cb0}
 .pkg{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px}
@@ -145,7 +146,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-02d</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-03a</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -967,11 +968,11 @@ function renderToday(){
   const per=pendPer(),pk=Object.keys(per).filter(k=>stuByKey(k)).sort((a,b)=>per[b]-per[a]||stuByKey(a).no-stuByKey(b).no);
   const noise=dayD.noise||{},nk=Object.keys(noise).filter(k=>stuByKey(k)&&noise[k]>0).sort((a,b)=>noise[b]-noise[a]||stuByKey(a).no-stuByKey(b).no);
   const nap=dayD.nap||{},napK=keysSorted(nap),coach=dayD.coach||{};
-  const coachH=Object.keys(coach).map(t=>{const ks=keysSorted(coach[t]);return ks.length?`<div><b class="ct">${esc(t)}老師</b>${ks.map(k=>tchip(k)).join('')}</div>`:''}).join('');
+  const coachH=Object.keys(coach).map(t=>{const ks=keysSorted(coach[t]);return ks.length?`<div><b class="ct">${esc(coachLabel(t))}</b>${ks.map(k=>tchip(k)).join('')}</div>`:''}).join('');
   const vdays=[todayKey()];{let d=todayKey();for(let i=0;i<5;i++){d=nextSchoolDay(d+'T00:00:00');vdays.push(d)}}
   const viewBtns='<span class="vds">'+vdays.map((d,i)=>{const x=new Date(d+'T00:00:00');return `<button class="vd ${vdate()===d?'on':''}" data-vd="${d}">${i===0?'今天':i===1?'明天':(x.getMonth()+1)+'/'+x.getDate()+'(週'+WD[x.getDay()]+')'}</button>`}).join('')+'</span>';
   const dueList=Object.keys(tasks).map(id=>tasks[id]).filter(t=>!(t.closed||t.sealed)&&t.due===vdate());
-  const card=(id,cls,h,body)=>`<div class="tdc ${cls}" data-c="${id}"><h4>${h}</h4>${body||'<span class="mut">點一下設定</span>'}</div>`;
+  const card=(id,cls,h,body)=>{const nt=(dayD.note||{})[id];return `<div class="tdc ${cls}" data-c="${id}"><h4>${h}</h4>${body||(nt?'':'<span class="mut">點一下設定</span>')}${nt?`<div class="cnote">📝 ${esc(nt)}</div>`:''}</div>`};
   $('#p-today').innerHTML=`
   <div class="tdbar"><b>${(vd.getMonth()+1)}/${vd.getDate()}（週${WD[vd.getDay()]}）${isT?'今日課表':'課表預排'}</b>${viewBtns}${wk?`<span class="mut">　週末：顯示下個上學日（週${WD[g]}）的課表</span>`:''}${exams.length?`<span class="exb">📝 ${isT?'今日':'當日'}考試：${exams.map(t=>esc((SFULL[t.subj]||t.subj)+t.type)).join('、')}</span>`:''}<span class="mut" style="margin-left:auto;font-size:14px">點課表任一節＝改課／填「這節要做什麼」</span></div>
   <div class="tdwrap"><div class="ttcol">${rows}</div><div class="tdcards">
@@ -995,10 +996,13 @@ function pkOpen(fn){if(!$('#mPk')){const d=document.createElement('div');d.class
 function pkDraw(){if(!pkFn||!$('#mPk')||!$('#mPk').classList.contains('on'))return;const a=document.activeElement;if(a&&a.classList&&a.classList.contains('pkin'))return;pkFn($('#pkBox'))}
 function pkClose(){pkFn=null;if($('#mPk'))$('#mPk').classList.remove('on')}
 function dref(p){return db.ref('kiosk/day/'+vdate()+'/'+p)}
+function coachLabel(t){return (t==='導師'||t==='其他')?t:t+'老師'}
+function noteRow(key){const v=((dayD.note||{})[key])||'';return `<div class="row" style="margin-top:10px"><span style="font-weight:800">📝 補充註記：</span><input class="txt pkin" id="pkNote" placeholder="例如：午休後到導師室補寫聯絡簿" value="${esc(v)}" style="min-width:380px"><button class="chip" id="pkNoteSave">儲存註記</button></div>`}
+function bindNote(key){const b=$('#pkNoteSave');if(!b)return;const go=()=>{const v=$('#pkNote').value.trim();v?dref('note/'+key).set(v):dref('note/'+key).remove();toast(v?'已儲存註記':'已清除註記')};b.onclick=go;$('#pkNote').onkeydown=e=>{if(e.key==='Enter')go()}}
 function pkGrid(sel,badge){return '<div class="pkg">'+students.map(s=>`<button class="pkt ${sel(s.key)?'on':''}" data-k="${s.key}"><small>${s.no}</small><b>${esc(s.name)}</b>${badge?badge(s.key):''}</button>`).join('')+'</div>'}
 function openStuPick(title,path){
   pkOpen(box=>{const cur=dayD[path]||{};
-    box.innerHTML=`<h2 style="margin:0 0 8px">${title}　<small style="color:var(--mut);font-size:16px">點名字選取／再點取消</small></h2>${pkGrid(k=>cur[k])}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;
+    box.innerHTML=`<h2 style="margin:0 0 8px">${title}　<small style="color:var(--mut);font-size:16px">點名字選取／再點取消</small></h2>${pkGrid(k=>cur[k])}${noteRow(path)}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;bindNote(path);
     box.querySelectorAll('.pkt').forEach(b=>b.onclick=()=>{const k=b.dataset.k;cur[k]?dref(path+'/'+k).remove():dref(path+'/'+k).set(true)});
     $('#pkX').onclick=pkClose})}
 let napWhere='保健室';
@@ -1006,7 +1010,7 @@ function openNap(){
   pkOpen(box=>{const nap=dayD.nap||{};
     box.innerHTML=`<h2 style="margin:0 0 8px">😴 午休缺席・去哪　<small style="color:var(--mut);font-size:16px">先選地點，再點學生；已登記的再點一次＝取消</small></h2>
     <div class="row" style="margin-bottom:10px">${NAP_WHERE.map(w=>`<button class="chip ${napWhere===w?'on':''}" data-w="${w}">${w}</button>`).join('')}</div>
-    ${pkGrid(k=>nap[k],k=>nap[k]?`<em>${esc(nap[k])}</em>`:'')}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;
+    ${pkGrid(k=>nap[k],k=>nap[k]?`<em>${esc(nap[k])}</em>`:'')}${noteRow('nap')}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;bindNote('nap');
     box.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{napWhere=b.dataset.w;pkDraw()});
     box.querySelectorAll('.pkt').forEach(b=>b.onclick=()=>{const k=b.dataset.k;nap[k]===napWhere||(nap[k]&&false)?dref('nap/'+k).remove():dref('nap/'+k).set(napWhere)});
     $('#pkX').onclick=pkClose})}
@@ -1014,8 +1018,8 @@ let coachT='數學';
 function openCoach(){
   pkOpen(box=>{const co=dayD.coach||{},cur=co[coachT]||{};
     box.innerHTML=`<h2 style="margin:0 0 8px">📖 午休加強　<small style="color:var(--mut);font-size:16px">先選哪位老師，再點要被找去的學生</small></h2>
-    <div class="row" style="margin-bottom:10px">${COACH_T.map(w=>`<button class="chip ${coachT===w?'on':''}" data-t="${w}">${w}老師${keysSorted(co[w]).length?'（'+keysSorted(co[w]).length+'）':''}</button>`).join('')}</div>
-    ${pkGrid(k=>cur[k])}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;
+    <div class="row" style="margin-bottom:10px">${COACH_T.map(w=>`<button class="chip ${coachT===w?'on':''}" data-t="${w}">${coachLabel(w)}${keysSorted(co[w]).length?'（'+keysSorted(co[w]).length+'）':''}</button>`).join('')}</div>
+    ${pkGrid(k=>cur[k])}${noteRow('coach')}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;bindNote('coach');
     box.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{coachT=b.dataset.t;pkDraw()});
     box.querySelectorAll('.pkt').forEach(b=>b.onclick=()=>{const k=b.dataset.k;cur[k]?dref('coach/'+coachT+'/'+k).remove():dref('coach/'+coachT+'/'+k).set(true)});
     $('#pkX').onclick=pkClose})}
@@ -1025,7 +1029,7 @@ function openNoise(){
     const tot=Object.keys(nz).reduce((a,k)=>a+(stuByKey(k)?nz[k]||0:0),0);
     box.innerHTML=`<h2 style="margin:0 0 8px">📢 風紀登記（吵鬧）　<small style="color:var(--mut);font-size:16px">點一下記一次　今日共 ${tot} 次</small></h2>
     <div class="row" style="margin-bottom:10px"><button class="chip ${noiseMinus?'':'on'}" id="nzP">＋ 記一次</button><button class="chip ${noiseMinus?'on':''}" id="nzM">－ 減一次（更正）</button></div>
-    ${pkGrid(k=>nz[k]>0,k=>nz[k]>0?`<em class="red">×${nz[k]}</em>`:'')}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;
+    ${pkGrid(k=>nz[k]>0,k=>nz[k]>0?`<em class="red">×${nz[k]}</em>`:'')}${noteRow('noise')}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;bindNote('noise');
     $('#nzP').onclick=()=>{noiseMinus=false;pkDraw()};$('#nzM').onclick=()=>{noiseMinus=true;pkDraw()};
     box.querySelectorAll('.pkt').forEach(b=>b.onclick=()=>{const k=b.dataset.k,n=(nz[k]||0)+(noiseMinus?-1:1);n>0?dref('noise/'+k).set(n):dref('noise/'+k).remove()});
     $('#pkX').onclick=pkClose})}
