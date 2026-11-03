@@ -146,7 +146,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-03a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-03b</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -993,12 +993,14 @@ function renderToday(){
 /* ----- 通用彈窗 ----- */
 let pkFn=null;
 function pkOpen(fn){if(!$('#mPk')){const d=document.createElement('div');d.className='modal';d.id='mPk';d.innerHTML='<div class="box" id="pkBox"></div>';document.body.appendChild(d);d.addEventListener('click',e=>{if(e.target===d)pkClose()})}pkFn=fn;$('#mPk').classList.add('on');pkFn($('#pkBox'))}
-function pkDraw(){if(!pkFn||!$('#mPk')||!$('#mPk').classList.contains('on'))return;const a=document.activeElement;if(a&&a.classList&&a.classList.contains('pkin'))return;pkFn($('#pkBox'))}
-function pkClose(){pkFn=null;if($('#mPk'))$('#mPk').classList.remove('on')}
+function pkDraw(){if(window.__noteSaving)return;if(!pkFn||!$('#mPk')||!$('#mPk').classList.contains('on'))return;const a=document.activeElement;if(a&&a.classList&&a.classList.contains('pkin'))return;pkFn($('#pkBox'))}
+function pkClose(){saveNote(true);pkNoteKey=null;pkFn=null;if($('#mPk'))$('#mPk').classList.remove('on')}
 function dref(p){return db.ref('kiosk/day/'+vdate()+'/'+p)}
 function coachLabel(t){return (t==='導師'||t==='其他')?t:t+'老師'}
-function noteRow(key){const v=((dayD.note||{})[key])||'';return `<div class="row" style="margin-top:10px"><span style="font-weight:800">📝 補充註記：</span><input class="txt pkin" id="pkNote" placeholder="例如：午休後到導師室補寫聯絡簿" value="${esc(v)}" style="min-width:380px"><button class="chip" id="pkNoteSave">儲存註記</button></div>`}
-function bindNote(key){const b=$('#pkNoteSave');if(!b)return;const go=()=>{const v=$('#pkNote').value.trim();v?dref('note/'+key).set(v):dref('note/'+key).remove();toast(v?'已儲存註記':'已清除註記')};b.onclick=go;$('#pkNote').onkeydown=e=>{if(e.key==='Enter')go()}}
+function noteRow(key){const v=((dayD.note||{})[key])||'';return `<div class="row" style="margin-top:10px"><span style="font-weight:800">📝 補充註記：<small style="color:var(--mut);font-weight:500">（打完自動儲存）</small></span><input class="txt pkin" id="pkNote" placeholder="例如：午休後到導師室補寫聯絡簿" value="${esc(v)}" style="min-width:380px"><button class="chip" id="pkNoteSave">儲存註記</button></div>`}
+let pkNoteKey=null;
+function saveNote(quiet){const n=$('#pkNote');if(!n||!pkNoteKey)return;const key=pkNoteKey,v=n.value.trim(),old=((dayD.note||{})[key])||'';if(v===old&&quiet)return;window.__noteSaving=true;setTimeout(()=>{window.__noteSaving=false},400);v?dref('note/'+key).set(v):dref('note/'+key).remove();if(!quiet)toast(v?'已儲存註記':'已清除註記')}
+function bindNote(key){pkNoteKey=key;const b=$('#pkNoteSave');if(!b)return;b.onclick=()=>saveNote(false);$('#pkNote').onkeydown=e=>{if(e.key==='Enter')saveNote(false)};$('#pkNote').onblur=()=>saveNote(true)}
 function pkGrid(sel,badge){return '<div class="pkg">'+students.map(s=>`<button class="pkt ${sel(s.key)?'on':''}" data-k="${s.key}"><small>${s.no}</small><b>${esc(s.name)}</b>${badge?badge(s.key):''}</button>`).join('')+'</div>'}
 function openStuPick(title,path){
   pkOpen(box=>{const cur=dayD[path]||{};
