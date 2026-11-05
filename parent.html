@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>703 今日聯絡簿</title>
+<style>
+:root{--bg:#f4f1ea;--ink:#2b2a33;--mut:#7a7787;--line:#e2ddd0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;-webkit-text-size-adjust:100%}
+header{padding:18px 16px 8px}
+h1{margin:0;font-size:22px}
+.sub{font-size:13px;color:var(--mut);margin-top:4px}
+main{padding:8px 16px 40px;max-width:640px;margin:0 auto}
+.day{margin:18px 0 8px;font-size:18px;font-weight:800}
+.day small{font-weight:500;color:var(--mut);font-size:13px;margin-left:6px}
+.card{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.card.exam{border:3px solid #d9534f}
+.hd{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.sj{font-size:18px;font-weight:800}
+.ty{color:#fff;border-radius:10px;padding:2px 10px;font-size:14px;font-weight:700}
+.nt{font-size:17px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.empty{text-align:center;color:var(--mut);padding:40px 0;font-size:17px}
+.warn{background:#fff3c4;border-radius:10px;padding:8px 12px;font-size:14px;margin:8px 0}
+</style></head><body>
+<header><h1>📒 703 聯絡簿</h1><div class="sub" id="sub">讀取中…</div></header>
+<main id="m"><div class="empty">讀取中…</div></main>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({apiKey:"AIzaSyArjsk22SiVdkdzvySSgwkCDFBKrPp_MMM",authDomain:"class-book-red-703.firebaseapp.com",databaseURL:"https://class-book-red-703-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"class-book-red-703"});
+const WD=['日','一','二','三','四','五','六'];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function dayLabel(d){const t=new Date(ymd(new Date())+'T00:00:00'),x=new Date(d+'T00:00:00'),n=Math.round((x-t)/864e5);
+  return {a:(x.getMonth()+1)+'/'+x.getDate()+'（週'+WD[x.getDay()]+'）',b:n===0?'今天':n===1?'明天':n===2?'後天':''}}
+let data=null;
+function draw(){
+  const m=document.getElementById('m'),sub=document.getElementById('sub');
+  if(!data){m.innerHTML='<div class="empty">目前還沒有聯絡簿資料</div>';sub.textContent='';return}
+  const td=ymd(new Date());
+  const L=(data.items||[]).filter(t=>t.d&&(t.d>td||(t.d===td&&data.today===td)));
+  const u=new Date(data.updated||0);
+  sub.textContent='最後更新 '+(u.getMonth()+1)+'/'+u.getDate()+' '+String(u.getHours()).padStart(2,'0')+':'+String(u.getMinutes()).padStart(2,'0');
+  let h='';
+  if(data.today!==td)h+='<div class="warn">⚠️ 老師今天尚未更新，以下可能是前一天的內容。</div>';
+  if(!L.length){m.innerHTML=h+'<div class="empty">目前沒有登記的聯絡簿項目 🎉</div>';return}
+  const g={};L.forEach(t=>(g[t.d]=g[t.d]||[]).push(t));
+  h+=Object.keys(g).sort().map(d=>{const l=dayLabel(d);return `<div class="day">${l.a}<small>${l.b}</small></div>`+g[d].map(t=>`<div class="card${t.x?' exam':''}"><div class="hd"><span class="sj">${esc(t.s)}</span><span class="ty" style="background:${esc(t.c)}">${esc(t.y)}</span></div><div class="nt">${esc(t.n)}</div></div>`).join('')}).join('');
+  m.innerHTML=h;
+}
+firebase.database().ref('public/diary').on('value',s=>{data=s.val();draw()},e=>{document.getElementById('m').innerHTML='<div class="empty">暫時讀不到資料，請稍後再試</div>'});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)draw()});
+</script></body></html>
