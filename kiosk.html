@@ -148,7 +148,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-05a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-05b</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -610,7 +610,7 @@ function enableDrag(root){
     const tm=e=>{if(on)e.preventDefault()};
     const done=save=>{
       cancel();document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',cx);document.removeEventListener('touchmove',tm);
-      if(!on)return;on=false;
+      if(!on)return;on=false;window.__dragAt=Date.now();
       card.classList.remove('dragging');if(ghost){ghost.remove();ghost=null}
       if(save&&grid){const ids=[...grid.querySelectorAll('.bkrow[data-id]')].map(e=>e.dataset.id),up2={};ids.forEach((id,i)=>up2['tasks/'+id+'/ord']=(i+1)*10);db.ref('kiosk').update(up2);toast('順序已儲存')}
     };
@@ -819,6 +819,35 @@ function showHist(){
   });
 }
 $('#histClose').onclick=()=>$('#mHist').classList.remove('on');
+let ed=null;
+function openEditTask(id){
+  const t=tasks[id];if(!t)return;
+  ed={id,subj:t.subj,type:t.type,due:t.due||'',note:t.note||'',del:false};
+  pkOpen(drawEdit);
+}
+function drawEdit(box){
+  if(!ed)return;
+  const days=[];{let d=nextSchoolDay();for(let i=0;i<7;i++){days.push(d);d=nextSchoolDay(d+'T00:00:00')}}
+  if(ed.due&&!days.includes(ed.due))days.unshift(ed.due);
+  const ch=(arr,k)=>arr.map(v=>`<button class="chip ${ed[k]===v?'on':''}" data-e="${k}" data-v="${v}">${v}</button>`).join('');
+  box.innerHTML=`<h3 style="margin:0 0 10px">✏️ 更正聯絡簿</h3>
+  <div class="row" style="margin-bottom:8px">科目：${ch(SUBJ,'subj')}</div>
+  <div class="row" style="margin-bottom:8px">類型：${ch(TYPES,'type')}${ch(EXAMS,'type')}</div>
+  <div class="row" style="margin-bottom:8px">繳交日：${days.map(d=>{const x=new Date(d+'T00:00:00');return `<button class="chip ${ed.due===d?'on':''}" data-ed="${d}">${(x.getMonth()+1)+'/'+x.getDate()}（${WD[x.getDay()]}）</button>`}).join('')}<input type="date" class="txt pkin" id="edDate" value="${days.includes(ed.due)?'':ed.due}" style="min-width:0"></div>
+  <div class="row" style="margin-bottom:12px">備註：${noteList().map(v=>`<button class="chip ${ed.note===v?'on':''}" data-en="${v}">${v}</button>`).join('')}<input class="txt pkin" id="edNote" value="${esc(ed.note)}" style="min-width:200px"></div>
+  <div class="row"><button class="btn green" id="edSave">儲存更正</button><button class="btn gray" id="edCancel">取消</button><span style="flex:1"></span><button class="btn" id="edDel" style="background:${ed.del?'#d9534f':'#fff'};color:${ed.del?'#fff':'#d9534f'};border:2px solid #d9534f">${ed.del?'再按一次確認刪除':'🗑 刪除這項'}</button></div>`;
+  box.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{ed[b.dataset.e]=b.dataset.v;ed.del=false;pkDraw()});
+  box.querySelectorAll('[data-ed]').forEach(b=>b.onclick=()=>{ed.due=b.dataset.ed;pkDraw()});
+  box.querySelectorAll('[data-en]').forEach(b=>b.onclick=()=>{ed.note=ed.note===b.dataset.en?'':b.dataset.en;pkDraw()});
+  $('#edDate').onchange=e=>{if(e.target.value){ed.due=e.target.value;pkDraw()}};
+  $('#edNote').oninput=e=>ed.note=e.target.value;
+  $('#edCancel').onclick=()=>{ed=null;pkClose()};
+  $('#edSave').onclick=()=>{const id=ed.id,n=$('#edNote').value.trim();db.ref('kiosk/tasks/'+id).update({subj:ed.subj,type:ed.type,due:ed.due,note:n});ed=null;pkClose();toast('已更正')};
+  $('#edDel').onclick=()=>{
+    if(!ed.del){ed.del=true;pkDraw();return}
+    const id=ed.id;['tasks','checks','status','collect'].forEach(k=>db.ref('kiosk/'+k+'/'+id).remove());ed=null;pkClose();toast('已刪除');
+  };
+}
 function renderCadre(){
   if(curTab!=='cadre')return;
   if(document.activeElement&&document.activeElement.id==='ntNote')return;
@@ -837,7 +866,7 @@ function renderCadre(){
       <input class="txt" id="ntNote" placeholder="或自己打(選填)" value="${esc(nt.note)}" style="min-width:200px"></div>
     <button class="btn green" id="ntAdd">新增「${nt.subj==='其他'?'':nt.subj}${nt.type}」→ ${due.slice(5).replace('-','/')} 交／考</button>
   </div>
-  <div class="sec"><h3>📒 新增後的樣子（聯絡簿）<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">內定：考試→作業→訂正→寫成績→提醒｜長按卡片 0.5 秒可拖曳換順序，聯絡簿會同步</small></h3>${bookHtml()}</div>`;
+  <div class="sec"><h3>📒 新增後的樣子（聯絡簿）<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">內定：考試→作業→訂正→寫成績→提醒｜長按卡片 0.5 秒可拖曳換順序｜點一下卡片可更正或刪除</small></h3>${bookHtml()}</div>`;
   const A=$('#p-cadre');
   A.querySelectorAll('[data-nt]').forEach(b=>b.onclick=()=>{nt[b.dataset.nt]=b.dataset.v;renderCadre()});
   A.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{nt.custom=b.dataset.day;nt.mode='custom';renderCadre()});
@@ -845,6 +874,7 @@ function renderCadre(){
   $('#ntDate').onchange=e=>{if(e.target.value){nt.custom=e.target.value;nt.mode='custom'}renderCadre()};
   $('#ntNote').oninput=e=>nt.note=e.target.value;
   enableDrag(A);
+  A.querySelectorAll('.bkrow[data-id]').forEach(c=>c.addEventListener('click',()=>{if(Date.now()-(window.__dragAt||0)<500)return;openEditTask(c.dataset.id)}));
   $('#ntAdd').onclick=()=>{
     nt.note=$('#ntNote').value.trim();
     {const dueD=curDue(),nid='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),nw={subj:nt.subj,type:nt.type,due:dueD,note:nt.note,createdAt:Date.now(),closed:false};
