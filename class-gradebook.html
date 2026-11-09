@@ -388,8 +388,6 @@
       <button class="tab-btn" data-tab="examEntry" onclick="switchAdminTab('examEntry')">✏️ 段考成績</button>
       <button class="tab-btn" data-tab="quiz" onclick="switchAdminTab('quiz')">🗒️ 大卷管理</button>
       <button class="tab-btn" data-tab="report" onclick="switchAdminTab('report')">📊 成績單</button>
-      <button class="tab-btn" data-tab="homework" onclick="switchAdminTab('homework')">📋 作業登記</button>
-      <button class="tab-btn" data-tab="behavior" onclick="switchAdminTab('behavior')">🌱 生活表現</button>
       <button class="tab-btn" data-tab="settings" onclick="switchAdminTab('settings')">⚙️ 設定</button>
     </div>
 
@@ -401,8 +399,8 @@
           <button onclick="exportFullBackup()">📥 立即備份</button>
         </div>
       </div>
-      <div class="card">
-        <h2>📋 本週作業狀況</h2>
+      <div class="card hidden">
+        <h2 class="hidden">📋 本週作業狀況</h2>
         <div id="ov-homework"></div>
       </div>
       <div class="card">
@@ -417,7 +415,7 @@
         <h2>🗓️ 週考期別狀況</h2>
         <div id="ov-periods"></div>
       </div>
-      <div class="card">
+      <div class="card hidden">
         <h2>🎮 學生行為等級（教師專用，僅你自己看得到）</h2>
         <div class="msg">計算方式：缺交+1分、需留意紀錄+2分、好的表現−1分，只計算最近60天內的紀錄（超過60天自動不算，等於自動給孩子重新開始的機會）。這套等級不會出現在家長端或學生端，只給你自己當處置參考。</div>
         <button onclick="refreshBehaviorLevels()" style="margin-top:8px;">🔄 重新整理等級</button>
@@ -425,7 +423,7 @@
       </div>
       <div class="card">
         <h2>🌟 需要關心名單</h2>
-        <div class="msg">綜合最近一次段考相對位置、作業繳交率、生活表現「需留意」紀錄自動產生，僅供參考，實際狀況以你的觀察為準。</div>
+        <div class="msg">依最近一次段考相對位置自動產生，僅供參考，實際狀況以你的觀察為準。</div>
         <button onclick="refreshAttentionList()" style="margin-top:8px;">🔄 重新整理關心名單</button>
         <div id="ov-attentionList" style="margin-top:10px;"></div>
       </div>
@@ -980,7 +978,7 @@ const isMonitor = params.get("monitor") === "1";
 
 if (isAdmin) {
   document.getElementById("pageTitle").textContent = "703班 老師後台";
-  document.getElementById("pageSub").textContent = "成績輸入 / 作業登記 / 學生名單管理";
+  document.getElementById("pageSub").textContent = "成績輸入 / 學生名單管理";
   document.getElementById("adminLogin").classList.remove("hidden");
 } else if (isMonitor) {
   document.getElementById("pageTitle").textContent = "703班 小老師成績登記";
