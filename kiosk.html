@@ -69,6 +69,13 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 .pkt em{display:block;font-style:normal;font-size:13px;color:#8e5bd1;font-weight:800}.pkt em.red{color:var(--bad);font-size:15px}
 #pkBox{min-width:min(900px,92vw)}table.ttadm{border-collapse:separate;border-spacing:3px}table.ttadm th{font-size:16px;padding:4px}table.ttadm td.pl{font-size:15px;font-weight:800;white-space:nowrap}table.ttadm .bellin{display:block;font-size:14px;margin-top:2px;width:132px}
 table.ttadm .ttb{min-width:84px;min-height:40px;border:2px solid var(--line);background:#fff;border-radius:8px;font-size:17px;font-weight:800}table.ttadm td.nz{text-align:center;background:#eef5ff;border-radius:8px}
+#p-corr{overflow:auto}.cc{background:#fff;border:3px solid #e8c9a0;border-radius:14px;padding:8px 10px;margin-bottom:10px}
+.cch{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}.cct{font-size:22px}.ccn{font-size:22px;font-weight:900;color:#b02a2a}.ccs{margin-left:auto;display:flex;gap:8px;font-weight:800;font-size:18px}
+.ccs .n{color:#d9534f}.ccs .f{color:#8e5bd1}
+.cqg{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.cq{position:relative;border:3px solid var(--line);background:#f3fbf6;border-radius:12px;min-height:60px;font-size:20px;font-weight:800;padding:3px 4px;text-align:center}.cq small{display:block;font-size:12px;color:var(--mut)}.cq em{display:block;font-style:normal;font-size:14px;font-weight:900;min-height:16px}
+.cq.n{background:#fde2e2;border-color:#d9534f;color:#b02a2a}.cq.f{background:#ece0fa;border-color:#8e5bd1;color:#5b2d99}.cq.req{border-color:#e0a800;background:#fffbe8}.cq.req.n{background:#fde2e2;border-color:#d9534f}.cq.req.f{background:#ece0fa;border-color:#8e5bd1}
+.cq.skip{background:#eee;color:#aaa;border-style:dashed}
 table.cm{border-collapse:collapse;background:#fff;font-size:20px}table.cm th,table.cm td{border:1px solid #e2ddd0;padding:6px 12px;text-align:center}table.cm th{background:#cfe8c4;color:#2d5a1a}table.cm td.rr{color:var(--bad);font-weight:800}
 table.hw{border-collapse:separate;border-spacing:4px;width:100%}
 .hwcols{display:flex;gap:10px;align-items:flex-start}.hwcols>div{flex:1;min-width:0}
@@ -135,7 +142,7 @@ button.tile.done{cursor:default}button.tile.done:active{transform:none}
 table.st{border-collapse:collapse;width:100%;background:#fff;font-size:24px}
 table.st thead tr:first-child th{position:sticky;top:-14px;z-index:5;box-shadow:0 -14px 0 var(--bg)}table.st thead tr:nth-child(2) th{position:sticky;top:calc(var(--sth1,46px) - 14px);z-index:5}
 table.st th{background:#dfe9f8;padding:8px 6px;font-size:18px}table.st td{padding:6px 8px;text-align:center;border-top:1px solid var(--line);font-weight:700}
-table.st th.crh{background:#cfe8c4;color:#2d5a1a}table.st td.crc{background:#f1f8ec}table.st th.hwh{background:#fbdca6;color:#7a4a00}table.st th.atth{background:#cfe3fa;color:#1d4a80}table.st th.top{font-size:20px}
+table.st th.crh{background:#cfe8c4;color:#2d5a1a}table.st td.crc{background:#f1f8ec}table.st th.pth{background:#f6d9e8;color:#8a1f55}table.st td.ptc{background:#fdf0f6;font-weight:900;border-left:4px solid #fff}table.st th.hwh{background:#fbdca6;color:#7a4a00}table.st th.atth{background:#cfe3fa;color:#1d4a80}table.st th.top{font-size:20px}
 table.st td.hwc{background:#fff6e4}table.st td.attc{background:#eef5ff}table.st .bl{border-left:4px solid #fff}table.st td.bl{border-left:4px solid #fff}
 table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{color:#c9c5b8;font-weight:500}table.st td.w{color:var(--late)}table.st td.r{color:var(--bad)}
 .hrow{padding:10px 0;border-bottom:1px solid var(--line);font-size:20px}.hrow b{font-size:24px}
@@ -150,7 +157,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-10c</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-10d</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -170,6 +177,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
     <div class="bar" id="hwFilter"></div>
     <div class="hwwrap" id="hwBody"></div>
   </section>
+  <section class="panel" id="p-corr"></section>
   <section class="panel" id="p-book"></section>
   <section class="panel" id="p-cadre"></section>
   <section class="panel" id="p-late"></section>
@@ -256,7 +264,7 @@ function ordCmp(a,b){if(a.ord!=null&&b.ord!=null&&a.ord!==b.ord)return a.ord-b.o
 function rm(t){return ((t.rounds||1)>1||(t.round||1)>1)?['','①','②','③','④'][t.round||1]||'':''}
 function tyLabel(t){return t.type==='大卷'?'考試・大卷':t.type==='小考'?'考試・小考':t.type==='小白'?'考試・小白':t.type==='考試'?'考試':t.type==='訂正'?'訂正'+rm(t):t.type}
 function tNote(t){const p=[];if((isExam(t)||t.type==='訂正')&&t.unit)p.push(t.unit);if(t.type==='訂正'&&t.part)p.push(t.part);const h=p.join(' ');return (h?h+(t.note?'　':''):'')+(t.note||'')}
-function noCol(t){return isExam(t)||t.type==="寫成績"||t.type==="帶物品"||t.type==="提醒"}
+function noCol(t){return isExam(t)||t.type==="訂正"||t.type==="寫成績"||t.type==="帶物品"||t.type==="提醒"}
 const pad2=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const todayKey=()=>ymd(new Date());
@@ -265,7 +273,7 @@ function nextSchoolDay(from){const d=new Date(from||Date.now());do{d.setDate(d.g
 function prevSchoolDay(){const d=new Date();do{d.setDate(d.getDate()-1)}while(d.getDay()==0||d.getDay()==6);return ymd(d)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-let status={},collect={},absn={},hwFocus=null,allAtt={},review={};
+let status={},collect={},absn={},hwFocus=null,allAtt={},corr={};
 let students=[],settings={lateTime:'07:40',squadCount:6},squads={},att={},tasks={},checks={};
 let hwSquad='all',hwMode='all',picked=new Set(),pickIn=true,pickNoRep=false;
 let unlocked=false,curDay=todayKey();
@@ -279,7 +287,7 @@ db.ref('students').on('value',s=>{
 db.ref('kiosk/settings').on('value',s=>{settings=Object.assign({lateTime:'07:40',squadCount:6},s.val()||{});renderAll()});
 db.ref('kiosk/squads').on('value',s=>{squads=s.val()||{};renderAll()});
 db.ref('kiosk/tasks').on('value',s=>{tasks=s.val()||{};renderAll();setTimeout(pubSync,800)});
-db.ref('kiosk/attendance').on('value',s=>{allAtt=s.val()||{};renderStat();renderLate();renderToday()});
+db.ref('kiosk/attendance').on('value',s=>{allAtt=s.val()||{};renderStat();renderLate();renderToday();renderCorr()});
 db.ref('kiosk/status').on('value',s=>{status=s.val()||{};renderLate();renderStat();if(unlocked&&curTab==='admin')renderAdmin()});
 db.ref('kiosk/collect').on('value',s=>{collect=s.val()||{};renderHw();renderLate();renderStat();setTimeout(pubSync,800)});
 /* ===== 家長頁同步：只把「聯絡簿文字」複製到 public/diary（不含任何學生資料）===== */
@@ -292,7 +300,7 @@ function pubSync(){try{
   db.ref('public/diary').set({today:td,updated:Date.now(),items:items});
 }catch(e){console.warn('pubSync',e)}}
 setInterval(pubSync,300000);
-db.ref('kiosk/review').on('value',s=>{review=s.val()||{};renderStat();if(unlocked&&curTab==='admin')renderAdmin()});
+db.ref('kiosk/corr').on('value',s=>{corr=s.val()||{};renderCorr();renderStat()});
 db.ref('kiosk/checks').on('value',s=>{checks=s.val()||{};renderHw();if(unlocked)renderAdmin()});
 let leaves={},leavesOk=false,attOk=false;
 function leaveCovers(l,d){return !!(l&&l.k&&l.from&&l.from<=d&&d<=(l.to||l.from)&&!(l.ex&&l.ex[d]))}
@@ -329,10 +337,10 @@ function tick(){
 setInterval(tick,5000);tick();
 
 /* ---------- 分頁 ---------- */
-const TABS={today:'🏠 今日',checkin:'🌅 報到',hw:'📚 收作業',book:'📒 聯絡簿',cadre:'🧑‍✈️ 幹部',late:'⚠️ 遲交',stat:'📊 統計',tools:'🎲 小工具',admin:'🔒 老師'};
-const DEF_ORDER=['today','checkin','book','cadre','hw','late','stat','tools','admin'];
+const TABS={today:'🏠 今日',checkin:'🌅 報到',hw:'📚 收作業',corr:'✏️ 訂正',book:'📒 聯絡簿',cadre:'🧑‍✈️ 幹部',late:'⚠️ 遲交',stat:'📊 統計',tools:'🎲 小工具',admin:'🔒 老師'};
+const DEF_ORDER=['today','checkin','book','cadre','hw','corr','late','stat','tools','admin'];
 let curTab='checkin',moveTab=null,lpFlag=false,lpTimer=null;
-function tabOrder(){const o=(Array.isArray(settings.tabOrder)?settings.tabOrder.slice():[]).filter((t,i,a)=>TABS[t]&&a.indexOf(t)===i);DEF_ORDER.forEach(t=>{if(!o.includes(t))t==='today'?o.unshift(t):o.push(t)});return o}
+function tabOrder(){const o=(Array.isArray(settings.tabOrder)?settings.tabOrder.slice():[]).filter((t,i,a)=>TABS[t]&&a.indexOf(t)===i);DEF_ORDER.forEach(t=>{if(!o.includes(t)){if(t==='today')o.unshift(t);else if(t==='corr'&&o.includes('hw'))o.splice(o.indexOf('hw')+1,0,t);else o.push(t)}});return o}
 function renderNav(){
   const o=tabOrder();let h='';
   o.forEach((t,i)=>{
@@ -369,10 +377,11 @@ function showTab(t){
   if(t==='admin')renderAdmin();
   if(t==='hw')renderHw();
   if(t==='today')renderToday();
+  if(t==='corr')renderCorr();
   if(t==='tools')renderTools();
   renderBook();renderCadre();renderLate();renderStat();
 }
-function renderAll(){renderNav();renderToday();renderCheckin();renderHw();renderTools();renderBook();renderCadre();renderLate();renderStat();if(unlocked)renderAdmin()}
+function renderAll(){renderNav();renderToday();renderCheckin();renderHw();renderCorr();renderTools();renderBook();renderCadre();renderLate();renderStat();if(unlocked)renderAdmin()}
 
 /* ---------- 報到 ---------- */
 function isLate(t){return t>settings.lateTime}
@@ -634,7 +643,7 @@ const DEF_NOTES=['習作','學習單','考卷','課本','筆記本','附錄本',
 function noteList(){return Array.isArray(settings.notes)&&settings.notes.length?settings.notes:DEF_NOTES.slice()}
 let nt={subj:'國',type:'作業',mode:'next',custom:'',note:'',ch:'',sec:'',part:'',rounds:0},assignSel=null;
 function ntUnit(){return nt.ch?nt.ch+(nt.sec?'-'+nt.sec:''):''}
-function ntRounds(){return nt.rounds||(nt.subj==='英'?2:1)}
+function ntRounds(){return roundsOf(nt.subj)}
 function curDue(){return nt.mode==='today'?todayKey():nt.mode==='custom'&&nt.custom?nt.custom:nextSchoolDay()}
 function dayLabel(d){
   const t=new Date(todayKey()+'T00:00:00'),x=new Date(d+'T00:00:00'),n=Math.round((x-t)/864e5);
@@ -786,7 +795,7 @@ function statRange(){
 }
 function statCompute(){
   const [from,to]=statRange(),td=todayKey(),c={};
-  students.forEach(s=>c[s.key]={arr:0,late:0,leave:0,pub:0,none:0,hl:0,hm:0,hv:0,pend:0,cp:0,cm:0,cf:0,cw:[],dLate:[],dNone:[],dLeave:[],hw:[]});
+  students.forEach(s=>c[s.key]={arr:0,late:0,leave:0,pub:0,none:0,hl:0,hm:0,hv:0,pend:0,cp:0,cm:0,cf:0,pts:0,cw:[],dLate:[],dNone:[],dLeave:[],hw:[]});
   const days=Object.keys(allAtt).filter(d=>d>=from&&d<=to&&Object.values(allAtt[d]||{}).filter(r=>r&&!r.st).length>=3).sort();
   days.forEach(d=>students.forEach(s=>{
     const r=(allAtt[d]||{})[s.key],x=c[s.key];
@@ -796,13 +805,14 @@ function statCompute(){
   }));
   Object.keys(status).forEach(tid=>Object.keys(status[tid]||{}).forEach(k=>{
     const r=status[tid][k],x=c[k];if(!x||!r||((checks[tid]||{})[k]&&r.s!=='nw')||r.d<from||r.d>to)return;
-    if(tasks[tid]&&tasks[tid].type==='訂正'){if(r.s==='miss'){x.cm++;x.cw.push({d:r.d,nm:tLabel(tasks[tid]),s:'miss'})}return}
+    if(tasks[tid]&&tasks[tid].type==='訂正')return;
     if(r.s==='nw'){x.hm+=2;x.hw.push({d:r.d,nm:'聯絡簿（未寫札記，記2次）',s:'miss'});return}
     if(r.s==='late')x.hl++;else if(r.s==='miss')x.hm++;else if(r.s==='leave')x.hv++;else return;
     x.hw.push({d:r.d,nm:tasks[tid]?tLabel(tasks[tid]):'聯絡簿',s:r.s});
   }));
-  Object.keys(review).forEach(tid=>{const t=tasks[tid];if(!t)return;Object.keys(review[tid]||{}).forEach(k=>{const v=review[tid][k],x=c[k];if(!x||!v||v.v!=='ret'||v.d<from||v.d>to)return;x.cf++;x.cw.push({d:v.d,nm:tLabel(t),s:'ret'})})});
-  if(to>=td)openTasks().filter(t=>t.due&&t.due<=td).forEach(t=>students.forEach(s=>{const x=c[s.key];if(owes(t,s.key)){t.type==='訂正'?x.cp++:x.pend++}else if(t.type!=='訂正'&&!skipStu(t,s.key)&&excused(t,s.key)&&!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key)){x.hv++;x.hw.push({d:t.due,nm:t.virtual?'聯絡簿':tLabel(t),s:'leave'})}}));
+  Object.keys(corr).forEach(tid=>{const t=tasks[tid];if(!t)return;Object.keys(corr[tid]||{}).forEach(k=>{const v=corr[tid][k],x=c[k];if(!x||!v||!v.v||v.d<from||v.d>to||skipStu(t,k))return;if(v.v==='n'){x.cm++;x.cw.push({d:v.d,nm:tLabel(t),s:'n'})}else if(v.v==='f'){x.cf++;x.cw.push({d:v.d,nm:tLabel(t),s:'f'})}})});
+  Object.keys(c).forEach(k=>{const x=c[k];x.pts=x.hm+x.hl+x.cm+2*x.cf});
+  if(to>=td)openTasks().filter(t=>t.due&&t.due<=td).forEach(t=>students.forEach(s=>{const x=c[s.key];if(owes(t,s.key)){x.pend++}else if(!skipStu(t,s.key)&&excused(t,s.key)&&!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key)){x.hv++;x.hw.push({d:t.due,nm:t.virtual?'聯絡簿':tLabel(t),s:'leave'})}}));
   return {c,days,from,to};
 }
 const SMODES=[['today','今日'],['d3','近3日'],['week','本週'],['month','本月'],['since','自起算日'],['all','全部']];
@@ -811,7 +821,7 @@ function renderStat(){
   if(curTab!=='stat')return;
   if(document.activeElement&&document.activeElement.type==='date')return;
   const {c,days,from,to}=statCompute();let L=students.slice();
-  const key={miss:x=>x.hm,late:x=>x.late,none:x=>x.none,hl:x=>x.hl}[statSort];
+  const key={pts:x=>x.pts,miss:x=>x.hm,late:x=>x.late,none:x=>x.none,hl:x=>x.hl}[statSort];
   if(key)L.sort((a,b)=>key(c[b.key])-key(c[a.key])||a.no-b.no);
   const sum=f=>students.reduce((n,s)=>n+f(c[s.key]),0);
   const perfect=students.filter(s=>{const x=c[s.key];return x.late+x.none+x.hm+x.hl===0&&(x.arr>0)});
@@ -832,11 +842,11 @@ function renderStat(){
     <div class="sec" style="margin:0;padding:10px 16px;flex:1;min-width:220px"><div style="font-size:15px;color:var(--mut)">🏅 全勤守時（零遲到、零缺交、零遲交、零無紀錄）${perfect.length}人</div><div style="font-size:18px;font-weight:700">${perfect.map(s=>esc(s.name)).join('、')||'—'}</div></div>
   </div>
   <div class="bar"><span style="font-size:20px;color:var(--mut)">排序：</span>
-    ${[['no','座號'],['miss','缺交多→少'],['hl','遲交多→少'],['late','遲到多→少'],['none','無紀錄多→少']].map(x=>`<button class="chip ${statSort===x[0]?'on':''}" data-so="${x[0]}">${x[1]}</button>`).join('')}
+    ${[['no','座號'],['pts','記點多→少'],['miss','缺交多→少'],['hl','遲交多→少'],['late','遲到多→少'],['none','無紀錄多→少']].map(x=>`<button class="chip ${statSort===x[0]?'on':''}" data-so="${x[0]}">${x[1]}</button>`).join('')}
     <span style="font-size:15px;color:var(--mut)">點任一列看明細</span><button class="btn gray" id="stCsv" style="margin-left:auto">匯出 CSV</button></div>
-  <table class="st"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th><th colspan="4" class="hwh top">📚 作業</th><th colspan="3" class="crh top">✏️ 訂正</th><th colspan="5" class="atth top">🕖 出缺勤</th></tr>
-  <tr><th class="hwh bl">待處理</th><th class="hwh">遲交</th><th class="hwh">缺交</th><th class="hwh">請假</th><th class="crh bl">待處理</th><th class="crh">缺交</th><th class="crh">不合格</th><th class="atth bl">到校</th><th class="atth">遲到</th><th class="atth">請假</th><th class="atth">公假</th><th class="atth">無紀錄</th></tr></thead><tbody>
-  ${L.map(s=>{const x=c[s.key];return `<tr data-det="${s.key}" style="cursor:pointer"><td class="z">${s.no}</td><td class="n">${esc(s.name)}</td>${cell(x.pend,'w','hwc bl')}${cell(x.hl,'w','hwc')}${cell(x.hm,'r','hwc')}${cell(x.hv,'w','hwc')}${cell(x.cp,'w','crc bl')}${cell(x.cm,'r','crc')}${cell(x.cf,'r','crc')}${cell(x.arr,'','attc bl')}${cell(x.late,'w','attc')}${cell(x.leave,'w','attc')}${cell(x.pub,'w','attc')}${cell(x.none,'r','attc')}</tr>`}).join('')}
+  <table class="st"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th><th colspan="4" class="hwh top">📚 作業</th><th colspan="2" class="crh top">✏️ 訂正</th><th colspan="5" class="atth top">🕖 出缺勤</th><th rowspan="2" class="pth">⭐ 記點</th></tr>
+  <tr><th class="hwh bl">待處理</th><th class="hwh">遲交</th><th class="hwh">缺交</th><th class="hwh">請假</th><th class="crh bl">未交</th><th class="crh">未過</th><th class="atth bl">到校</th><th class="atth">遲到</th><th class="atth">請假</th><th class="atth">公假</th><th class="atth">無紀錄</th></tr></thead><tbody>
+  ${L.map(s=>{const x=c[s.key];return `<tr data-det="${s.key}" style="cursor:pointer"><td class="z">${s.no}</td><td class="n">${esc(s.name)}</td>${cell(x.pend,'w','hwc bl')}${cell(x.hl,'w','hwc')}${cell(x.hm,'r','hwc')}${cell(x.hv,'w','hwc')}${cell(x.cm,'w','crc bl')}${cell(x.cf,'r','crc')}${cell(x.arr,'','attc bl')}${cell(x.late,'w','attc')}${cell(x.leave,'w','attc')}${cell(x.pub,'w','attc')}${cell(x.none,'r','attc')}${cell(x.pts,'r','ptc')}</tr>`}).join('')}
   </tbody></table>
   <div style="margin-top:8px;font-size:15px;color:var(--mut)">「無紀錄」＝到校日（當天至少 3 人報到）卻沒有報到、也沒登記請假／公假的次數；遇到停課日若有人報到，可能會多算，請以明細為準。</div>${corrMatrixHtml()}`;
   {const tr=document.querySelector('table.st thead tr');if(tr)document.documentElement.style.setProperty('--sth1',tr.offsetHeight+'px')}
@@ -848,27 +858,22 @@ function renderStat(){
   $('#stReset').onclick=()=>needPin(()=>askYN('把起算日設為今天（'+todayKey().slice(5).replace('-','/')+'）？','「自起算日」的統計會從今天重新累計；舊紀錄不會刪除，選「全部」或自訂日期隨時看得到。',()=>{db.ref('kiosk/settings/statFrom').set(todayKey());statMode='since'}));
   P.querySelectorAll('[data-det]').forEach(r=>r.onclick=()=>showDet(r.dataset.det,c[r.dataset.det]));
   $('#stCsv').onclick=()=>{
-    const rows=[['區間',rangeLabel()],['座號','姓名','到校','遲到','請假','公假','無紀錄','待處理(作業)','作業遲交','作業缺交','作業請假','訂正待處理','訂正缺交','訂正不合格']].concat(students.map(s=>{const x=c[s.key];return [s.no,s.name,x.arr,x.late,x.leave,x.pub,x.none,x.pend,x.hl,x.hm,x.hv,x.cp,x.cm,x.cf]}));
+    const rows=[['區間',rangeLabel()],['座號','姓名','到校','遲到','請假','公假','無紀錄','待處理(作業)','作業遲交','作業缺交','作業請假','訂正未交','訂正未過','記點']].concat(students.map(s=>{const x=c[s.key];return [s.no,s.name,x.arr,x.late,x.leave,x.pub,x.none,x.pend,x.hl,x.hm,x.hv,x.cm,x.cf,x.pts]}));
     const blob=new Blob(['﻿'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='出缺勤與作業統計_'+todayKey()+'.csv';a.click();
   };
 }
 function corrMatrixHtml(){
-  const td=todayKey(),G={};
+  const G={};
   Object.keys(tasks).forEach(id=>{const t=tasks[id];if(!t||t.type!=='訂正')return;
-    const key=[t.subj,t.unit||'',t.part||''].join('|'),g=G[key]=G[key]||{subj:t.subj,unit:t.unit||'',part:t.part||'',R:{}},rd=t.round||1,R=g.R[rd]=g.R[rd]||{hand:0,miss:0,ret:0,pend:0};
-    const T=Object.assign({id},t);
-    students.forEach(s=>{if(skipStu(T,s.key))return;
-      if((checks[id]||{})[s.key])R.hand++;
-      const st=(status[id]||{})[s.key];
-      if(st&&st.s==='miss')R.miss++;else if(owes(T,s.key)&&!t.sealed&&!t.closed&&t.due&&t.due<=td)R.pend++;
-      const rv=(review[id]||{})[s.key];if(rv&&rv.v==='ret')R.ret++});
+    const key=[t.subj,t.unit||'',t.part||''].join('|'),g=G[key]=G[key]||{subj:t.subj,unit:t.unit||'',part:t.part||'',R:{}},rd=t.round||1,R=g.R[rd]=g.R[rd]||{n:0,f:0};
+    Object.keys(corr[id]||{}).forEach(k=>{const v=corr[id][k];if(!stuByKey(k)||skipStu(Object.assign({id},t),k)||!v)return;if(v.v==='n')R.n++;else if(v.v==='f')R.f++});
   });
   const rows=Object.keys(G).sort();
   if(!rows.length)return '';
   const mx=Math.max(1,...rows.map(k=>Math.max(...Object.keys(G[k].R).map(Number))));
-  const cells=(R)=>R?`<td>${R.hand}</td><td class="${R.pend+R.miss?'rr':''}">${R.miss+R.pend||'·'}</td><td class="${R.ret?'rr':''}">${R.ret||'·'}</td>`:'<td>·</td><td>·</td><td>·</td>';
-  return `<div class="sec" style="margin-top:14px"><h3>✏️ 訂正總表（科目 × 單元 × 部分）<small style="font-size:15px;color:var(--mut);font-weight:600">已交／缺交（含待處理）／不合格人數</small></h3><div style="overflow:auto"><table class="cm"><thead><tr><th rowspan="2">科目</th><th rowspan="2">單元</th><th rowspan="2">部分</th>${Array.from({length:mx},(_,i)=>`<th colspan="3">第${i+1}次</th>`).join('')}</tr><tr>${Array.from({length:mx},()=>'<th>已交</th><th>缺交</th><th>不合格</th>').join('')}</tr></thead><tbody>${rows.map(k=>{const g=G[k];return `<tr><td>${esc(SFULL[g.subj]||g.subj)}</td><td>${esc(g.unit||'—')}</td><td>${esc(g.part||'—')}</td>${Array.from({length:mx},(_,i)=>cells(g.R[i+1])).join('')}</tr>`}).join('')}</tbody></table></div></div>`;
+  const cells=R=>R?`<td class="${R.n?'rr':''}">${R.n||'·'}</td><td class="${R.f?'rr':''}">${R.f||'·'}</td>`:'<td>·</td><td>·</td>';
+  return `<div class="sec" style="margin-top:14px"><h3>✏️ 訂正總表（科目 × 單元 × 部分）<small style="font-size:15px;color:var(--mut);font-weight:600">未交／未過人數</small></h3><div style="overflow:auto"><table class="cm"><thead><tr><th rowspan="2">科目</th><th rowspan="2">單元</th><th rowspan="2">部分</th>${Array.from({length:mx},(_,i)=>`<th colspan="2">第${i+1}次</th>`).join('')}</tr><tr>${Array.from({length:mx},()=>'<th>未交</th><th>未過</th>').join('')}</tr></thead><tbody>${rows.map(k=>{const g=G[k];return `<tr><td>${esc(SFULL[g.subj]||g.subj)}</td><td>${esc(g.unit||'—')}</td><td>${esc(g.part||'—')}</td>${Array.from({length:mx},(_,i)=>cells(g.R[i+1])).join('')}</tr>`}).join('')}</tbody></table></div></div>`;
 }
 function showDet(k,x){
   const s=students.find(z=>z.key===k);if(!s||!x)return;
@@ -878,8 +883,9 @@ function showDet(k,x){
     lst('作業遲交（補交）',x.hw.filter(h=>h.s==='late').map(h=>h.d.slice(5)+' '+h.nm))+
     lst('作業缺交',x.hw.filter(h=>h.s==='miss').map(h=>h.d.slice(5)+' '+h.nm))+
     lst('作業請假',x.hw.filter(h=>h.s==='leave').map(h=>h.d.slice(5)+' '+h.nm))+
-    lst('✏️ 訂正缺交',x.cw.filter(h=>h.s==='miss').map(h=>h.d.slice(5)+' '+h.nm))+
-    lst('✏️ 訂正不合格（退回）',x.cw.filter(h=>h.s==='ret').map(h=>h.d.slice(5)+' '+h.nm));
+    lst('✏️ 訂正未交（1點）',x.cw.filter(h=>h.s==='n').map(h=>h.d.slice(5)+' '+h.nm))+
+    lst('✏️ 訂正未過（2點）',x.cw.filter(h=>h.s==='f').map(h=>h.d.slice(5)+' '+h.nm))+
+    `<div style="margin-top:8px;font-weight:800">⭐ 記點 ${x.pts} 點 <small style="color:var(--mut);font-weight:500">＝作業缺交 ${x.hm}＋遲交 ${x.hl}＋訂正未交 ${x.cm}＋訂正未過 ${x.cf}×2</small></div>`;
   $('#mDet').classList.add('on');
 }
 $('#detClose').onclick=()=>$('#mDet').classList.remove('on');
@@ -930,7 +936,7 @@ function drawEdit(box){
   $('#edSave').onclick=()=>{const id=ed.id,n=$('#edNote').value.trim();const u=$('#edUnit');db.ref('kiosk/tasks/'+id).update({subj:ed.subj,type:ed.type,due:ed.due,note:n,unit:u?u.value.trim():(ed.unit||''),part:ed.type==='訂正'?ed.part:''});ed=null;pkClose();toast('已更正')};
   $('#edDel').onclick=()=>{
     if(!ed.del){ed.del=true;pkDraw();return}
-    const id=ed.id;['tasks','checks','status','collect','review'].forEach(k=>db.ref('kiosk/'+k+'/'+id).remove());ed=null;pkClose();toast('已刪除');
+    const id=ed.id;['tasks','checks','status','collect','corr'].forEach(k=>db.ref('kiosk/'+k+'/'+id).remove());ed=null;pkClose();toast('已刪除');
   };
 }
 function renderCadre(){
@@ -944,7 +950,7 @@ function renderCadre(){
     <div class="row" style="margin-bottom:8px">類型：${chips(TYPES,'type')}</div>
     <div class="row" style="margin-bottom:8px">📝 考試：${chips(EXAMS,'type')}<small style="color:var(--mut);font-size:16px">（考試、寫成績、帶物品、提醒只顯示在聯絡簿，不會進「收作業」）</small></div>
     ${(isExam(nt)||nt.type==='訂正')?`<div class="row" style="margin-bottom:8px">單元：第${[1,2,3,4,5,6].map(v=>`<button class="chip ${nt.ch==v?'on':''}" data-ch="${v}">${v}</button>`).join('')}章　節：${[1,2,3,4,5].map(v=>`<button class="chip ${nt.sec==v?'on':''}" data-sec="${v}">${v}</button>`).join('')}<button class="chip" data-ch="">清除單元</button><b style="margin-left:8px;color:#2b6cb0">${ntUnit()||'（不填）'}</b></div>`:''}
-    ${nt.type==='訂正'?`<div class="row" style="margin-bottom:8px">訂正的是：${['小白','小考','大卷'].map(v=>`<button class="chip ${nt.part===v?'on':''}" data-part="${v}">${v}</button>`).join('')}　訂正次數：${[1,2].map(v=>`<button class="chip ${ntRounds()===v?'on':''}" data-rd="${v}">${v} 次</button>`).join('')}<small style="color:var(--mut);font-size:16px">（英文內定 2 次；老師退回的人才需要交下一次）</small></div>`:''}
+    ${nt.type==='訂正'?`<div class="row" style="margin-bottom:8px">訂正的是：${['小白','小考','大卷'].map(v=>`<button class="chip ${nt.part===v?'on':''}" data-part="${v}">${v}</button>`).join('')}<small style="color:var(--mut);font-size:16px">　（訂正次數在「老師」頁設定，目前${SFULL[nt.subj]||''} ${roundsOf(nt.subj)} 次）</small></div>`:''}
     <div class="row" style="margin-bottom:8px">繳交日：
       ${days.map((d,i)=>{const x=new Date(d+'T00:00:00');return `<button class="chip ${due===d?'on':''}" data-day="${d}">${(x.getMonth()+1)+'/'+x.getDate()}（${WD[x.getDay()]}）${i===0?'<small style="font-size:14px"> 下個上學日</small>':''}</button>`}).join('')}
       <span style="font-size:16px;color:var(--mut);margin-left:6px">其他日期：</span><input type="date" class="txt" id="ntDate" value="${days.includes(due)?'':due}" style="min-width:0">
@@ -959,7 +965,6 @@ function renderCadre(){
   A.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{nt.ch=b.dataset.ch;nt.sec='';renderCadre()});
   A.querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>{if(!nt.ch)nt.ch='1';nt.sec=nt.sec==b.dataset.sec?'':b.dataset.sec;renderCadre()});
   A.querySelectorAll('[data-part]').forEach(b=>b.onclick=()=>{nt.part=nt.part===b.dataset.part?'':b.dataset.part;renderCadre()});
-  A.querySelectorAll('[data-rd]').forEach(b=>b.onclick=()=>{nt.rounds=+b.dataset.rd;nt._rd=1;renderCadre()});
   A.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{nt.custom=b.dataset.day;nt.mode='custom';renderCadre()});
   A.querySelectorAll('[data-note]').forEach(b=>b.onclick=()=>{nt.note=nt.note===b.dataset.note?'':b.dataset.note;renderCadre()});
   $('#ntDate').onchange=e=>{if(e.target.value){nt.custom=e.target.value;nt.mode='custom'}renderCadre()};
@@ -1030,7 +1035,7 @@ function renderAdmin(){
   const A=$('#adminBody');
   A.querySelectorAll('[data-reopen]').forEach(b=>b.onclick=()=>db.ref('kiosk/collect/'+b.dataset.reopen).remove());
   A.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
-    if(b.dataset.armed){db.ref('kiosk/tasks/'+b.dataset.del).remove();db.ref('kiosk/checks/'+b.dataset.del).remove();db.ref('kiosk/status/'+b.dataset.del).remove();db.ref('kiosk/collect/'+b.dataset.del).remove()}
+    if(b.dataset.armed){db.ref('kiosk/tasks/'+b.dataset.del).remove();db.ref('kiosk/checks/'+b.dataset.del).remove();db.ref('kiosk/status/'+b.dataset.del).remove();db.ref('kiosk/corr/'+b.dataset.del).remove();db.ref('kiosk/collect/'+b.dataset.del).remove()}
     else{b.dataset.armed=1;b.textContent='再按一次刪除'}
   });
   A.querySelectorAll('[data-unin]').forEach(b=>b.onclick=()=>{
@@ -1058,7 +1063,7 @@ function renderAdmin(){
   $('#noteAdd').onclick=()=>{const v=$('#noteNew').value.trim();if(!v)return;const a=noteList();if(!a.includes(v))a.push(v);saveNotes(a)};
   $('#noteReset').onclick=function(){if(this.dataset.a){settings.notes=null;db.ref('kiosk/settings/notes').remove();renderAdmin()}else{this.dataset.a=1;this.textContent='再按一次確認'}};
   A.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>openMk(b.dataset.mk));
-  adminTT();adminExempt();adminCorr();
+  adminTT();adminExempt();adminRounds();
   $('#histBtn').onclick=showHist;
   $('#chgPin').onclick=()=>askPin(null,'change');
   $('#lock').onclick=()=>{unlocked=false;showTab('checkin')};
@@ -1216,34 +1221,46 @@ function openPeriod(pid){
     $('#pkAdd').onclick=()=>{const v=$('#pkT').value.trim();if(!v)return;const a=todoList().slice();if(!a.includes(v)){a.push(v);db.ref('kiosk/settings/todoPresets').set(a)}dref('todo/'+pid).set(v)};
     $('#pkClr').onclick=()=>{dref('todo/'+pid).remove();dref('tt/'+pid).remove();pkClose()};
     $('#pkX').onclick=pkClose})}
-/* ----- 老師端：訂正批改 ----- */
-function setReview(t,k,v){
-  const up={},rd=t.round||1,max=t.rounds||1,cg=t.cg||t.id;
-  up['review/'+t.id+'/'+k]=v?{v,d:todayKey()}:null;
-  const nx=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).find(x=>x.cg===cg&&x.round===rd+1);
-  if(v==='ret'&&rd<max){
-    if(!nx){const nid='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-      up['tasks/'+nid]={subj:t.subj,type:'訂正',unit:t.unit||'',part:t.part||'',rounds:max,round:rd+1,cg,due:nextSchoolDay(),note:t.note||'',createdAt:Date.now(),closed:false,ord:900,only:{[k]:true}};
-    }else up['tasks/'+nx.id+'/only/'+k]=true;
-  }else if(nx&&nx.only&&nx.only[k]){up['tasks/'+nx.id+'/only/'+k]=null;up['checks/'+nx.id+'/'+k]=null;up['status/'+nx.id+'/'+k]=null}
-  db.ref('kiosk').update(up);
+/* ----- 訂正標籤（卡片）----- */
+function corrTasks(){return Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>t.type==='訂正'&&!t.closed&&!t.sealed&&!t.fin).sort((a,b)=>(a.due||'').localeCompare(b.due||'')||(a.round||1)-(b.round||1)||(a.createdAt||0)-(b.createdAt||0))}
+function corrState(t,k){const v=(corr[t.id]||{})[k];return v&&v.v||''}
+function renderCorr(){
+  if(curTab!=='corr')return;
+  const P=$('#p-corr'),T=corrTasks();
+  if(!students.length){P.innerHTML='<div class="nodata">讀取學生名單中⋯</div>';return}
+  if(!T.length){P.innerHTML='<div class="nodata">目前沒有訂正 🎉<br><small>幹部在「幹部」標籤新增「訂正」類型，這裡就會出現卡片</small></div>';return}
+  P.innerHTML='<div style="font-size:16px;color:var(--mut);margin:0 4px 8px">沒點＝通過。點一下＝🔴未交（1點）　再點一下＝🟣未過（2點）　再點一下＝回到通過</div>'+T.map(t=>{
+    let nN=0,nF=0;
+    const tiles=students.map(s=>{
+      const ex=exemptOf(t,s.key),on=t.only&&!t.only[s.key],lv=excused(t,s.key);
+      if(ex||on||lv)return `<button class="cq skip" disabled><small>${s.no}</small>${esc(s.name)}<em>${ex?'抽離':lv?'請假':'—'}</em></button>`;
+      const v=corrState(t,s.key);if(v==='n')nN++;if(v==='f')nF++;
+      return `<button class="cq ${v}${t.only?' req':''}" data-ct="${t.id}" data-k="${s.key}"><small>${s.no}</small>${esc(s.name)}<em>${v==='n'?'未交':v==='f'?'未過':''}</em></button>`}).join('');
+    const max=t.rounds||roundsOf(t.subj),rd=t.round||1,cg=t.cg||t.id;
+    const nx=Object.keys(tasks).find(id=>tasks[id].cg===cg&&tasks[id].round===rd+1);
+    return `<div class="cc"><div class="cch"><b class="cct">${esc((SFULL[t.subj]||t.subj)+'　訂正'+rm(t))}</b><span class="ccn">${esc(tNote(t))}</span><small>應交 ${(t.due||'').slice(5).replace('-','/')}</small><span class="ccs"><span class="n">未交 ${nN}</span><span class="f">未過 ${nF}</span></span>${rd<max?`<button class="chip" data-c2="${t.id}">${nx?'↻ 同步第 '+(rd+1)+' 次名單':'➡ 進入第 '+(rd+1)+' 次訂正'}</button>`:''}<button class="chip" data-cfin="${t.id}">✅ 完成收起</button></div><div class="cqg">${tiles}</div></div>`}).join('');
+  P.querySelectorAll('[data-ct]').forEach(b=>b.onclick=()=>{const id=b.dataset.ct,k=b.dataset.k,cur=((corr[id]||{})[k]||{}).v||'',nx=cur===''?'n':cur==='n'?'f':'';
+    nx?db.ref('kiosk/corr/'+id+'/'+k).set({v:nx,d:todayKey()}):db.ref('kiosk/corr/'+id+'/'+k).remove()});
+  P.querySelectorAll('[data-cfin]').forEach(b=>b.onclick=()=>askYN('收起這張訂正卡片？','收起後不會再顯示在這裡，但已記的未交、未過會保留在統計。',()=>db.ref('kiosk/tasks/'+b.dataset.cfin+'/fin').set(true)));
+  P.querySelectorAll('[data-c2]').forEach(b=>b.onclick=()=>{
+    const t=tasks[b.dataset.c2];if(!t)return;const T1=Object.assign({id:b.dataset.c2},t),rd=T1.round||1,cg=T1.cg||T1.id;
+    const who={};students.forEach(s=>{const v=corrState(T1,s.key);if(v==='n'||v==='f')who[s.key]=true});
+    if(!Object.keys(who).length){toast('目前沒有未交或未過的人');return}
+    const nx=Object.keys(tasks).find(id=>tasks[id].cg===cg&&tasks[id].round===rd+1);
+    if(nx){const up={};up['tasks/'+nx+'/only']=who;db.ref('kiosk').update(up);toast('已同步第 '+(rd+1)+' 次名單（'+Object.keys(who).length+' 人）')}
+    else{const nid='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+      db.ref('kiosk/tasks/'+nid).set({subj:T1.subj,type:'訂正',unit:T1.unit||'',part:T1.part||'',rounds:T1.rounds||roundsOf(T1.subj),round:rd+1,cg,due:nextSchoolDay(),note:T1.note||'',createdAt:Date.now(),closed:false,ord:900,only:who});
+      toast('已建立第 '+(rd+1)+' 次訂正（'+Object.keys(who).length+' 人）')}
+  });
 }
-function adminCorr(){
+/* ----- 老師端：各科訂正次數 ----- */
+function roundsOf(subj){const v=settings.rounds&&settings.rounds[subj];return v||(subj==='英'?2:1)}
+function adminRounds(){
   const A=$('#adminBody');if(!A)return;
-  const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>t.type==='訂正'&&!t.closed&&!t.reviewed).sort((a,b)=>(a.due||'').localeCompare(b.due||'')||(a.round||1)-(b.round||1));
   const sec=document.createElement('div');sec.className='sec';
-  sec.innerHTML=`<h3>✏️ 訂正批改<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">點學生：待查 → ✔合格 → ↩退回（再點回待查）｜退回的人會自動進入下一次訂正</small></h3>`+(T.length?T.map(t=>{
-    const ok=students.filter(s=>!skipStu(t,s.key)&&(checks[t.id]||{})[s.key]);
-    const no=students.filter(s=>!skipStu(t,s.key)&&!(checks[t.id]||{})[s.key]);
-    const cnt={ok:0,ret:0};ok.forEach(s=>{const v=((review[t.id]||{})[s.key]||{}).v;if(v)cnt[v]++});
-    const last=(t.round||1)>=(t.rounds||1);
-    return `<div style="border:2px solid var(--line);border-radius:12px;padding:8px 10px;margin:8px 0;background:#fff"><div style="font-weight:800;font-size:20px">${esc(tLabel(t))} <small style="color:var(--mut);font-weight:600">${esc(t.note||'')}　應交 ${(t.due||'').slice(5).replace('-','/')}${collect[t.id]?'':'（還在收）'}　已交 ${ok.length}　✔${cnt.ok} ↩${cnt.ret}${last?'　（最後一次）':''}</small></div>
-    <div class="row" style="margin-top:6px">${ok.map(x=>{const v=((review[t.id]||{})[x.key]||{}).v;return `<button class="chip" data-rv="${t.id}" data-k="${x.key}" style="${v==='ok'?'background:#dff3e8;border-color:var(--ok)':v==='ret'?'background:#fde2e2;border-color:#d9534f':''}">${x.no} ${esc(x.name)} ${v==='ok'?'✔':v==='ret'?'↩':'待查'}</button>`}).join('')||'<span class="mut">還沒有人交</span>'}</div>
-    ${no.length?`<div style="margin-top:6px;color:var(--mut);font-size:16px">未交：${no.map(x=>x.no+' '+esc(x.name)).join('、')}</div>`:''}
-    <div class="row" style="margin-top:6px"><button class="chip" data-rvdone="${t.id}">✅ 批改完成（收起）</button></div></div>`}).join(''):'<div class="mut">目前沒有需要批改的訂正。幹部新增「訂正」類型的項目後會出現在這裡。</div>');
+  sec.innerHTML=`<h3>✏️ 各科訂正次數<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">幹部新增訂正時自動套用；2 次的科目，訂正卡片會出現「進入第 2 次」按鈕</small></h3>`+SUBJ.filter(x=>x!=='其他').map(v=>`<div class="row" style="margin:4px 0"><b style="width:70px">${SFULL[v]}</b>${[1,2].map(n=>`<button class="chip ${roundsOf(v)===n?'on':''}" data-rs="${v}" data-n="${n}">${n} 次</button>`).join('')}</div>`).join('');
   A.prepend(sec);
-  sec.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>{const t=tasks[b.dataset.rv];if(!t)return;const T2=Object.assign({id:b.dataset.rv},t),cur=((review[b.dataset.rv]||{})[b.dataset.k]||{}).v;setReview(T2,b.dataset.k,!cur?'ok':cur==='ok'?'ret':null)});
-  sec.querySelectorAll('[data-rvdone]').forEach(b=>b.onclick=()=>db.ref('kiosk/tasks/'+b.dataset.rvdone+'/reviewed').set(true));
+  sec.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>db.ref('kiosk/settings/rounds/'+b.dataset.rs).set(+b.dataset.n));
 }
 /* ----- 老師端：抽離／免交 ----- */
 let exSel=null;
