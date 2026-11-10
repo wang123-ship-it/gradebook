@@ -148,7 +148,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-10a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-10b</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -275,7 +275,7 @@ db.ref('students').on('value',s=>{
 db.ref('kiosk/settings').on('value',s=>{settings=Object.assign({lateTime:'07:40',squadCount:6},s.val()||{});renderAll()});
 db.ref('kiosk/squads').on('value',s=>{squads=s.val()||{};renderAll()});
 db.ref('kiosk/tasks').on('value',s=>{tasks=s.val()||{};renderAll();setTimeout(pubSync,800)});
-db.ref('kiosk/attendance').on('value',s=>{allAtt=s.val()||{};renderStat()});
+db.ref('kiosk/attendance').on('value',s=>{allAtt=s.val()||{};renderStat();renderLate();renderToday()});
 db.ref('kiosk/status').on('value',s=>{status=s.val()||{};renderLate();renderStat();if(unlocked&&curTab==='admin')renderAdmin()});
 db.ref('kiosk/collect').on('value',s=>{collect=s.val()||{};renderHw();renderLate();renderStat();setTimeout(pubSync,800)});
 /* ===== 家長頁同步：只把「聯絡簿文字」複製到 public/diary（不含任何學生資料）===== */
@@ -705,6 +705,8 @@ $('#bk7Img').onclick=()=>{
   sc.onload=go;sc.onerror=()=>toast('圖片元件載入失敗，請改用平板截圖');document.head.appendChild(sc);
 };
 function stOf(tid,k){return (status[tid]||{})[k]}
+function excused(t,k){if(!t||!t.due)return false;const r=(allAtt[t.due]||{})[k];return !!(r&&r.st)}
+function owes(t,k){return !(checks[t.id]||{})[k]&&!stOf(t.id,k)&&!excused(t,k)}
 function tLabel(t){return (t.subj==='其他'||!t.subj?'':t.subj)+t.type}
 function nwPer(){const per={},td=todayKey();Object.keys(status).forEach(tid=>{const t=tasks[tid];if(t){if(t.closed||t.sealed)return}else if(tid!=='lj_'+td)return;Object.keys(status[tid]||{}).forEach(k=>{const r=status[tid][k];if(r&&r.s==='nw'&&(checks[tid]||{})[k])per[k]=(per[k]||0)+1})});return per}
 function nwTxt(n){return n>1?`📔 未寫札記 ×${n}（記 ${n*2} 次）`:'📔 未寫札記（記 2 次）'}
@@ -716,12 +718,12 @@ function renderLate(){
   const bindLv=el=>el.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{lateView=b.dataset.lv;renderLate()});
   if(lateView==='stu'){
     const per={};let total=0;
-    T.forEach(t=>{if(!(t.due<td||collect[t.id]))return;students.forEach(s=>{if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key)){(per[s.key]=per[s.key]||[]).push(t.id);total++}})});
+    T.forEach(t=>{students.forEach(s=>{if(owes(t,s.key)){(per[s.key]=per[s.key]||[]).push(t.id);total++}})});
     const nwp=nwPer(),cnt=k=>(per[k]?per[k].length:0)+2*(nwp[k]||0);
     const L=students.filter(s=>per[s.key]||nwp[s.key]).sort((a,b)=>cnt(b.key)-cnt(a.key)||a.no-b.no);
     const nwTot=Object.keys(nwp).reduce((a,k)=>a+nwp[k],0);
     const el=$('#p-late');
-    el.innerHTML=tog+(L.length?`<div class="bar"><div class="stat" style="color:var(--late)">${L.length} 人<small>共欠 ${total} 項次${nwTot?`、未寫札記 ${nwTot} 人次`:''}（只列已收畢或已逾期的項目）</small></div></div><div class="slgrid">`+L.map(s=>`<div class="sl"><span class="sno">${s.no}</span><span class="snm">${esc(s.name)}${att[s.key]?'':'<small>未到</small>'}</span><span class="scnt">${per[s.key]?'缺 '+per[s.key].length:''}</span>${nwp[s.key]?`<span class="nwp">${nwTxt(nwp[s.key])}</span>`:''}<span class="sbt">${per[s.key]?`<button class="mini" data-sa="late" data-k="${s.key}" data-n="1">補交1項</button><button class="mini" data-sa="late" data-k="${s.key}" data-n="0">全補交</button><button class="mini lv" data-sa="leave" data-k="${s.key}" data-n="1">請假1項</button><button class="mini lv" data-sa="leave" data-k="${s.key}" data-n="0">全請假</button>`:''}</span></div>`).join('')+'</div>':'<div class="nodata">目前沒有人欠交 👏</div>');
+    el.innerHTML=tog+(L.length?`<div class="bar"><div class="stat" style="color:var(--late)">${L.length} 人<small>共欠 ${total} 項次${nwTot?`、未寫札記 ${nwTot} 人次`:''}（今天要交的也即時計入；請假同學不計）</small></div></div><div class="slgrid">`+L.map(s=>`<div class="sl"><span class="sno">${s.no}</span><span class="snm">${esc(s.name)}${att[s.key]?'':'<small>未到</small>'}</span><span class="scnt">${per[s.key]?'缺 '+per[s.key].length:''}</span>${nwp[s.key]?`<span class="nwp">${nwTxt(nwp[s.key])}</span>`:''}<span class="sbt">${per[s.key]?`<button class="mini" data-sa="late" data-k="${s.key}" data-n="1">補交1項</button><button class="mini" data-sa="late" data-k="${s.key}" data-n="0">全補交</button><button class="mini lv" data-sa="leave" data-k="${s.key}" data-n="1">請假1項</button><button class="mini lv" data-sa="leave" data-k="${s.key}" data-n="0">全請假</button>`:''}</span></div>`).join('')+'</div>':'<div class="nodata">目前沒有人欠交 👏</div>');
     el.querySelectorAll('[data-sa]').forEach(b=>b.onclick=()=>{
       const ids=per[b.dataset.k]||[],pick=b.dataset.n==='1'?ids.slice(0,1):ids,up={};
       pick.forEach(id=>up['status/'+id+'/'+b.dataset.k]={s:b.dataset.sa,d:td,t:Date.now()});
@@ -731,10 +733,10 @@ function renderLate(){
   }
   let items=0,pendN=0,h='';
   T.forEach(t=>{
-    const canLate=t.due<td||!!collect[t.id];
-    const miss=students.filter(s=>!(checks[t.id]||{})[s.key]);
+    const canLate=true;
+    const miss=students.filter(s=>!(checks[t.id]||{})[s.key]&&!excused(t,s.key));
     const pend=miss.filter(s=>!stOf(t.id,s.key)),done=miss.filter(s=>stOf(t.id,s.key));
-    if(!canLate&&!miss.length)return;
+    if(!collect[t.id]&&t.due>=td&&!miss.length)return;
     items++;pendN+=pend.length;
     const days=Math.round((new Date(td+'T00:00:00')-new Date(t.due+'T00:00:00'))/864e5);
     const when=days>0?'已逾 '+days+' 天':(collect[t.id]?'今天（已收畢）':'今天要交（收作業中）');
@@ -749,13 +751,13 @@ function renderLate(){
   el.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>db.ref('kiosk/status/'+b.dataset.undo+'/'+b.dataset.k).remove());
   el.querySelectorAll('[data-seal]').forEach(b=>b.onclick=()=>{
     const t=T.find(x=>x.id===b.dataset.seal);
-    const left=students.filter(s=>!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key)).length;
+    const left=students.filter(s=>owes(t,s.key)).length;
     askYN('封存「'+tLabel(t)+'」？',left?`還有 ${left} 人未處理，封存後會記為「缺交」，並從遲交名單移到歷史作業。`:'所有人都已處理，封存後移到歷史作業。',()=>sealTask(t));
   });
 }
 function sealTask(t){
   const td=todayKey(),up={};
-  students.forEach(s=>{if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key))up['status/'+t.id+'/'+s.key]={s:'miss',d:td,t:Date.now()}});
+  students.forEach(s=>{if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key))up['status/'+t.id+'/'+s.key]={s:excused(t,s.key)?'leave':'miss',d:td,t:Date.now()}});
   up['tasks/'+t.id+'/sealed']=true;up['tasks/'+t.id+'/sealedAt']=Date.now();up['tasks/'+t.id+'/sealedDay']=td;
   db.ref('kiosk').update(up);toast('已封存 '+tLabel(t));
 }
@@ -788,7 +790,7 @@ function statCompute(){
     if(r.s==='late')x.hl++;else if(r.s==='miss')x.hm++;else if(r.s==='leave')x.hv++;else return;
     x.hw.push({d:r.d,nm:tasks[tid]?tLabel(tasks[tid]):'聯絡簿',s:r.s});
   }));
-  if(to>=td)openTasks().filter(t=>t.due&&(t.due<td||collect[t.id])).forEach(t=>students.forEach(s=>{if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key))c[s.key].pend++}));
+  if(to>=td)openTasks().filter(t=>t.due&&t.due<=td).forEach(t=>students.forEach(s=>{const x=c[s.key];if(owes(t,s.key))x.pend++;else if(excused(t,s.key)&&!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key)){x.hv++;x.hw.push({d:t.due,nm:t.virtual?'聯絡簿':tLabel(t),s:'leave'})}}));
   return {c,days,from,to};
 }
 const SMODES=[['today','今日'],['d3','近3日'],['week','本週'],['month','本月'],['since','自起算日'],['all','全部']];
@@ -1051,7 +1053,7 @@ function ttColor(s){const c=s.charAt(0);return {'國':'#e0525e','英':'#3b7dd8',
 function stuByKey(k){return students.find(x=>x.key===k)}
 function tchip(k,extra){const s=stuByKey(k);return s?`<span class="tc"><small>${s.no}</small>${esc(s.name)}${extra||''}</span>`:''}
 function keysSorted(o){return Object.keys(o||{}).filter(k=>stuByKey(k)).sort((a,b)=>stuByKey(a).no-stuByKey(b).no)}
-function pendPer(){const td=todayKey(),per={};openTasks().filter(t=>!t.virtual&&t.due&&t.due<=td).forEach(t=>{if(!(t.due<td||collect[t.id]))return;students.forEach(s=>{if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key))per[s.key]=(per[s.key]||0)+1})});return per}
+function pendPer(){const td=todayKey(),per={};openTasks().filter(t=>!t.virtual&&t.due&&t.due<=td).forEach(t=>{students.forEach(s=>{if(owes(t,s.key))per[s.key]=(per[s.key]||0)+1})});return per}
 function renderToday(){
   if(curTab!=='today')return;
   const {g,wk}=ttDay(),now=new Date(),nm=now.getHours()*60+now.getMinutes(),isT=vdate()===todayKey(),vd=new Date(vdate()+'T00:00:00');
