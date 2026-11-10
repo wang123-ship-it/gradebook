@@ -148,7 +148,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-05b</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-10a</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -158,6 +158,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
       <div class="stat" id="stIn">已到 0<small>/ 0</small></div>
       <div class="stat" id="stLate" style="color:var(--late)"></div>
       <div class="stat" id="stWait" style="font-size:18px;color:var(--mut);font-weight:600"></div>
+      <button class="chip" id="btnPlan" style="margin-left:auto">📅 預先請假</button>
     </div>
     <div class="grid" id="gCheck"></div>
   </section>
@@ -269,7 +270,7 @@ let unlocked=false,curDay=todayKey();
 db.ref('students').on('value',s=>{
   const v=s.val()||{};
   students=Object.keys(v).map(k=>({key:k,no:+v[k].no||0,name:v[k].name||'',arch:!!v[k].archived})).filter(x=>!x.arch&&x.name).sort((a,b)=>a.no-b.no);
-  renderAll();
+  renderAll();setTimeout(()=>{if(typeof matLeaves==='function')matLeaves()},600);
 });
 db.ref('kiosk/settings').on('value',s=>{settings=Object.assign({lateTime:'07:40',squadCount:6},s.val()||{});renderAll()});
 db.ref('kiosk/squads').on('value',s=>{squads=s.val()||{};renderAll()});
@@ -288,12 +289,26 @@ function pubSync(){try{
 }catch(e){console.warn('pubSync',e)}}
 setInterval(pubSync,300000);
 db.ref('kiosk/checks').on('value',s=>{checks=s.val()||{};renderHw();if(unlocked)renderAdmin()});
+let leaves={},leavesOk=false,attOk=false;
+function leaveCovers(l,d){return !!(l&&l.k&&l.from&&l.from<=d&&d<=(l.to||l.from)&&!(l.ex&&l.ex[d]))}
+function leavesOn(d){return Object.keys(leaves).map(id=>Object.assign({id},leaves[id])).filter(l=>leaveCovers(l,d)&&stuByKey(l.k))}
+function matLeaves(){try{
+  if(!attOk||!leavesOk||!students.length)return;
+  const wd=new Date(curDay+'T00:00:00').getDay();if(wd===0||wd===6)return;
+  const cov={};leavesOn(curDay).forEach(l=>cov[l.k]=l);
+  Object.keys(cov).forEach(k=>{if(!att[k]&&!absn[k]){const l=cov[k];db.ref('kiosk/attendance/'+curDay+'/'+k).set({st:l.st||'leave',ts:Date.now(),plan:1,why:l.why||''})}});
+  Object.keys(absn).forEach(k=>{if(absn[k]&&absn[k].plan&&!cov[k])db.ref('kiosk/attendance/'+curDay+'/'+k).remove()});
+}catch(e){console.warn('matLeaves',e)}}
+function skipPlan(k){Object.keys(leaves).forEach(id=>{const l=leaves[id];if(l.k!==k||!leaveCovers(l,curDay))return;
+  if(l.from===(l.to||l.from))db.ref('kiosk/leaves/'+id).remove();else db.ref('kiosk/leaves/'+id+'/ex/'+curDay).set(true)})}
+db.ref('kiosk/leaves').on('value',s=>{leaves=s.val()||{};leavesOk=true;matLeaves();renderToday();renderCheckin()});
 let attRef=null;
 function watchAtt(){
+  attOk=false;
   if(attRef)attRef.off();
   curDay=todayKey();
   attRef=db.ref('kiosk/attendance/'+curDay);
-  attRef.on('value',s=>{const v=s.val()||{};att={};absn={};Object.keys(v).forEach(k=>{v[k]&&v[k].st?absn[k]=v[k]:att[k]=v[k]});renderCheckin();renderHw();if(unlocked)renderAdmin()});
+  attRef.on('value',s=>{const v=s.val()||{};att={};absn={};Object.keys(v).forEach(k=>{v[k]&&v[k].st?absn[k]=v[k]:att[k]=v[k]});attOk=true;matLeaves();renderCheckin();renderHw();if(unlocked)renderAdmin()});
 }
 watchAtt();
 db.ref('.info/connected').on('value',s=>$('#sync').classList.toggle('ok',!!s.val()));
@@ -357,14 +372,14 @@ function renderAll(){renderNav();renderToday();renderCheckin();renderHw();render
 /* ---------- 報到 ---------- */
 function isLate(t){return t>settings.lateTime}
 function renderCheckin(){
-  const g=$('#gCheck');
+  const g=$('#gCheck');if($('#btnPlan'))$('#btnPlan').onclick=()=>unlocked?openPlan():askPin(openPlan);
   if(!students.length){g.innerHTML='<div class="nodata">讀取學生名單中⋯</div>';return}
   const order=Object.keys(att).filter(k=>!att[k].m).sort((a,b)=>att[a].ts-att[b].ts);
   const seq={};order.forEach((k,i)=>seq[k]=i+1);
   let late=0;
   g.innerHTML=students.map(s=>{
     const a=att[s.key];
-    if(!a&&absn[s.key])return `<button class="tile abs" data-k="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}<span class="tm" style="color:#8e5bd1">${absn[s.key].st==='public'?'公假':'請假'}</span></button>`;
+    if(!a&&absn[s.key])return `<button class="tile abs" data-k="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}<span class="tm" style="color:#8e5bd1">${absn[s.key].st==='public'?'公假':'請假'}${absn[s.key].why?' · '+esc(absn[s.key].why):''}</span></button>`;
     if(!a)return `<button class="tile" data-k="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}</button>`;
     const l=isLate(a.t);if(l)late++;
     const medal=seq[s.key]&&seq[s.key]<=3?['🥇','🥈','🥉'][seq[s.key]-1]:'';
@@ -386,6 +401,42 @@ function renderCheckin(){
     }
     b.onclick=()=>{if(lp){lp=false;return}tapCheck(k)};
   });
+}
+let plan=null;
+function planDays(){const a=[todayKey()];let d=todayKey();for(let i=0;i<6;i++){d=nextSchoolDay(d+'T00:00:00');a.push(d)}return a}
+function addSchool(d,n){let x=d;for(let i=1;i<n;i++)x=nextSchoolDay(x+'T00:00:00');return x}
+function openPlan(){
+  plan={sel:{},from:nextSchoolDay(todayKey()+'T00:00:00')===todayKey()?todayKey():todayKey(),n:1,st:'leave',why:''};
+  const wd0=new Date().getDay();if(wd0===0||wd0===6)plan.from=nextSchoolDay();
+  pkOpen(drawPlan)}
+function drawPlan(box){
+  if(!plan)return;
+  const days=planDays(),to=addSchool(plan.from,plan.n),ns=Object.keys(plan.sel).length;
+  const fmt=d=>{const x=new Date(d+'T00:00:00');return (x.getMonth()+1)+'/'+x.getDate()+'（'+WD[x.getDay()]+'）'};
+  const list=Object.keys(leaves).map(id=>Object.assign({id},leaves[id])).filter(l=>stuByKey(l.k)&&(l.to||l.from)>=todayKey()).sort((a,b)=>a.from.localeCompare(b.from)||stuByKey(a.k).no-stuByKey(b.k).no);
+  box.innerHTML=`<h2 style="margin:0 0 8px">📅 預先請假　<small style="color:var(--mut);font-size:16px">選學生、選日期，當天會自動顯示請假</small></h2>
+  ${pkGrid(k=>plan.sel[k])}
+  <div class="row" style="margin:10px 0 6px">從：${days.map(d=>`<button class="chip ${plan.from===d?'on':''}" data-pf="${d}">${d===todayKey()?'今天':fmt(d)}</button>`).join('')}<input type="date" class="txt pkin" id="plD" value="${days.includes(plan.from)?'':plan.from}" style="min-width:0"></div>
+  <div class="row" style="margin-bottom:6px">共：${[1,2,3,4,5].map(n=>`<button class="chip ${plan.n===n?'on':''}" data-pn="${n}">${n} 天</button>`).join('')}<span style="color:var(--mut)">（只算上學日）→ ${fmt(plan.from)}${plan.n>1?' ～ '+fmt(to):''}</span></div>
+  <div class="row" style="margin-bottom:6px">類型：<button class="chip ${plan.st==='leave'?'on':''}" data-ps="leave">請假</button><button class="chip ${plan.st==='public'?'on':''}" data-ps="public">公假</button>　原因：${['生病','看醫生','事假'].map(w=>`<button class="chip ${plan.why===w?'on':''}" data-pw="${w}">${w}</button>`).join('')}<input class="txt pkin" id="plW" placeholder="或自己打（選填）" value="${esc(plan.why)}" style="min-width:180px"></div>
+  <div class="row" style="margin-bottom:10px"><button class="btn green" id="plAdd">${ns?`新增 ${ns} 位的預先請假`:'請先點上方學生'}</button><button class="btn gray" id="pkX">關閉</button></div>
+  <div style="font-weight:800;margin:6px 0">已預排的請假（${list.length}）</div>
+  <div style="max-height:200px;overflow:auto">${list.length?list.map(l=>{const sd=stuByKey(l.k);return `<div class="row" style="margin:3px 0"><b>${sd.no} ${esc(sd.name)}</b><span>${fmt(l.from)}${(l.to||l.from)!==l.from?' ～ '+fmt(l.to):''}　${l.st==='public'?'公假':'請假'}${l.why?'　'+esc(l.why):''}</span><button class="chip" data-pd="${l.id}" style="margin-left:auto;color:var(--bad)">✕ 刪除</button></div>`}).join(''):'<span class="mut">目前沒有預排</span>'}</div>`;
+  box.querySelectorAll('.pkt').forEach(b=>b.onclick=()=>{const k=b.dataset.k;plan.sel[k]?delete plan.sel[k]:plan.sel[k]=true;pkDraw()});
+  box.querySelectorAll('[data-pf]').forEach(b=>b.onclick=()=>{plan.from=b.dataset.pf;pkDraw()});
+  box.querySelectorAll('[data-pn]').forEach(b=>b.onclick=()=>{plan.n=+b.dataset.pn;pkDraw()});
+  box.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>{plan.st=b.dataset.ps;pkDraw()});
+  box.querySelectorAll('[data-pw]').forEach(b=>b.onclick=()=>{plan.why=plan.why===b.dataset.pw?'':b.dataset.pw;pkDraw()});
+  $('#plD').onchange=e=>{if(e.target.value){plan.from=e.target.value;pkDraw()}};
+  $('#plW').oninput=e=>plan.why=e.target.value.trim();
+  box.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{if(b.dataset.armed){const id=b.dataset.pd,l=leaves[id];db.ref('kiosk/leaves/'+id).remove();if(l&&leaveCovers(l,curDay)){const ab=absn[l.k];if(ab&&ab.plan)db.ref('kiosk/attendance/'+curDay+'/'+l.k).remove()}}else{b.dataset.armed=1;b.textContent='再按一次刪除'}});
+  $('#plAdd').onclick=()=>{
+    const ks=Object.keys(plan.sel);if(!ks.length)return;
+    const why=($('#plW').value||'').trim(),up={},to2=addSchool(plan.from,plan.n);
+    ks.forEach(k=>{up['leaves/l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)]={k,from:plan.from,to:to2,st:plan.st,why}});
+    db.ref('kiosk').update(up);toast('已預排 '+ks.length+' 位');plan.sel={};plan.why='';pkDraw();
+  };
+  $('#pkX').onclick=pkClose;
 }
 let ynCb=null;
 function askYN(t,sub,cb){ynCb=cb;$('#ynT').textContent=t;$('#ynS').textContent=sub||'';$('#mYN').classList.add('on')}
@@ -901,7 +952,7 @@ function openMk(k){
     if(a==='now'){const dd=new Date();{const tt=pad2(dd.getHours())+':'+pad2(dd.getMinutes());r.set({t:tt,ts:dd.getTime(),m:1,l:isLate(tt)?1:0})}}
     else if(a==='time'){const v=$('#mkTime').value;if(!v)return;r.set({t:v,ts:new Date(todayKey()+'T'+v+':00').getTime(),m:1,l:isLate(v)?1:0})}
     else if(a==='leave'||a==='public')r.set({st:a,ts:Date.now(),m:1});
-    else if(a==='clear')r.remove();
+    else if(a==='clear'){if(absn[k]&&absn[k].plan)skipPlan(k);r.remove()}
     $('#mMk').classList.remove('on');toast(s.name+' 已登記');
   });
 }
@@ -1015,26 +1066,28 @@ function renderToday(){
   const per=pendPer(),nwp=nwPer(),pk=Object.keys(Object.assign({},per,nwp)).filter(k=>stuByKey(k)).sort((a,b)=>((per[b]||0)+2*(nwp[b]||0))-((per[a]||0)+2*(nwp[a]||0))||stuByKey(a).no-stuByKey(b).no);
   const noise=dayD.noise||{},nk=Object.keys(noise).filter(k=>stuByKey(k)&&noise[k]>0).sort((a,b)=>noise[b]-noise[a]||stuByKey(a).no-stuByKey(b).no);
   const nap=dayD.nap||{},napK=keysSorted(nap),coach=dayD.coach||{};
+  const lvList=isT?students.filter(x=>absn[x.key]&&!att[x.key]).map(x=>({k:x.key,st:absn[x.key].st,why:absn[x.key].why})):leavesOn(vdate()).map(l=>({k:l.k,st:l.st,why:l.why}));
+  const leaveH=lvList.sort((a,b)=>stuByKey(a.k).no-stuByKey(b.k).no).map(l=>tchip(l.k,`<span class="wh">${l.st==='public'?'公假':'請假'}${l.why?'・'+esc(l.why):''}</span>`)).join('');
   const coachH=Object.keys(coach).map(t=>{const ks=keysSorted(coach[t]);return ks.length?`<div><b class="ct">${esc(coachLabel(t))}</b>${ks.map(k=>tchip(k)).join('')}</div>`:''}).join('');
   const vdays=[todayKey()];{let d=todayKey();for(let i=0;i<5;i++){d=nextSchoolDay(d+'T00:00:00');vdays.push(d)}}
   const viewBtns='<span class="vds">'+vdays.map((d,i)=>{const x=new Date(d+'T00:00:00');return `<button class="vd ${vdate()===d?'on':''}" data-vd="${d}">${i===0?'今天':i===1?'明天':(x.getMonth()+1)+'/'+x.getDate()+'(週'+WD[x.getDay()]+')'}</button>`}).join('')+'</span>';
   const dueList=Object.keys(tasks).map(id=>tasks[id]).filter(t=>!(t.closed||t.sealed)&&t.due===vdate());
-  const card=(id,cls,h,body)=>{const nt=(dayD.note||{})[id];return `<div class="tdc ${cls}" data-c="${id}"><h4>${h}</h4>${body||(nt?'':'<span class="mut">點一下設定</span>')}${nt?`<div class="cnote">📝 ${esc(nt)}</div>`:''}</div>`};
+  const card=(id,cls,h,body)=>{const nt=noteOf(id);return `<div class="tdc ${cls}" data-c="${id}"><h4>${h}</h4>${body||(nt?'':'<span class="mut">點一下設定</span>')}${nt?`<div class="cnote">✍️ ${esc(nt)}</div>`:''}</div>`};
   $('#p-today').innerHTML=`
   <div class="tdbar"><b>${(vd.getMonth()+1)}/${vd.getDate()}（週${WD[vd.getDay()]}）${isT?'今日課表':'課表預排'}</b>${viewBtns}${wk?`<span class="mut">　週末：顯示下個上學日（週${WD[g]}）的課表</span>`:''}${exams.length?`<span class="exb">📝 ${isT?'今日':'當日'}考試：${exams.map(t=>esc((SFULL[t.subj]||t.subj)+t.type)).join('、')}</span>`:''}<span class="mut" style="margin-left:auto;font-size:14px">點課表任一節＝改課／填「這節要做什麼」</span></div>
   <div class="tdwrap"><div class="ttcol">${rows}</div><div class="tdcards">
    ${card('duty','','🧹 值日生',keysSorted(dayD.duty).map(k=>tchip(k)).join(''))}
    ${card('meal','','🍱 抬餐',keysSorted(dayD.meal).map(k=>tchip(k)).join(''))}
-   ${card('nap','','😴 午休缺席・去哪',napK.map(k=>tchip(k,`<span class="wh">→ ${esc(nap[k])}</span>`)).join(''))}
-   ${card('coach','','📖 午休加強',coachH)}
+   ${card('noon','','🍱 午休',(napK.length?`<div><b class="ct">😴 缺席</b>${napK.map(k=>tchip(k,`<span class="wh">→ ${esc(nap[k])}</span>`)).join('')}</div>`:'')+(coachH?`<div><b class="ct">📖 加強</b></div>${coachH}`:''))}
+   ${card('leave','','🤒 今日請假',leaveH)}
    ${card('noise','red','📢 風紀登記（吵鬧）',nk.map(k=>tchip(k,`<span class="cn">×${noise[k]}</span>`)).join(''))}
-   ${!isT?`<div class="tdc hw" data-c="bk"><h4>📒 這天要交／要考（來自聯絡簿）</h4>${dueList.length?dueList.map(t=>`<span class="tc">${esc((SFULL[t.subj]||t.subj)+tyLabel(t))}${t.note?`<small style="margin-left:4px">${esc(t.note)}</small>`:''}</span>`).join(''):'<span class="mut">這天還沒有登記項目</span>'}</div>`:`<div class="tdc hw" data-c="hw"><h4>⚠️ 作業未交（連動遲交）</h4>${pk.length?pk.slice(0,14).map(k=>tchip(k,(per[k]?`<span class="cn">缺${per[k]}</span>`:'')+(nwp[k]?`<span class="cn">📔札記×${nwp[k]}</span>`:''))).join('')+(pk.length>14?'<span class="mut"> …共 '+pk.length+' 人</span>':''):'<span class="mut">目前沒有人欠交 👏</span>'}</div>`}
+   ${!isT?`<div class="tdc hw" data-c="bk"><h4>📒 這天要交／要考（來自聯絡簿）</h4>${dueList.length?dueList.map(t=>`<span class="tc">${esc((SFULL[t.subj]||t.subj)+tyLabel(t))}${t.note?`<small style="margin-left:4px">${esc(t.note)}</small>`:''}</span>`).join(''):'<span class="mut">這天還沒有登記項目</span>'}${noteOf('bk')?`<div class="cnote">✍️ ${esc(noteOf('bk'))}</div>`:''}</div>`:`<div class="tdc hw" data-c="hw"><h4>⚠️ 作業未交（連動遲交）</h4>${pk.length?pk.slice(0,14).map(k=>tchip(k,(per[k]?`<span class="cn">缺${per[k]}</span>`:'')+(nwp[k]?`<span class="cn">📔札記×${nwp[k]}</span>`:''))).join('')+(pk.length>14?'<span class="mut"> …共 '+pk.length+' 人</span>':''):'<span class="mut">目前沒有人欠交 👏</span>'}${noteOf('hw')?`<div class="cnote">✍️ ${esc(noteOf('hw'))}</div>`:''}</div>`}
   </div></div>`;
   const A=$('#p-today');
   A.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>openPeriod(b.dataset.p));
   A.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{const c=b.dataset.c;
-    if(c==='duty')openStuPick('🧹 值日生','duty');else if(c==='meal')openStuPick('🍱 抬餐','meal');
-    else if(c==='nap')openNap();else if(c==='coach')openCoach();else if(c==='noise')openNoise();else if(c==='bk')showTab('book');else showTab('late')});
+    if(c==='leave'){unlocked?openPlan():askPin(openPlan)}else if(c==='duty')openStuPick('🧹 值日生','duty');else if(c==='meal')openStuPick('🍱 抬餐','meal');
+    else if(c==='noon')openNoon();else if(c==='noise')openNoise();else if(c==='bk')openTextOnly('bk','📒 這天要交／要考　補充文字',()=>showTab('book'),'前往聯絡簿');else openTextOnly('hw','⚠️ 作業未交　補充文字',()=>showTab('late'),'前往遲交')});
   A.querySelectorAll('[data-vd]').forEach(b=>b.onclick=e=>{e.stopPropagation();const d=b.dataset.vd;viewDate=d===todayKey()?null:d;watchDay();renderToday()});
 }
 /* ----- 通用彈窗 ----- */
@@ -1044,14 +1097,15 @@ function pkDraw(){if(window.__noteSaving)return;if(!pkFn||!$('#mPk')||!$('#mPk')
 function pkClose(){saveNote(true);pkNoteKey=null;pkFn=null;if($('#mPk'))$('#mPk').classList.remove('on')}
 function dref(p){return db.ref('kiosk/day/'+vdate()+'/'+p)}
 function coachLabel(t){return (t==='導師'||t==='其他')?t:t+'老師'}
-function noteRow(key){const v=((dayD.note||{})[key])||'';return `<div class="row" style="margin-top:10px"><span style="font-weight:800">📝 補充註記：<small style="color:var(--mut);font-weight:500">（打完自動儲存）</small></span><input class="txt pkin" id="pkNote" placeholder="例如：午休後到導師室補寫聯絡簿" value="${esc(v)}" style="min-width:380px"><button class="chip" id="pkNoteSave">儲存註記</button></div>`}
+function noteOf(key){const n=dayD.note||{};return key==='noon'?[n.noon,n.nap,n.coach].filter(Boolean).join('　'):(n[key]||'')}
+function noteRow(key){const v=noteOf(key);return `<div class="row" style="margin-top:10px"><span style="font-weight:800">✍️ 直接輸入文字：<small style="color:var(--mut);font-weight:500">（打完自動儲存，會顯示在白板上）</small></span><input class="txt pkin" id="pkNote" placeholder="例如：午休後到導師室補寫聯絡簿" value="${esc(v)}" style="min-width:380px"><button class="chip" id="pkNoteSave">儲存註記</button></div>`}
 let pkNoteKey=null;
-function saveNote(quiet){const n=$('#pkNote');if(!n||!pkNoteKey)return;const key=pkNoteKey,v=n.value.trim(),old=((dayD.note||{})[key])||'';if(v===old&&quiet)return;window.__noteSaving=true;setTimeout(()=>{window.__noteSaving=false},400);v?dref('note/'+key).set(v):dref('note/'+key).remove();if(!quiet)toast(v?'已儲存註記':'已清除註記')}
+function saveNote(quiet){const n=$('#pkNote');if(!n||!pkNoteKey)return;const key=pkNoteKey,v=n.value.trim(),old=noteOf(key);if(v===old&&quiet)return;window.__noteSaving=true;setTimeout(()=>{window.__noteSaving=false},400);v?dref('note/'+key).set(v):dref('note/'+key).remove();if(key==='noon'){dref('note/nap').remove();dref('note/coach').remove()}if(!quiet)toast(v?'已儲存註記':'已清除註記')}
 function bindNote(key){pkNoteKey=key;const b=$('#pkNoteSave');if(!b)return;b.onclick=()=>saveNote(false);$('#pkNote').onkeydown=e=>{if(e.key==='Enter')saveNote(false)};$('#pkNote').onblur=()=>saveNote(true)}
 function pkGrid(sel,badge){return '<div class="pkg">'+students.map(s=>`<button class="pkt ${sel(s.key)?'on':''}" data-k="${s.key}"><small>${s.no}</small><b>${esc(s.name)}</b>${badge?badge(s.key):''}</button>`).join('')+'</div>'}
 function openStuPick(title,path){
   pkOpen(box=>{const cur=dayD[path]||{};
-    box.innerHTML=`<h2 style="margin:0 0 8px">${title}　<small style="color:var(--mut);font-size:16px">點名字選取／再點取消</small></h2>${pkGrid(k=>cur[k])}${noteRow(path)}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;bindNote(path);
+    box.innerHTML=`<h2 style="margin:0 0 8px">${title}　<small style="color:var(--mut);font-size:16px">點名字選取／再點取消</small></h2>${noteRow(path)}${pkGrid(k=>cur[k])}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;bindNote(path);
     box.querySelectorAll('.pkt').forEach(b=>b.onclick=()=>{const k=b.dataset.k;cur[k]?dref(path+'/'+k).remove():dref(path+'/'+k).set(true)});
     $('#pkX').onclick=pkClose})}
 let napWhere='保健室';
@@ -1072,13 +1126,30 @@ function openCoach(){
     box.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{coachT=b.dataset.t;pkDraw()});
     box.querySelectorAll('.pkt').forEach(b=>b.onclick=()=>{const k=b.dataset.k;cur[k]?dref('coach/'+coachT+'/'+k).remove():dref('coach/'+coachT+'/'+k).set(true)});
     $('#pkX').onclick=pkClose})}
+let noonMode='nap';
+function openNoon(){
+  pkOpen(box=>{const nap=dayD.nap||{},co=dayD.coach||{},cur=co[coachT]||{};
+    const head=`<h2 style="margin:0 0 8px">🍱 午休　<small style="color:var(--mut);font-size:16px">缺席去哪／導師加強，都在這裡</small></h2>
+    <div class="row" style="margin-bottom:8px"><button class="chip ${noonMode==='nap'?'on':''}" data-nm="nap">😴 缺席・去哪</button><button class="chip ${noonMode==='coach'?'on':''}" data-nm="coach">📖 找去加強</button></div>${noteRow('noon')}`;
+    let body='';
+    if(noonMode==='nap')body=`<div class="row" style="margin:10px 0">${NAP_WHERE.map(w=>`<button class="chip ${napWhere===w?'on':''}" data-w="${w}">${w}</button>`).join('')}<small style="color:var(--mut)">先選地點，再點學生；再點一次＝取消</small></div>${pkGrid(k=>nap[k],k=>nap[k]?`<em>${esc(nap[k])}</em>`:'')}`;
+    else body=`<div class="row" style="margin:10px 0">${COACH_T.map(w=>`<button class="chip ${coachT===w?'on':''}" data-t="${w}">${coachLabel(w)}${keysSorted(co[w]).length?'（'+keysSorted(co[w]).length+'）':''}</button>`).join('')}<small style="color:var(--mut)">先選哪位老師，再點學生</small></div>${pkGrid(k=>cur[k])}`;
+    box.innerHTML=head+body+`<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;bindNote('noon');
+    box.querySelectorAll('[data-nm]').forEach(b=>b.onclick=()=>{noonMode=b.dataset.nm;pkDraw()});
+    box.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{napWhere=b.dataset.w;pkDraw()});
+    box.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{coachT=b.dataset.t;pkDraw()});
+    box.querySelectorAll('.pkt').forEach(b=>{const k=b.dataset.k;b.onclick=()=>{if(noonMode==='nap')nap[k]===napWhere?dref('nap/'+k).remove():dref('nap/'+k).set(napWhere);else cur[k]?dref('coach/'+coachT+'/'+k).remove():dref('coach/'+coachT+'/'+k).set(true)}});
+    $('#pkX').onclick=pkClose})}
+function openTextOnly(id,title,goFn,goLabel){
+  pkOpen(box=>{box.innerHTML=`<h2 style="margin:0 0 8px">${title}</h2>${noteRow(id)}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button>${goFn?`<button class="btn" id="pkGo">${goLabel}</button>`:''}</div>`;bindNote(id);
+    $('#pkX').onclick=pkClose;if(goFn)$('#pkGo').onclick=()=>{pkClose();goFn()}})}
 let noiseMinus=false;
 function openNoise(){
   pkOpen(box=>{const nz=dayD.noise||{};
     const tot=Object.keys(nz).reduce((a,k)=>a+(stuByKey(k)?nz[k]||0:0),0);
     box.innerHTML=`<h2 style="margin:0 0 8px">📢 風紀登記（吵鬧）　<small style="color:var(--mut);font-size:16px">點一下記一次　今日共 ${tot} 次</small></h2>
     <div class="row" style="margin-bottom:10px"><button class="chip ${noiseMinus?'':'on'}" id="nzP">＋ 記一次</button><button class="chip ${noiseMinus?'on':''}" id="nzM">－ 減一次（更正）</button></div>
-    ${pkGrid(k=>nz[k]>0,k=>nz[k]>0?`<em class="red">×${nz[k]}</em>`:'')}${noteRow('noise')}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;bindNote('noise');
+    ${noteRow('noise')}${pkGrid(k=>nz[k]>0,k=>nz[k]>0?`<em class="red">×${nz[k]}</em>`:'')}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button></div>`;bindNote('noise');
     $('#nzP').onclick=()=>{noiseMinus=false;pkDraw()};$('#nzM').onclick=()=>{noiseMinus=true;pkDraw()};
     box.querySelectorAll('.pkt').forEach(b=>b.onclick=()=>{const k=b.dataset.k,n=(nz[k]||0)+(noiseMinus?-1:1);n>0?dref('noise/'+k).set(n):dref('noise/'+k).remove()});
     $('#pkX').onclick=pkClose})}
