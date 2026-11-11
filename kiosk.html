@@ -70,6 +70,7 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 #pkBox{min-width:min(900px,92vw)}table.ttadm{border-collapse:separate;border-spacing:3px}table.ttadm th{font-size:16px;padding:4px}table.ttadm td.pl{font-size:15px;font-weight:800;white-space:nowrap}table.ttadm .bellin{display:block;font-size:14px;margin-top:2px;width:132px}
 table.ttadm .ttb{min-width:84px;min-height:40px;border:2px solid var(--line);background:#fff;border-radius:8px;font-size:17px;font-weight:800}table.ttadm td.nz{text-align:center;background:#eef5ff;border-radius:8px}
 #p-corr{overflow:auto}
+.bwho{display:flex;flex-direction:column;gap:2px;margin-top:6px;font-size:22px;font-weight:900;line-height:1.35}.bwho .wn{color:#d9534f}.bwho .wf{color:#8e5bd1}
 #ztBar{display:none;flex-wrap:wrap;gap:8px;padding:8px 16px;background:#fff}.zt{font-size:20px;font-weight:800;border-radius:10px;padding:6px 14px}
 .zt.z2{background:#fff3bf;color:#7a5a00;border:2px solid #fcc419}.zt.z3{background:#ffe3e3;color:#c92a2a;border:3px solid #e03131}.zt.z4{background:#c92a2a;color:#fff;border:3px solid #7a1212;font-size:22px}
 .pstb{min-height:72px;font-size:20px}
@@ -168,7 +169,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-11f</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-11g</span>
   <nav id="nav"></nav>
 </header>
 <div id="ztBar" style="display:none"></div>
@@ -274,6 +275,10 @@ function isExam(t){return t.type==="小考"||t.type==="大卷"||t.type==="小白
 const TRANK={大卷:0,小考:1,小白:1,考試:1,作業:2,訂正:3,寫成績:4,提醒:5,帶物品:6};
 function rankOf(t){return TRANK[t.type]!==undefined?TRANK[t.type]:7}
 function ordCmp(a,b){if(a.ord!=null&&b.ord!=null&&a.ord!==b.ord)return a.ord-b.ord;return (rankOf(a)-rankOf(b))||((a.createdAt||0)-(b.createdAt||0))}
+function corrWhoHtml(t){if(t.type!=='訂正'||(t.round||1)<2||!t.only)return '';
+  const n=[],f=[],x=[];students.forEach(s=>{if(!t.only[s.key])return;const w=corrWhy(t,s.key);(w==='n'?n:w==='f'?f:x).push(s.no)});
+  const pr=(t.round||2)-1;
+  return `<div class="bwho">${n.length?`<span class="wn">🔴第${pr}次未交 ${n.join('、')}</span>`:''}${f.length?`<span class="wf">🟣第${pr}次未過 ${f.join('、')}</span>`:''}${x.length?`<span>其他 ${x.join('、')}</span>`:''}</div>`}
 function rm(t){return ((t.rounds||1)>1||(t.round||1)>1)?['','①','②','③','④'][t.round||1]||'':''}
 function tyLabel(t){return t.type==='大卷'?'考試・大卷':t.type==='小考'?'考試・小考':t.type==='小白'?'考試・小白':t.type==='考試'?'考試':t.type==='訂正'?'訂正'+rm(t):t.type}
 function tNote(t){const p=[];if((isExam(t)||t.type==='訂正')&&t.unit)p.push(t.unit);if(t.type==='訂正'&&t.part)p.push(t.part);const h=p.join(' ');return (h?h+(t.note?'　':''):'')+(t.note||'')}
@@ -551,7 +556,7 @@ function renderHw(){
     const away=!att[s.key];
     return `<tr><td class="nm"><small>${s.no}</small>${esc(s.name)}${away?'<small class="aw">未到</small>':''}</td>`+T.map(t=>{
       if(skipStu(t,s.key))return `<td><button class="cell skip" disabled>${exemptOf(t,s.key)?'抽離':'—'}</button></td>`;
-      if(skipPrev(t,s.key))return `<td><button class="cell skip lv" disabled>昨日請假</button></td>`;
+      if(skipPrev(t,s.key))return `<td><button class="cell skip lv" disabled>${exLab(t,s.key)}</button></td>`;
       const y=(checks[t.id]||{})[s.key],dj=String(t.id).startsWith('lj_')||t.diary,nw=dj&&y&&(stOf(t.id,s.key)||{}).s==='nw';
       return `<td><button class="cell ${nw?'nw':y?'y':''}${away&&!y?' absent':''}" data-t="${t.id}" data-k="${s.key}">${nw?'✗札記':y?'✓':'○'}</button></td>`}).join('')+'</tr>'};
   // 依排分組；人多時左右分成兩欄，免下拉
@@ -677,7 +682,7 @@ function bookHtml(){
   if(!T.length)h='<div class="nodata">目前沒有登記的聯絡簿項目 🎉</div>';
   else{
     const g={};T.forEach(t=>(g[t.due||'9999']=g[t.due||'9999']||[]).push(t));
-    h=Object.keys(g).sort().map(d=>`<div class="bkday"><h3>${d==='9999'?'未訂日期':dayLabel(d)}<small>繳交／考試</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow" data-id="${t.id}"${isExam(t)?' style="border-color:#d9534f;border-width:3px"':''}><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(tyLabel(t))}</span></div><span class="bnt">${esc(tNote(t))}</span></div>`).join('')}</div></div>`).join('');
+    h=Object.keys(g).sort().map(d=>`<div class="bkday"><h3>${d==='9999'?'未訂日期':dayLabel(d)}<small>繳交／考試</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow" data-id="${t.id}"${isExam(t)?' style="border-color:#d9534f;border-width:3px"':''}><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(tyLabel(t))}</span></div><span class="bnt">${esc(tNote(t))}</span>${corrWhoHtml(t)}</div>`).join('')}</div></div>`).join('');
   }
   return h;
 }
@@ -724,7 +729,7 @@ function bk7Html(){
   const g={};T.forEach(t=>{const d=ymd(new Date(t.createdAt));(g[d]=g[d]||[]).push(t)});
   return Object.keys(g).sort().reverse().map(d=>{
     const x=new Date(d+'T00:00:00'),n=Math.round((x-new Date(td+'T00:00:00'))/864e5);
-    return `<div class="bkday"><h3>${x.getMonth()+1}/${x.getDate()} (週${WD[x.getDay()]})<small>${n===0?'今天登記':n===-1?'昨天登記':'登記'}</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow"><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(tyLabel(t))}</span></div><span class="bnt">${esc(tNote(t))}</span><div style="font-size:18px;color:var(--mut);font-weight:700">${t.due?t.due.slice(5).replace('-','/')+' 交／考':''}</div></div>`).join('')}</div></div>`}).join('');
+    return `<div class="bkday"><h3>${x.getMonth()+1}/${x.getDate()} (週${WD[x.getDay()]})<small>${n===0?'今天登記':n===-1?'昨天登記':'登記'}</small></h3><div class="bkgrid">${g[d].map(t=>`<div class="bkrow"><div class="bkhd"><span class="bs" style="color:${SCOLOR[t.subj]||'#7a7787'}">${esc(SFULL[t.subj]||t.subj)}</span><span class="bty" style="background:${TCOL[t.type]||'#7a7787'}">${esc(tyLabel(t))}</span></div><span class="bnt">${esc(tNote(t))}</span>${corrWhoHtml(t)}<div style="font-size:18px;color:var(--mut);font-weight:700">${t.due?t.due.slice(5).replace('-','/')+' 交／考':''}</div></div>`).join('')}</div></div>`}).join('');
 }
 function showBk7(){
   $('#bk7Body').innerHTML=bk7Html();
@@ -771,11 +776,12 @@ function ztCheck(){try{
     if($('#ztOk'))$('#ztOk').onclick=()=>{const up={};big.forEach(x=>up['settings/zt/'+x.s.key]=x.start);db.ref('kiosk').update(up);close();toast('已記錄通報')};
   }
 }catch(e){console.warn('ztCheck',e)}}
-function leaveOn(d,k){const r=(allAtt[d]||{})[k];return r?(!!r.st&&r.st!=='absent'):plannedLv(d,k)}
-function leaveWhy(d,k){if(!d)return '';if(leaveOn(d,k))return 'today';return leaveOn(prevSchoolOf(d),k)?'prev':''}
+function leaveOn(d,k,strict){const r=(allAtt[d]||{})[k];return r?(!!r.st&&!(strict&&r.st==='absent')):plannedLv(d,k)}
+function leaveWhy(d,k){if(!d)return '';if(leaveOn(d,k))return 'today';return leaveOn(prevSchoolOf(d),k,true)?'prev':''}
 function isDiaryT(t){return !!(t&&(String(t.id).startsWith('lj_')||t.diary||t.virtual))}
 function excused(t,k){if(!t||!t.due)return false;const w=leaveWhy(t.due,k);return w==='today'||(w==='prev'&&!isDiaryT(t))}
-function skipPrev(t,k){return !!(t&&t.due&&!isDiaryT(t)&&leaveWhy(t.due,k)==='prev'&&!(checks[t.id]||{})[k])}
+function skipPrev(t,k){return !!(t&&t.due&&!isDiaryT(t)&&leaveWhy(t.due,k)&&!(checks[t.id]||{})[k])}
+function exLab(t,k){const w=leaveWhy(t.due,k);if(w==='prev')return '昨日請假';const r=(allAtt[t.due]||{})[k];return r&&r.st?stLabel(r.st):'請假'}
 function owes(t,k){return !(checks[t.id]||{})[k]&&!stOf(t.id,k)&&!excused(t,k)&&!skipStu(t,k)}
 function tLabel(t){return (t.subj==='其他'||!t.subj?'':t.subj)+t.type+(t.type==='訂正'?((t.unit?' '+t.unit:'')+(t.part||'')+rm(t)):'')}
 function exemptOf(t,k){const e=(settings.exempt||{})[k];return !!(e&&t&&t.subj&&e.includes(t.subj))}
@@ -1306,7 +1312,7 @@ function renderCorr(){
     let nN=0,nF=0,wN=0,wF=0,wX=0;
     const tiles=students.map(s=>{
       const ex=exemptOf(t,s.key),on=t.only&&!t.only[s.key],lv=excused(t,s.key);
-      if(ex||on||lv)return `<button class="cq skip" disabled><small>${s.no}</small>${esc(s.name)}<em>${ex?'抽離':lv?(leaveWhy(t.due,s.key)==='prev'?'昨日請假':'請假'):'—'}</em></button>`;
+      if(ex||on||lv)return `<button class="cq skip" disabled><small>${s.no}</small>${esc(s.name)}<em>${ex?'抽離':lv?exLab(t,s.key):'—'}</em></button>`;
       const v=corrState(t,s.key);if(v==='n')nN++;if(v==='f')nF++;
       let why='';if(t.only){const w=corrWhy(t,s.key);why=`<i class="why ${w}">${w==='n'?'第'+((t.round||2)-1)+'次未交':w==='f'?'第'+((t.round||2)-1)+'次未過':'第'+((t.round||2)-1)+'次未通過'}</i>`;if(w==='n')wN++;else if(w==='f')wF++;else wX++}
       return `<button class="cq ${v}${t.only?' req r2'+corrWhy(t,s.key):''}" data-ct="${t.id}" data-k="${s.key}"><small>${s.no}</small>${esc(s.name)}${why}<em>${v==='n'?'未交':v==='f'?'未過':''}</em></button>`}).join('');
