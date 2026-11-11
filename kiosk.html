@@ -70,6 +70,7 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 #pkBox{min-width:min(900px,92vw)}table.ttadm{border-collapse:separate;border-spacing:3px}table.ttadm th{font-size:16px;padding:4px}table.ttadm td.pl{font-size:15px;font-weight:800;white-space:nowrap}table.ttadm .bellin{display:block;font-size:14px;margin-top:2px;width:132px}
 table.ttadm .ttb{min-width:84px;min-height:40px;border:2px solid var(--line);background:#fff;border-radius:8px;font-size:17px;font-weight:800}table.ttadm td.nz{text-align:center;background:#eef5ff;border-radius:8px}
 #p-corr{overflow:auto}
+.cell.skip.lv{font-size:13px;font-weight:800;color:#868e96}table.lvr td{padding:6px 10px}
 .cfinbox{opacity:.92;border-top:3px dashed #bbb;padding-top:8px}.cfinbox .cc{filter:saturate(.7)}
 .cc2{border:6px solid #e8590c;background:#fff4e6;box-shadow:0 4px 14px rgba(232,89,12,.25)}
 .c2ban{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#e8590c;color:#fff;font-size:30px;font-weight:900;border-radius:10px;padding:6px 14px;margin:-2px 0 8px}.c2ban span{font-size:19px;font-weight:700;background:rgba(255,255,255,.22);border-radius:8px;padding:2px 10px}
@@ -164,7 +165,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-11b</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-12a</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -276,8 +277,10 @@ const pad2=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const todayKey=()=>ymd(new Date());
 const WD=['日','一','二','三','四','五','六'];
-function nextSchoolDay(from){const d=new Date(from||Date.now());do{d.setDate(d.getDate()+1)}while(d.getDay()==0||d.getDay()==6);return ymd(d)}
-function prevSchoolDay(){const d=new Date();do{d.setDate(d.getDate()-1)}while(d.getDay()==0||d.getDay()==6);return ymd(d)}
+function isOff(d){const g=d.getDay();return g===0||g===6||!!(settings.holidays&&settings.holidays[ymd(d)])}
+function nextSchoolDay(from){const d=new Date(from||Date.now());let n=0;do{d.setDate(d.getDate()+1)}while(isOff(d)&&++n<400);return ymd(d)}
+function prevSchoolOf(day){const d=new Date(day+'T00:00:00');let n=0;do{d.setDate(d.getDate()-1)}while(isOff(d)&&++n<400);return ymd(d)}
+function prevSchoolDay(){return prevSchoolOf(todayKey())}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
 let status={},collect={},absn={},hwFocus=null,allAtt={},corr={};
@@ -314,7 +317,7 @@ function leaveCovers(l,d){return !!(l&&l.k&&l.from&&l.from<=d&&d<=(l.to||l.from)
 function leavesOn(d){return Object.keys(leaves).map(id=>Object.assign({id},leaves[id])).filter(l=>leaveCovers(l,d)&&stuByKey(l.k))}
 function matLeaves(){try{
   if(!attOk||!leavesOk||!students.length)return;
-  const wd=new Date(curDay+'T00:00:00').getDay();if(wd===0||wd===6)return;
+  if(isOff(new Date(curDay+'T00:00:00')))return;
   const cov={};leavesOn(curDay).forEach(l=>cov[l.k]=l);
   Object.keys(cov).forEach(k=>{if(!att[k]&&!absn[k]){const l=cov[k];db.ref('kiosk/attendance/'+curDay+'/'+k).set({st:l.st||'leave',ts:Date.now(),plan:1,why:l.why||''})}});
   Object.keys(absn).forEach(k=>{if(absn[k]&&absn[k].plan&&!cov[k])db.ref('kiosk/attendance/'+curDay+'/'+k).remove()});
@@ -428,7 +431,7 @@ function planDays(){const a=[todayKey()];let d=todayKey();for(let i=0;i<6;i++){d
 function addSchool(d,n){let x=d;for(let i=1;i<n;i++)x=nextSchoolDay(x+'T00:00:00');return x}
 function openPlan(){
   plan={sel:{},from:nextSchoolDay(todayKey()+'T00:00:00')===todayKey()?todayKey():todayKey(),n:1,st:'leave',why:''};
-  const wd0=new Date().getDay();if(wd0===0||wd0===6)plan.from=nextSchoolDay();
+  if(isOff(new Date()))plan.from=nextSchoolDay();
   pkOpen(drawPlan)}
 function drawPlan(box){
   if(!plan)return;
@@ -492,7 +495,7 @@ let tt;function toast(m){
 /* ---------- 收作業 ---------- */
 function diaryTask(){
   const d=new Date();
-  if(d.getDay()==0||d.getDay()==6||settings.diaryOff)return null;
+  if(isOff(d)||settings.diaryOff)return null;
   if(settings.skip&&settings.skip[todayKey()])return null;
   if(tasks['lj_'+todayKey()])return null;
   return {id:'lj_'+todayKey(),subj:'',type:'聯絡簿',note:'生活札記',due:todayKey(),createdAt:9e15,virtual:true};
@@ -536,12 +539,13 @@ function renderHw(){
   if(hwFocus)list=list.filter(s=>!(checks[hwFocus]||{})[s.key]);
   else if(hwMode==='miss')list=list.filter(s=>T.some(t=>!(checks[t.id]||{})[s.key]));
   const head='<thead><tr><th></th>'+T.map(t=>{
-    const done=students.filter(s=>(checks[t.id]||{})[s.key]).length,tot=students.filter(s=>!skipStu(t,s.key)).length;
+    const done=students.filter(s=>(checks[t.id]||{})[s.key]).length,tot=students.filter(s=>!skipStu(t,s.key)&&!skipPrev(t,s.key)).length;
     return `<th><span class="ttl ${hwFocus===t.id?'foc':''}" data-focus="${t.id}">${esc(t.subj)}${esc(t.type)}${rm(t)}</span><span class="hnote">${esc(tNote(t))}</span><div class="hl2"><span>${done}/${tot}</span><button class="chip fin" data-fin="${t.id}">收畢</button></div></th>`}).join('')+'</tr></thead>';
   const rowHtml=s=>{
     const away=!att[s.key];
     return `<tr><td class="nm"><small>${s.no}</small>${esc(s.name)}${away?'<small class="aw">未到</small>':''}</td>`+T.map(t=>{
       if(skipStu(t,s.key))return `<td><button class="cell skip" disabled>${exemptOf(t,s.key)?'抽離':'—'}</button></td>`;
+      if(skipPrev(t,s.key))return `<td><button class="cell skip lv" disabled>昨日請假</button></td>`;
       const y=(checks[t.id]||{})[s.key],dj=String(t.id).startsWith('lj_')||t.diary,nw=dj&&y&&(stOf(t.id,s.key)||{}).s==='nw';
       return `<td><button class="cell ${nw?'nw':y?'y':''}${away&&!y?' absent':''}" data-t="${t.id}" data-k="${s.key}">${nw?'✗札記':y?'✓':'○'}</button></td>`}).join('')+'</tr>'};
   // 依排分組；人多時左右分成兩欄，免下拉
@@ -551,7 +555,7 @@ function renderHw(){
   const grpHtml=g=>{
     let h='';
     if(!g.plain){const mem=students.filter(x=>sqOf(x.key)===g.q);
-      h+=`<tr class="sq"><td class="sqh">${g.q?'第'+g.q+'排':'未分排'}</td>${T.map(t=>`<td class="sqc">${mem.filter(x=>(checks[t.id]||{})[x.key]).length}/${mem.filter(x=>!skipStu(t,x.key)).length}</td>`).join('')}</tr>`}
+      h+=`<tr class="sq"><td class="sqh">${g.q?'第'+g.q+'排':'未分排'}</td>${T.map(t=>`<td class="sqc">${mem.filter(x=>(checks[t.id]||{})[x.key]).length}/${mem.filter(x=>!skipStu(t,x.key)&&!skipPrev(t,x.key)).length}</td>`).join('')}</tr>`}
     return h+g.rows.map(rowHtml).join('')};
   const tbl=gs=>'<table class="hw">'+head+'<tbody>'+gs.map(grpHtml).join('')+'</tbody></table>';
   const total=groups.reduce((n,g)=>n+g.rows.length+(g.plain?0:1),0);
@@ -729,7 +733,12 @@ $('#bk7Img').onclick=()=>{
   sc.onload=go;sc.onerror=()=>toast('圖片元件載入失敗，請改用平板截圖');document.head.appendChild(sc);
 };
 function stOf(tid,k){return (status[tid]||{})[k]}
-function excused(t,k){if(!t||!t.due)return false;const r=(allAtt[t.due]||{})[k];return !!(r&&r.st)}
+function plannedLv(d,k){return Object.keys(leaves).some(id=>{const l=leaves[id];return l&&l.k===k&&leaveCovers(l,d)})}
+function leaveOn(d,k){const r=(allAtt[d]||{})[k];return r?!!r.st:plannedLv(d,k)}
+function leaveWhy(d,k){if(!d)return '';if(leaveOn(d,k))return 'today';return leaveOn(prevSchoolOf(d),k)?'prev':''}
+function isDiaryT(t){return !!(t&&(String(t.id).startsWith('lj_')||t.diary||t.virtual))}
+function excused(t,k){if(!t||!t.due)return false;const w=leaveWhy(t.due,k);return w==='today'||(w==='prev'&&!isDiaryT(t))}
+function skipPrev(t,k){return !!(t&&t.due&&!isDiaryT(t)&&leaveWhy(t.due,k)==='prev'&&!(checks[t.id]||{})[k])}
 function owes(t,k){return !(checks[t.id]||{})[k]&&!stOf(t.id,k)&&!excused(t,k)&&!skipStu(t,k)}
 function tLabel(t){return (t.subj==='其他'||!t.subj?'':t.subj)+t.type+(t.type==='訂正'?((t.unit?' '+t.unit:'')+(t.part||'')+rm(t)):'')}
 function exemptOf(t,k){const e=(settings.exempt||{})[k];return !!(e&&t&&t.subj&&e.includes(t.subj))}
@@ -819,7 +828,7 @@ function statCompute(){
   }));
   Object.keys(corr).forEach(tid=>{const t=tasks[tid];if(!t)return;Object.keys(corr[tid]||{}).forEach(k=>{const v=corr[tid][k],x=c[k];if(!x||!v||!v.v||v.d<from||v.d>to||skipStu(t,k))return;if(v.v==='n'){x.cm++;x.cw.push({d:v.d,nm:tLabel(t),s:'n'})}else if(v.v==='f'){x.cf++;x.cw.push({d:v.d,nm:tLabel(t),s:'f'})}})});
   Object.keys(c).forEach(k=>{const x=c[k];x.pts=x.hm+x.hl+x.cm+2*x.cf});
-  if(to>=td)openTasks().filter(t=>t.due&&t.due<=td).forEach(t=>students.forEach(s=>{const x=c[s.key];if(owes(t,s.key)){x.pend++}else if(!skipStu(t,s.key)&&excused(t,s.key)&&!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key)){x.hv++;x.hw.push({d:t.due,nm:t.virtual?'聯絡簿':tLabel(t),s:'leave'})}}));
+  if(to>=td)openTasks().filter(t=>t.due&&t.due<=td).forEach(t=>students.forEach(s=>{const x=c[s.key];if(owes(t,s.key)){x.pend++}else if(!skipStu(t,s.key)&&excused(t,s.key)&&!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key)){x.hv++;x.hw.push({d:t.due,nm:(t.virtual?'聯絡簿':tLabel(t))+(leaveWhy(t.due,s.key)==='prev'?'（昨日請假）':''),s:'leave'})}}));
   return {c,days,from,to};
 }
 const SMODES=[['today','今日'],['d3','近3日'],['week','本週'],['month','本月'],['since','自起算日'],['all','全部']];
@@ -855,7 +864,7 @@ function renderStat(){
   <tr><th class="hwh bl">待處理</th><th class="hwh">遲交</th><th class="hwh">缺交</th><th class="hwh">請假</th><th class="crh bl">未交</th><th class="crh">未過</th><th class="atth bl">到校</th><th class="atth">遲到</th><th class="atth">請假</th><th class="atth">公假</th><th class="atth">無紀錄</th></tr></thead><tbody>
   ${L.map(s=>{const x=c[s.key];return `<tr data-det="${s.key}" style="cursor:pointer"><td class="z">${s.no}</td><td class="n">${esc(s.name)}</td>${cell(x.pend,'w','hwc bl')}${cell(x.hl,'w','hwc')}${cell(x.hm,'r','hwc')}${cell(x.hv,'w','hwc')}${cell(x.cm,'w','crc bl')}${cell(x.cf,'r','crc')}${cell(x.arr,'','attc bl')}${cell(x.late,'w','attc')}${cell(x.leave,'w','attc')}${cell(x.pub,'w','attc')}${cell(x.none,'r','attc')}${cell(x.pts,'r','ptc')}</tr>`}).join('')}
   </tbody></table>
-  <div style="margin-top:8px;font-size:15px;color:var(--mut)">「無紀錄」＝到校日（當天至少 3 人報到）卻沒有報到、也沒登記請假／公假的次數；遇到停課日若有人報到，可能會多算，請以明細為準。</div>${corrMatrixHtml()}`;
+  <div style="margin-top:8px;font-size:15px;color:var(--mut)">「無紀錄」＝到校日（當天至少 3 人報到）卻沒有報到、也沒登記請假／公假的次數；遇到停課日若有人報到，可能會多算，請以明細為準。</div>${corrMatrixHtml()}${leaveReportHtml()}`;
   {const tr=document.querySelector('table.st thead tr');if(tr)document.documentElement.style.setProperty('--sth1',tr.offsetHeight+'px')}
   const P=$('#p-stat'),needPin=f=>{unlocked?f():askPin(f)};
   P.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{statMode=b.dataset.sm;renderStat()});
@@ -870,6 +879,17 @@ function renderStat(){
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='出缺勤與作業統計_'+todayKey()+'.csv';a.click();
   };
 }
+function leaveReportHtml(){
+  const td=todayKey(),days=[];{const d=new Date();for(let i=0;i<30;i++){if(!isOff(d))days.push(ymd(d));d.setDate(d.getDate()-1)}}days.reverse();
+  const fm=d=>{const x=new Date(d+'T00:00:00');return (x.getMonth()+1)+'/'+x.getDate()};
+  const rows=students.map(s=>{const lv=[],pb=[];days.forEach(d=>{const r=(allAtt[d]||{})[s.key];const st=r?r.st:(plannedLv(d,s.key)?'leave':'');if(st==='public')pb.push(d);else if(st)lv.push(d)});return {s,lv,pb}});
+  const has=rows.filter(x=>x.lv.length||x.pb.length).sort((a,b)=>b.lv.length-a.lv.length||b.pb.length-a.pb.length||a.s.no-b.s.no),none=rows.filter(x=>!x.lv.length&&!x.pb.length);
+  const tot=has.reduce((n,x)=>n+x.lv.length,0);
+  return `<h3 style="margin:22px 4px 8px">📅 請假紀錄（近 30 天：${fm(days[0])}～${fm(days[days.length-1])}）<small style="font-size:16px;color:var(--mut);margin-left:8px">請假 ${tot} 人次；公假另列不計次</small></h3>
+  <table class="st lvr"><thead><tr><th>座號</th><th>姓名</th><th>請假次數</th><th>請假日期</th><th>公假</th></tr></thead><tbody>
+  ${has.map(x=>`<tr><td class="z">${x.s.no}</td><td class="n">${esc(x.s.name)}</td><td class="${x.lv.length?'r':'z'}" style="font-size:24px;font-weight:900">${x.lv.length||'·'}</td><td style="text-align:left;font-size:17px">${x.lv.map(fm).join('　')||'·'}</td><td style="color:#1c7ed6;text-align:left;font-size:17px">${x.pb.map(fm).join('　')||''}</td></tr>`).join('')||'<tr><td colspan="5" class="z">近 30 天沒有請假紀錄 🎉</td></tr>'}
+  </tbody></table>${none.length&&has.length?`<div style="margin-top:6px;font-size:16px;color:var(--mut)">0 次：${none.map(x=>x.s.no+' '+esc(x.s.name)).join('、')}</div>`:''}
+  <div style="margin:6px 4px 20px;font-size:14px;color:var(--mut)">只計上學日；看板啟用前的請假沒有紀錄；已預先登記但還沒到的請假不算。</div>`}
 function corrMatrixHtml(){
   const G={};
   Object.keys(tasks).forEach(id=>{const t=tasks[id];if(!t||t.type!=='訂正')return;
@@ -1070,7 +1090,7 @@ function renderAdmin(){
   $('#noteAdd').onclick=()=>{const v=$('#noteNew').value.trim();if(!v)return;const a=noteList();if(!a.includes(v))a.push(v);saveNotes(a)};
   $('#noteReset').onclick=function(){if(this.dataset.a){settings.notes=null;db.ref('kiosk/settings/notes').remove();renderAdmin()}else{this.dataset.a=1;this.textContent='再按一次確認'}};
   A.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>openMk(b.dataset.mk));
-  adminTT();adminExempt();adminRounds();
+  adminTT();adminExempt();adminRounds();adminHol();
   $('#histBtn').onclick=showHist;
   $('#chgPin').onclick=()=>askPin(null,'change');
   $('#lock').onclick=()=>{unlocked=false;showTab('checkin')};
@@ -1099,7 +1119,7 @@ function watchDay(){
 }
 watchDay();
 function bellOf(p){return (settings.bell&&settings.bell[p])||BELL_DEF[p]}
-function ttDay(){const d=new Date(vdate()+'T00:00:00');let g=d.getDay(),wk=false;if(g===0||g===6){g=new Date(nextSchoolDay()+'T00:00:00').getDay();wk=true}return {g,wk}}
+function ttDay(){const d=new Date(vdate()+'T00:00:00');let g=d.getDay(),wk=false;if(isOff(d)){g=new Date(nextSchoolDay()+'T00:00:00').getDay();wk=true}return {g,wk}}
 function subjAt(p,g,wk){const o=!wk&&dayD.tt&&dayD.tt[p];return o||((ttab[g]||{})[p])||''}
 function ttColor(s){const c=s.charAt(0);return {'國':'#e0525e','英':'#3b7dd8','數':'#2e9e6b','自':'#8e5bd1','地':'#d98a1f','歷':'#a0643c','公':'#15a0a8','體':'#e67e22','音':'#c2548a','美':'#c2548a','綜':'#15a0a8','輔':'#15a0a8','班':'#7a7787'}[c]||'#4a4958'}
 function stuByKey(k){return students.find(x=>x.key===k)}
@@ -1245,7 +1265,7 @@ function renderCorr(){
     let nN=0,nF=0,wN=0,wF=0,wX=0;
     const tiles=students.map(s=>{
       const ex=exemptOf(t,s.key),on=t.only&&!t.only[s.key],lv=excused(t,s.key);
-      if(ex||on||lv)return `<button class="cq skip" disabled><small>${s.no}</small>${esc(s.name)}<em>${ex?'抽離':lv?'請假':'—'}</em></button>`;
+      if(ex||on||lv)return `<button class="cq skip" disabled><small>${s.no}</small>${esc(s.name)}<em>${ex?'抽離':lv?(leaveWhy(t.due,s.key)==='prev'?'昨日請假':'請假'):'—'}</em></button>`;
       const v=corrState(t,s.key);if(v==='n')nN++;if(v==='f')nF++;
       let why='';if(t.only){const w=corrWhy(t,s.key);why=`<i class="why ${w}">${w==='n'?'第'+((t.round||2)-1)+'次未交':w==='f'?'第'+((t.round||2)-1)+'次未過':'第'+((t.round||2)-1)+'次未通過'}</i>`;if(w==='n')wN++;else if(w==='f')wF++;else wX++}
       return `<button class="cq ${v}${t.only?' req r2'+corrWhy(t,s.key):''}" data-ct="${t.id}" data-k="${s.key}"><small>${s.no}</small>${esc(s.name)}${why}<em>${v==='n'?'未交':v==='f'?'未過':''}</em></button>`}).join('');
@@ -1280,6 +1300,37 @@ function adminRounds(){
   sec.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>db.ref('kiosk/settings/rounds/'+b.dataset.rs).set(+b.dataset.n));
 }
 /* ----- 老師端：抽離／免交 ----- */
+let hol=null;
+function adminHol(){
+  const A=$('#adminBody');if(!A)return;
+  const H=settings.holidays||{},td=todayKey(),ks=Object.keys(H).filter(d=>d>=td).sort();
+  const sec=document.createElement('div');sec.className='sec';
+  sec.innerHTML=`<h3>🗓 放假日<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">國定假日、補假、颱風假；設定後「下個上學日」「請假隔天屏蔽」會自動跳過</small></h3><div class="row">${ks.map(d=>{const x=new Date(d+'T00:00:00');return `<span class="tc">${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）<span class="wh">${esc(H[d]===true?'放假':H[d])}</span></span>`}).join('')||'<span class="mut">目前沒有（今天起）的放假日</span>'}<button class="chip" id="holEdit">＋ 新增／管理</button></div>`;
+  A.prepend(sec);
+  $('#holEdit').onclick=()=>{hol={from:td,to:td,why:'颱風假'};pkOpen(drawHol)};
+}
+function drawHol(box){
+  if(!hol)return;
+  const H=settings.holidays||{},td=todayKey(),fmt=d=>{const x=new Date(d+'T00:00:00');return (x.getMonth()+1)+'/'+x.getDate()+'（'+WD[x.getDay()]+'）'};
+  const ks=Object.keys(H).filter(d=>d>=td).sort();
+  const tm=nextSchoolDay();
+  box.innerHTML=`<h2 style="margin:0 0 8px">🗓 放假日設定　<small style="color:var(--mut);font-size:16px">週六日不用設，系統本來就跳過</small></h2>
+  <div class="row" style="margin:8px 0">快速：<button class="chip" data-hq="${td}">今天放假</button><button class="chip" data-hq="${tm}">下個上學日放假</button></div>
+  <div class="row" style="margin:8px 0">日期：<input type="date" class="txt pkin" id="hlF" value="${hol.from}" style="min-width:0"><span>～</span><input type="date" class="txt pkin" id="hlT" value="${hol.to}" style="min-width:0"></div>
+  <div class="row" style="margin:8px 0">原因：${['颱風假','國定假日','補假','連假','其他'].map(w=>`<button class="chip ${hol.why===w?'on':''}" data-hw="${w}">${w}</button>`).join('')}</div>
+  <div class="row" style="margin:10px 0"><button class="btn green" id="hlAdd">新增 ${fmt(hol.from)}${hol.to!==hol.from?' ～ '+fmt(hol.to):''}</button><button class="btn gray" id="pkX">關閉</button></div>
+  <div style="font-weight:800;margin:6px 0">已設定的放假日（${ks.length}，點一下再按確認即可刪除）</div>
+  <div class="row" style="flex-wrap:wrap">${ks.map(d=>`<button class="chip" data-hd="${d}">${fmt(d)} ${esc(H[d]===true?'放假':H[d])} ✕</button>`).join('')||'<span class="mut">無</span>'}</div>`;
+  box.querySelectorAll('[data-hq]').forEach(b=>b.onclick=()=>{hol.from=hol.to=b.dataset.hq;pkDraw()});
+  box.querySelectorAll('[data-hw]').forEach(b=>b.onclick=()=>{hol.why=b.dataset.hw;pkDraw()});
+  $('#hlF').onchange=e=>{if(e.target.value){hol.from=e.target.value;if(hol.to<hol.from)hol.to=hol.from;e.target.blur();pkDraw()}};
+  $('#hlT').onchange=e=>{if(e.target.value){hol.to=e.target.value<hol.from?hol.from:e.target.value;e.target.blur();pkDraw()}};
+  $('#hlAdd').onclick=()=>{const up={};const d=new Date(hol.from+'T00:00:00');let n=0;while(ymd(d)<=hol.to&&n++<60){const g=d.getDay();if(g!==0&&g!==6)up['settings/holidays/'+ymd(d)]=hol.why||'放假';d.setDate(d.getDate()+1)}
+    if(!Object.keys(up).length){toast('這段全是週六日，不用設定');return}
+    db.ref('kiosk').update(up);toast('已新增 '+Object.keys(up).length+' 天放假日');setTimeout(pkDraw,150)};
+  box.querySelectorAll('[data-hd]').forEach(b=>b.onclick=()=>{if(b.dataset.armed){db.ref('kiosk/settings/holidays/'+b.dataset.hd).remove();setTimeout(pkDraw,150)}else{b.dataset.armed=1;b.textContent='再按刪除';b.style.background='#fde2e2'}});
+  $('#pkX').onclick=pkClose;
+}
 let exSel=null;
 function adminExempt(){
   const A=$('#adminBody');if(!A)return;
