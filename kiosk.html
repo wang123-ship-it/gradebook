@@ -70,6 +70,9 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 #pkBox{min-width:min(900px,92vw)}table.ttadm{border-collapse:separate;border-spacing:3px}table.ttadm th{font-size:16px;padding:4px}table.ttadm td.pl{font-size:15px;font-weight:800;white-space:nowrap}table.ttadm .bellin{display:block;font-size:14px;margin-top:2px;width:132px}
 table.ttadm .ttb{min-width:84px;min-height:40px;border:2px solid var(--line);background:#fff;border-radius:8px;font-size:17px;font-weight:800}table.ttadm td.nz{text-align:center;background:#eef5ff;border-radius:8px}
 #p-corr{overflow:auto}
+#ztBar{display:none;flex-wrap:wrap;gap:8px;padding:8px 16px;background:#fff}.zt{font-size:20px;font-weight:800;border-radius:10px;padding:6px 14px}
+.zt.z2{background:#fff3bf;color:#7a5a00;border:2px solid #fcc419}.zt.z3{background:#ffe3e3;color:#c92a2a;border:3px solid #e03131}.zt.z4{background:#c92a2a;color:#fff;border:3px solid #7a1212;font-size:22px}
+.pstb{min-height:72px;font-size:20px}
 .cell.skip.lv{font-size:13px;font-weight:800;color:#868e96}table.lvr td{padding:6px 10px}
 .cfinbox{opacity:.92;border-top:3px dashed #bbb;padding-top:8px}.cfinbox .cc{filter:saturate(.7)}
 .cc2{border:6px solid #e8590c;background:#fff4e6;box-shadow:0 4px 14px rgba(232,89,12,.25)}
@@ -165,9 +168,10 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-12a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-11f</span>
   <nav id="nav"></nav>
 </header>
+<div id="ztBar" style="display:none"></div>
 <main>
   <!-- 報到 -->
   <section class="panel on" id="p-checkin">
@@ -237,6 +241,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <div class="modal" id="mHist" style="z-index:70"><div class="box" style="width:92vw;max-width:1000px">
   <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">📚 歷史作業（已封存）</h2><button class="btn gray" id="histClose">關閉</button></div>
   <div id="histBody"></div></div></div>
+<div class="modal" id="mZt" style="z-index:90"><div class="box" style="text-align:center;min-width:520px;max-width:760px"><div id="ztBody"></div></div></div>
 <div class="modal" id="mMk" style="z-index:55"><div class="box" style="min-width:520px"><div id="mkBody"></div></div></div>
 <div class="modal" id="mBk" style="z-index:70"><div class="box" style="width:94vw;max-width:1200px;background:#f4f1ea">
   <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">🗓 近 7 天聯絡簿</h2><span class="row"><button class="btn" id="bk7Img">📷 存成圖片</button><button class="btn gray" id="bk7Close">關閉</button></span></div>
@@ -277,6 +282,7 @@ const pad2=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const todayKey=()=>ymd(new Date());
 const WD=['日','一','二','三','四','五','六'];
+const stLabel=st=>st==='public'?'公假':st==='absent'?'曠課':'請假';
 function isOff(d){const g=d.getDay();return g===0||g===6||!!(settings.holidays&&settings.holidays[ymd(d)])}
 function nextSchoolDay(from){const d=new Date(from||Date.now());let n=0;do{d.setDate(d.getDate()+1)}while(isOff(d)&&++n<400);return ymd(d)}
 function prevSchoolOf(day){const d=new Date(day+'T00:00:00');let n=0;do{d.setDate(d.getDate()-1)}while(isOff(d)&&++n<400);return ymd(d)}
@@ -297,7 +303,7 @@ db.ref('students').on('value',s=>{
 db.ref('kiosk/settings').on('value',s=>{settings=Object.assign({lateTime:'07:40',squadCount:6},s.val()||{});renderAll()});
 db.ref('kiosk/squads').on('value',s=>{squads=s.val()||{};renderAll()});
 db.ref('kiosk/tasks').on('value',s=>{tasks=s.val()||{};renderAll();setTimeout(pubSync,800)});
-db.ref('kiosk/attendance').on('value',s=>{allAtt=s.val()||{};renderStat();renderLate();renderToday();renderCorr()});
+db.ref('kiosk/attendance').on('value',s=>{allAtt=s.val()||{};ztCheck();if(window.drawPastSec)drawPastSec();renderStat();renderLate();renderToday();renderCorr()});
 db.ref('kiosk/status').on('value',s=>{status=s.val()||{};renderLate();renderStat();if(unlocked&&curTab==='admin')renderAdmin()});
 db.ref('kiosk/collect').on('value',s=>{collect=s.val()||{};renderHw();renderLate();renderStat();setTimeout(pubSync,800)});
 /* ===== 家長頁同步：只把「聯絡簿文字」複製到 public/diary（不含任何學生資料）===== */
@@ -391,7 +397,7 @@ function showTab(t){
   if(t==='tools')renderTools();
   renderBook();renderCadre();renderLate();renderStat();
 }
-function renderAll(){renderNav();renderToday();renderCheckin();renderHw();renderCorr();renderTools();renderBook();renderCadre();renderLate();renderStat();if(unlocked)renderAdmin()}
+function renderAll(){ztCheck();renderNav();renderToday();renderCheckin();renderHw();renderCorr();renderTools();renderBook();renderCadre();renderLate();renderStat();if(unlocked)renderAdmin()}
 
 /* ---------- 報到 ---------- */
 function isLate(t){return t>settings.lateTime}
@@ -403,7 +409,7 @@ function renderCheckin(){
   let late=0;
   g.innerHTML=students.map(s=>{
     const a=att[s.key];
-    if(!a&&absn[s.key])return `<button class="tile abs" data-k="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}<span class="tm" style="color:#8e5bd1">${absn[s.key].st==='public'?'公假':'請假'}${absn[s.key].why?' · '+esc(absn[s.key].why):''}</span></button>`;
+    if(!a&&absn[s.key])return `<button class="tile abs" data-k="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}<span class="tm" style="color:${absn[s.key].st==='absent'?'#d6336c;font-weight:900':'#8e5bd1'}">${stLabel(absn[s.key].st)}${absn[s.key].why?' · '+esc(absn[s.key].why):''}</span></button>`;
     if(!a)return `<button class="tile" data-k="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}</button>`;
     const l=isLate(a.t);if(l)late++;
     const medal=seq[s.key]&&seq[s.key]<=3?['🥇','🥈','🥉'][seq[s.key]-1]:'';
@@ -411,8 +417,8 @@ function renderCheckin(){
   }).join('');
   const n=Object.keys(att).filter(k=>students.some(s=>s.key===k)).length;
   $('#stIn').innerHTML=`已到 ${n}<small>/ ${students.length}</small>`;
-  const lv=students.filter(s=>absn[s.key]&&!att[s.key]).length;
-  $('#stLate').textContent=(late?`遲到 ${late}`:'')+(lv?`　請假 ${lv}`:'');
+  const lv=students.filter(s=>absn[s.key]&&!att[s.key]&&absn[s.key].st!=='absent').length,abx=students.filter(s=>absn[s.key]&&!att[s.key]&&absn[s.key].st==='absent').length;
+  $('#stLate').textContent=(late?`遲到 ${late}`:'')+(lv?`　請假 ${lv}`:'')+(abx?`　曠課 ${abx}`:'');
   const miss=students.filter(s=>!att[s.key]&&!absn[s.key]);
   $('#stWait').textContent=miss.length&&miss.length<=6?'還沒到：'+miss.map(s=>s.name).join('、'):'';
   g.querySelectorAll('.tile').forEach(b=>{
@@ -734,7 +740,38 @@ $('#bk7Img').onclick=()=>{
 };
 function stOf(tid,k){return (status[tid]||{})[k]}
 function plannedLv(d,k){return Object.keys(leaves).some(id=>{const l=leaves[id];return l&&l.k===k&&leaveCovers(l,d)})}
-function leaveOn(d,k){const r=(allAtt[d]||{})[k];return r?!!r.st:plannedLv(d,k)}
+/* ===== 連續曠課提醒 ===== */
+function dayState(d,k){const r=(allAtt[d]||{})[k];if(!r)return plannedLv(d,k)?'lv':'none';if(r.st==='absent')return 'abs';return r.st?'lv':'arr'}
+function validDay(d){return Object.values(allAtt[d]||{}).filter(x=>x&&!x.st).length>=3}
+function absStreak(k){const td=todayKey();let d=isOff(new Date(td+'T00:00:00'))?prevSchoolOf(td):td,n=0,start='';
+  for(let g=0;g<20;g++){const st=dayState(d,k);
+    if(st==='abs'){n++;start=d}else if(st==='none'){if(d!==td&&validDay(d)){n++;start=d}}else break;
+    d=prevSchoolOf(d)}
+  return {n,start}}
+const ztSeen=new Set();
+function ztCheck(){try{
+  if(!students.length)return;const bar=$('#ztBar');if(!bar)return;
+  const L=students.map(s=>Object.assign({s},absStreak(s.key))).filter(x=>x.n>=2).sort((a,b)=>b.n-a.n||a.s.no-b.s.no);
+  const acked=x=>(settings.zt||{})[x.s.key]===x.start;
+  bar.innerHTML=L.map(x=>{const lv=x.n>=4?4:x.n;
+    const cls=lv===2?'z2':lv===3?'z3':'z4',ic=lv===2?'⚠️':lv===3?'🚨':'🆘';
+    const tx=lv===2?'連續 2 天曠課／無紀錄':lv===3?'連續 3 天！請鄭重處理（聯絡家長、通知輔導室）':'連續 '+x.n+' 天 → 請報中輟'+(acked(x)?'（已通報）':'');
+    return `<span class="zt ${cls}">${ic} ${x.s.no} ${esc(x.s.name)}　${tx}</span>`}).join('');
+  bar.style.display=L.length?'flex':'none';
+  const pop=L.filter(x=>x.n>=3&&!(x.n>=4&&acked(x))&&!ztSeen.has(x.s.key+':'+x.n+':'+todayKey()));
+  if(!pop.length&&$('#mZt').classList.contains('on')&&$('#ztBody').dataset.zt){$('#mZt').classList.remove('on');$('#ztBody').dataset.zt=''}
+  if(pop.length){$('#ztBody').dataset.zt='1';
+    const big=pop.filter(x=>x.n>=4),mid=pop.filter(x=>x.n===3);
+    $('#ztBody').innerHTML=(big.length?`<h2 style="color:#c92a2a">🆘 報中輟</h2><div style="font-size:24px;line-height:1.7;margin:8px 0">${big.map(x=>`<b>${x.s.no} ${esc(x.s.name)}</b>　連續 ${x.n} 天未到校（自 ${x.start.slice(5).replace('-','/')} 起）`).join('<br>')}</div><div style="color:var(--mut)">請辦理中輟通報。補了請假或學生回校，連續天數就會中斷。</div>`:'')+
+      (mid.length?`<h2 style="color:#e03131;margin-top:14px">🚨 鄭重提醒</h2><div style="font-size:22px;line-height:1.7;margin:8px 0">${mid.map(x=>`<b>${x.s.no} ${esc(x.s.name)}</b>　已連續 3 天曠課／無紀錄`).join('<br>')}</div><div style="color:var(--mut)">請今天聯絡家長，並通知輔導室。</div>`:'')+
+      `<div class="row" style="justify-content:center;margin-top:16px">${big.length?'<button class="btn green" id="ztOk">已通報</button>':''}<button class="btn gray" id="ztLater">${big.length?'稍後提醒':'知道了'}</button></div>`;
+    $('#mZt').classList.add('on');
+    const close=()=>{pop.forEach(x=>ztSeen.add(x.s.key+':'+x.n+':'+todayKey()));$('#mZt').classList.remove('on')};
+    $('#ztLater').onclick=close;
+    if($('#ztOk'))$('#ztOk').onclick=()=>{const up={};big.forEach(x=>up['settings/zt/'+x.s.key]=x.start);db.ref('kiosk').update(up);close();toast('已記錄通報')};
+  }
+}catch(e){console.warn('ztCheck',e)}}
+function leaveOn(d,k){const r=(allAtt[d]||{})[k];return r?(!!r.st&&r.st!=='absent'):plannedLv(d,k)}
 function leaveWhy(d,k){if(!d)return '';if(leaveOn(d,k))return 'today';return leaveOn(prevSchoolOf(d),k)?'prev':''}
 function isDiaryT(t){return !!(t&&(String(t.id).startsWith('lj_')||t.diary||t.virtual))}
 function excused(t,k){if(!t||!t.due)return false;const w=leaveWhy(t.due,k);return w==='today'||(w==='prev'&&!isDiaryT(t))}
@@ -811,11 +848,12 @@ function statRange(){
 }
 function statCompute(){
   const [from,to]=statRange(),td=todayKey(),c={};
-  students.forEach(s=>c[s.key]={arr:0,late:0,leave:0,pub:0,none:0,hl:0,hm:0,hv:0,pend:0,cp:0,cm:0,cf:0,pts:0,cw:[],dLate:[],dNone:[],dLeave:[],hw:[]});
+  students.forEach(s=>c[s.key]={arr:0,late:0,leave:0,pub:0,none:0,hl:0,hm:0,hv:0,pend:0,cp:0,cm:0,cf:0,pts:0,abs:0,dAbs:[],cw:[],dLate:[],dNone:[],dLeave:[],hw:[]});
   const days=Object.keys(allAtt).filter(d=>d>=from&&d<=to&&Object.values(allAtt[d]||{}).filter(r=>r&&!r.st).length>=3).sort();
   days.forEach(d=>students.forEach(s=>{
     const r=(allAtt[d]||{})[s.key],x=c[s.key];
     if(!r){if(d<td||true){x.none++;x.dNone.push(d)}return}
+    if(r.st==='absent'){x.abs++;x.dAbs.push(d);return}
     if(r.st){r.st==='public'?x.pub++:x.leave++;x.dLeave.push(d+(r.st==='public'?'（公假）':'（請假）'));return}
     x.arr++;const l=r.l!==undefined?!!r.l:isLate(r.t);if(l){x.late++;x.dLate.push(d+' '+r.t)}
   }));
@@ -860,9 +898,9 @@ function renderStat(){
   <div class="bar"><span style="font-size:20px;color:var(--mut)">排序：</span>
     ${[['no','座號'],['pts','記點多→少'],['miss','缺交多→少'],['hl','遲交多→少'],['late','遲到多→少'],['none','無紀錄多→少']].map(x=>`<button class="chip ${statSort===x[0]?'on':''}" data-so="${x[0]}">${x[1]}</button>`).join('')}
     <span style="font-size:15px;color:var(--mut)">點任一列看明細</span><button class="btn gray" id="stCsv" style="margin-left:auto">匯出 CSV</button></div>
-  <table class="st"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th><th colspan="4" class="hwh top">📚 作業</th><th colspan="2" class="crh top">✏️ 訂正</th><th colspan="5" class="atth top">🕖 出缺勤</th><th rowspan="2" class="pth">⭐ 記點</th></tr>
-  <tr><th class="hwh bl">待處理</th><th class="hwh">遲交</th><th class="hwh">缺交</th><th class="hwh">請假</th><th class="crh bl">未交</th><th class="crh">未過</th><th class="atth bl">到校</th><th class="atth">遲到</th><th class="atth">請假</th><th class="atth">公假</th><th class="atth">無紀錄</th></tr></thead><tbody>
-  ${L.map(s=>{const x=c[s.key];return `<tr data-det="${s.key}" style="cursor:pointer"><td class="z">${s.no}</td><td class="n">${esc(s.name)}</td>${cell(x.pend,'w','hwc bl')}${cell(x.hl,'w','hwc')}${cell(x.hm,'r','hwc')}${cell(x.hv,'w','hwc')}${cell(x.cm,'w','crc bl')}${cell(x.cf,'r','crc')}${cell(x.arr,'','attc bl')}${cell(x.late,'w','attc')}${cell(x.leave,'w','attc')}${cell(x.pub,'w','attc')}${cell(x.none,'r','attc')}${cell(x.pts,'r','ptc')}</tr>`}).join('')}
+  <table class="st"><thead><tr><th rowspan="2">座號</th><th rowspan="2">姓名</th><th colspan="4" class="hwh top">📚 作業</th><th colspan="2" class="crh top">✏️ 訂正</th><th colspan="6" class="atth top">🕖 出缺勤</th><th rowspan="2" class="pth">⭐ 記點</th></tr>
+  <tr><th class="hwh bl">待處理</th><th class="hwh">遲交</th><th class="hwh">缺交</th><th class="hwh">請假</th><th class="crh bl">未交</th><th class="crh">未過</th><th class="atth bl">到校</th><th class="atth">遲到</th><th class="atth">請假</th><th class="atth">公假</th><th class="atth">曠課</th><th class="atth">無紀錄</th></tr></thead><tbody>
+  ${L.map(s=>{const x=c[s.key];return `<tr data-det="${s.key}" style="cursor:pointer"><td class="z">${s.no}</td><td class="n">${esc(s.name)}</td>${cell(x.pend,'w','hwc bl')}${cell(x.hl,'w','hwc')}${cell(x.hm,'r','hwc')}${cell(x.hv,'w','hwc')}${cell(x.cm,'w','crc bl')}${cell(x.cf,'r','crc')}${cell(x.arr,'','attc bl')}${cell(x.late,'w','attc')}${cell(x.leave,'w','attc')}${cell(x.pub,'w','attc')}${cell(x.abs,'r','attc')}${cell(x.none,'r','attc')}${cell(x.pts,'r','ptc')}</tr>`}).join('')}
   </tbody></table>
   <div style="margin-top:8px;font-size:15px;color:var(--mut)">「無紀錄」＝到校日（當天至少 3 人報到）卻沒有報到、也沒登記請假／公假的次數；遇到停課日若有人報到，可能會多算，請以明細為準。</div>${corrMatrixHtml()}${leaveReportHtml()}`;
   {const tr=document.querySelector('table.st thead tr');if(tr)document.documentElement.style.setProperty('--sth1',tr.offsetHeight+'px')}
@@ -874,7 +912,7 @@ function renderStat(){
   $('#stReset').onclick=()=>needPin(()=>askYN('把起算日設為今天（'+todayKey().slice(5).replace('-','/')+'）？','「自起算日」的統計會從今天重新累計；舊紀錄不會刪除，選「全部」或自訂日期隨時看得到。',()=>{db.ref('kiosk/settings/statFrom').set(todayKey());statMode='since'}));
   P.querySelectorAll('[data-det]').forEach(r=>r.onclick=()=>showDet(r.dataset.det,c[r.dataset.det]));
   $('#stCsv').onclick=()=>{
-    const rows=[['區間',rangeLabel()],['座號','姓名','到校','遲到','請假','公假','無紀錄','待處理(作業)','作業遲交','作業缺交','作業請假','訂正未交','訂正未過','記點']].concat(students.map(s=>{const x=c[s.key];return [s.no,s.name,x.arr,x.late,x.leave,x.pub,x.none,x.pend,x.hl,x.hm,x.hv,x.cm,x.cf,x.pts]}));
+    const rows=[['區間',rangeLabel()],['座號','姓名','到校','遲到','請假','公假','曠課','無紀錄','待處理(作業)','作業遲交','作業缺交','作業請假','訂正未交','訂正未過','記點']].concat(students.map(s=>{const x=c[s.key];return [s.no,s.name,x.arr,x.late,x.leave,x.pub,x.abs,x.none,x.pend,x.hl,x.hm,x.hv,x.cm,x.cf,x.pts]}));
     const blob=new Blob(['﻿'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='出缺勤與作業統計_'+todayKey()+'.csv';a.click();
   };
@@ -882,7 +920,7 @@ function renderStat(){
 function leaveReportHtml(){
   const td=todayKey(),days=[];{const d=new Date();for(let i=0;i<30;i++){if(!isOff(d))days.push(ymd(d));d.setDate(d.getDate()-1)}}days.reverse();
   const fm=d=>{const x=new Date(d+'T00:00:00');return (x.getMonth()+1)+'/'+x.getDate()};
-  const rows=students.map(s=>{const lv=[],pb=[];days.forEach(d=>{const r=(allAtt[d]||{})[s.key];const st=r?r.st:(plannedLv(d,s.key)?'leave':'');if(st==='public')pb.push(d);else if(st)lv.push(d)});return {s,lv,pb}});
+  const rows=students.map(s=>{const lv=[],pb=[];days.forEach(d=>{const r=(allAtt[d]||{})[s.key];const st=r?r.st:(plannedLv(d,s.key)?'leave':'');if(st==='public')pb.push(d);else if(st&&st!=='absent')lv.push(d)});return {s,lv,pb}});
   const has=rows.filter(x=>x.lv.length||x.pb.length).sort((a,b)=>b.lv.length-a.lv.length||b.pb.length-a.pb.length||a.s.no-b.s.no),none=rows.filter(x=>!x.lv.length&&!x.pb.length);
   const tot=has.reduce((n,x)=>n+x.lv.length,0);
   return `<h3 style="margin:22px 4px 8px">📅 請假紀錄（近 30 天：${fm(days[0])}～${fm(days[days.length-1])}）<small style="font-size:16px;color:var(--mut);margin-left:8px">請假 ${tot} 人次；公假另列不計次</small></h3>
@@ -906,7 +944,7 @@ function showDet(k,x){
   const s=students.find(z=>z.key===k);if(!s||!x)return;
   const lst=(t,a)=>`<div><b>${t}（${a.length}）</b>：${a.length?a.map(esc).join('、'):'—'}</div>`;
   $('#detT').textContent=s.name+'（'+s.no+'號）　'+rangeLabel();
-  $('#detBody').innerHTML=lst('遲到',x.dLate)+lst('請假／公假',x.dLeave)+lst('無紀錄（疑似缺席）',x.dNone)+
+  $('#detBody').innerHTML=lst('遲到',x.dLate)+lst('請假／公假',x.dLeave)+lst('🚫 曠課',x.dAbs)+lst('無紀錄（疑似缺席）',x.dNone)+
     lst('作業遲交（補交）',x.hw.filter(h=>h.s==='late').map(h=>h.d.slice(5)+' '+h.nm))+
     lst('作業缺交',x.hw.filter(h=>h.s==='miss').map(h=>h.d.slice(5)+' '+h.nm))+
     lst('作業請假',x.hw.filter(h=>h.s==='leave').map(h=>h.d.slice(5)+' '+h.nm))+
@@ -1018,34 +1056,36 @@ function openMk(k){
   $('#mkBody').innerHTML=`<h2>${esc(s.name)}（${s.no}號）</h2>
     <div class="row" style="margin-bottom:14px"><button class="btn green" data-mkact="now">✔ 現在補報到 ${now}</button></div>
     <div class="row" style="margin-bottom:14px">指定時間：<input type="time" id="mkTime" class="txt" value="${now}" style="min-width:0"><button class="btn" data-mkact="time">確定補報到</button></div>
-    <div class="row"><button class="chip" data-mkact="leave">請假</button><button class="chip" data-mkact="public">公假</button>${absn[k]?'<button class="chip" data-mkact="clear">取消請假紀錄</button>':''}<button class="btn gray" data-mkact="close">關閉</button></div>`;
+    <div class="row">${(absn[k]&&absn[k].st==='absent')?'<span style="color:#d6336c;font-weight:800">目前：曠課　→</span><button class="chip" data-mkact="leave">補請假</button><button class="chip" data-mkact="public">補公假</button>':'<button class="chip" data-mkact="leave">請假</button><button class="chip" data-mkact="public">公假</button><button class="chip" data-mkact="absent" style="color:var(--bad)">曠課</button>'}${absn[k]?`<button class="chip" data-mkact="clear">取消${absn[k].st==='absent'?'曠課':'請假'}紀錄</button>`:''}<button class="btn gray" data-mkact="close">關閉</button></div>`;
   $('#mMk').classList.add('on');
   $('#mkBody').querySelectorAll('[data-mkact]').forEach(b=>b.onclick=()=>{
     const a=b.dataset.mkact,r=db.ref('kiosk/attendance/'+curDay+'/'+k);
     if(a==='close'){$('#mMk').classList.remove('on');return}
     if(a==='now'){const dd=new Date();{const tt=pad2(dd.getHours())+':'+pad2(dd.getMinutes());r.set({t:tt,ts:dd.getTime(),m:1,l:isLate(tt)?1:0})}}
     else if(a==='time'){const v=$('#mkTime').value;if(!v)return;r.set({t:v,ts:new Date(todayKey()+'T'+v+':00').getTime(),m:1,l:isLate(v)?1:0})}
-    else if(a==='leave'||a==='public')r.set({st:a,ts:Date.now(),m:1});
+    else if(a==='leave'||a==='public'||a==='absent')r.set({st:a,ts:Date.now(),m:1});
     else if(a==='clear'){if(absn[k]&&absn[k].plan)skipPlan(k);r.remove()}
     $('#mMk').classList.remove('on');toast(s.name+' 已登記');
   });
 }
+let taskAll=false;
 function renderAdmin(){
   if(!unlocked||curTab!=='admin'){return}
   if(document.activeElement&&(document.activeElement.id==='noteNew'||document.activeElement.classList.contains('bellin')))return;
-  const T=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)).sort((a,b)=>b.createdAt-a.createdAt);
+  const T0=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)).sort((a,b)=>b.createdAt-a.createdAt);
+  const oldT=t=>!!t.fin||(noCol(t)&&t.due&&t.due<todayKey()),T=taskAll?T0:T0.filter(t=>!oldT(t)),nHid=T0.length-T.length;
   const inList=students.filter(s=>att[s.key]);
   $('#adminBody').innerHTML=`
-  <div class="sec"><h3>📋 項目管理（重開收作業／刪除；新增請到「幹部」，封存在「遲交」）</h3><div class="tasklist">${collect['lj_'+todayKey()]&&!tasks['lj_'+todayKey()]?`<div class="it"><b>📔 聯絡簿（今天） <small style="color:var(--mut);font-weight:500">已收畢</small></b><button class="chip" data-reopen="lj_${todayKey()}">重開收作業</button></div>`:''}${T.length?T.map(t=>{
+  <div class="sec"><h3>📋 項目管理（重開收作業／刪除；新增請到「幹部」，封存在「遲交」）${nHid||taskAll?`<button class="chip" id="taskAll" style="margin-left:10px">${taskAll?'只看進行中':'顯示已隱藏的 '+nHid+' 項'}</button>`:''}</h3><div class="tasklist">${collect['lj_'+todayKey()]&&!tasks['lj_'+todayKey()]?`<div class="it"><b>📔 聯絡簿（今天） <small style="color:var(--mut);font-weight:500">已收畢</small></b><button class="chip" data-reopen="lj_${todayKey()}">重開收作業</button></div>`:''}${T.length?T.map(t=>{
     const done=students.filter(s=>(checks[t.id]||{})[s.key]).length;
     return `<div class="it"><b>${esc(t.subj)}${esc(t.type)} <small style="color:var(--mut);font-weight:500">${esc(tNote(t))} 交${(t.due||'').slice(5)}　${done}/${students.length}${collect[t.id]?'　（已收畢）':''}</small></b>
-    ${collect[t.id]?`<button class="chip" data-reopen="${t.id}">重開收作業</button>`:''}<button class="chip" data-del="${t.id}" style="color:var(--bad)">刪除</button></div>`}).join(''):'<div class="nodata" style="padding:14px">尚無項目</div>'}</div></div>
+    ${collect[t.id]?`<button class="chip" data-reopen="${t.id}">重開收作業</button>`:''}<button class="chip" data-del="${t.id}" data-warn="${(Object.keys(status[t.id]||{}).length||Object.keys(corr[t.id]||{}).length)?'會連同缺交／訂正紀錄一起刪，再按一次':'再按一次刪除'}" style="color:var(--bad)">刪除${(Object.keys(status[t.id]||{}).length||Object.keys(corr[t.id]||{}).length)?'（含紀錄）':''}</button></div>`}).join(''):'<div class="nodata" style="padding:14px">尚無項目</div>'}</div></div>
   <div class="sec"><h3>📝 備註選項（幹部新增作業時的快速按鈕）</h3>
     <div class="row" style="margin-bottom:10px">${noteList().map((v,i)=>`<span class="nchip"><b>${esc(v)}</b><button data-nl="${i}">◀</button><button data-nr="${i}">▶</button><button data-nx="${i}" style="color:var(--bad)">✕</button></span>`).join('')}</div>
     <div class="row"><input class="txt" id="noteNew" placeholder="輸入新的備註，例如：國典" style="min-width:280px"><button class="btn green" id="noteAdd">＋ 新增備註</button><button class="btn gray" id="noteReset">還原預設</button></div>
   </div>
   <div class="sec"><h3>🕒 補報到／請假登記（學生太晚到、看板已收起時用）</h3>
-    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">${students.filter(s=>!att[s.key]).map(s=>`<button class="tile ${absn[s.key]?'abs':''}" style="min-height:72px;font-size:21px" data-mk="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}${absn[s.key]?`<span class="tm" style="font-size:14px;color:#8e5bd1">${absn[s.key].st==='public'?'公假':'請假'}</span>`:''}</button>`).join('')||'<span style="color:var(--mut)">全班都已報到 🎉</span>'}</div></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">${students.filter(s=>!att[s.key]).map(s=>`<button class="tile ${absn[s.key]?'abs':''}" style="min-height:72px;font-size:21px" data-mk="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}${absn[s.key]?`<span class="tm" style="font-size:14px;color:${absn[s.key].st==='absent'?'#d6336c':'#8e5bd1'}">${stLabel(absn[s.key].st)}</span>`:''}</button>`).join('')||'<span style="color:var(--mut)">全班都已報到 🎉</span>'}</div></div>
   <div class="sec"><h3>🛠 更正報到（點一下，再按一次確認取消該生報到）</h3>
     <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr))">${inList.length?inList.map(s=>`<button class="tile in" style="min-height:64px;font-size:20px" data-unin="${s.key}">${esc(s.name)}<span class="tm" style="font-size:14px">${att[s.key].t}</span></button>`).join(''):'<span style="color:var(--mut)">今天還沒有人報到</span>'}</div></div>
   <div class="sec"><h3>👥 排別設定（先點學生，再點排別）</h3>
@@ -1063,8 +1103,9 @@ function renderAdmin(){
   A.querySelectorAll('[data-reopen]').forEach(b=>b.onclick=()=>db.ref('kiosk/collect/'+b.dataset.reopen).remove());
   A.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
     if(b.dataset.armed){db.ref('kiosk/tasks/'+b.dataset.del).remove();db.ref('kiosk/checks/'+b.dataset.del).remove();db.ref('kiosk/status/'+b.dataset.del).remove();db.ref('kiosk/corr/'+b.dataset.del).remove();db.ref('kiosk/collect/'+b.dataset.del).remove()}
-    else{b.dataset.armed=1;b.textContent='再按一次刪除'}
+    else{b.dataset.armed=1;b.textContent=b.dataset.warn||'再按一次刪除'}
   });
+  if($('#taskAll'))$('#taskAll').onclick=()=>{taskAll=!taskAll;renderAdmin()};
   A.querySelectorAll('[data-unin]').forEach(b=>b.onclick=()=>{
     if(b.dataset.armed){db.ref('kiosk/attendance/'+curDay+'/'+b.dataset.unin).remove()}
     else{b.dataset.armed=1;b.style.outline='4px solid var(--bad)';b.querySelector('.tm').textContent='再按取消'}
@@ -1090,13 +1131,13 @@ function renderAdmin(){
   $('#noteAdd').onclick=()=>{const v=$('#noteNew').value.trim();if(!v)return;const a=noteList();if(!a.includes(v))a.push(v);saveNotes(a)};
   $('#noteReset').onclick=function(){if(this.dataset.a){settings.notes=null;db.ref('kiosk/settings/notes').remove();renderAdmin()}else{this.dataset.a=1;this.textContent='再按一次確認'}};
   A.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>openMk(b.dataset.mk));
-  adminTT();adminExempt();adminRounds();adminHol();
+  adminTT();adminExempt();adminRounds();adminPast();adminHol();
   $('#histBtn').onclick=showHist;
   $('#chgPin').onclick=()=>askPin(null,'change');
   $('#lock').onclick=()=>{unlocked=false;showTab('checkin')};
   $('#clrAtt').onclick=function(){if(this.dataset.a){db.ref('kiosk/attendance/'+curDay).remove();this.textContent='清空今日報到';delete this.dataset.a}else{this.dataset.a=1;this.textContent='再按一次確認清空'}};
   $('#expCsv').onclick=()=>{
-    const rows=[['座號','姓名','報到時間','狀態']].concat(students.map(s=>[s.no,s.name,att[s.key]?att[s.key].t:'',att[s.key]?(isLate(att[s.key].t)?'遲到':'準時'):(absn[s.key]?(absn[s.key].st==='public'?'公假':'請假'):'未到')]));
+    const rows=[['座號','姓名','報到時間','狀態']].concat(students.map(s=>[s.no,s.name,att[s.key]?att[s.key].t:'',att[s.key]?(isLate(att[s.key].t)?'遲到':'準時'):(absn[s.key]?stLabel(absn[s.key].st):'未到')]));
     const blob=new Blob(['﻿'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='報到_'+curDay+'.csv';a.click();
   };
@@ -1141,7 +1182,7 @@ function renderToday(){
   const noise=dayD.noise||{},nk=Object.keys(noise).filter(k=>stuByKey(k)&&noise[k]>0).sort((a,b)=>noise[b]-noise[a]||stuByKey(a).no-stuByKey(b).no);
   const nap=dayD.nap||{},napK=keysSorted(nap),coach=dayD.coach||{};
   const lvList=isT?students.filter(x=>absn[x.key]&&!att[x.key]).map(x=>({k:x.key,st:absn[x.key].st,why:absn[x.key].why})):leavesOn(vdate()).map(l=>({k:l.k,st:l.st,why:l.why}));
-  const leaveH=lvList.sort((a,b)=>stuByKey(a.k).no-stuByKey(b.k).no).map(l=>tchip(l.k,`<span class="wh">${l.st==='public'?'公假':'請假'}${l.why?'・'+esc(l.why):''}</span>`)).join('');
+  const leaveH=lvList.sort((a,b)=>stuByKey(a.k).no-stuByKey(b.k).no).map(l=>tchip(l.k,`<span class="wh">${stLabel(l.st)}${l.why?'・'+esc(l.why):''}</span>`)).join('');
   const coachH=Object.keys(coach).map(t=>{const ks=keysSorted(coach[t]);return ks.length?`<div><b class="ct">${esc(coachLabel(t))}</b>${ks.map(k=>tchip(k)).join('')}</div>`:''}).join('');
   const vdays=[todayKey()];{let d=todayKey();for(let i=0;i<5;i++){d=nextSchoolDay(d+'T00:00:00');vdays.push(d)}}
   const viewBtns='<span class="vds">'+vdays.map((d,i)=>{const x=new Date(d+'T00:00:00');return `<button class="vd ${vdate()===d?'on':''}" data-vd="${d}">${i===0?'今天':i===1?'明天':(x.getMonth()+1)+'/'+x.getDate()+'(週'+WD[x.getDay()]+')'}</button>`}).join('')+'</span>';
@@ -1215,8 +1256,8 @@ function openNoon(){
     box.querySelectorAll('.pkt').forEach(b=>{const k=b.dataset.k;b.onclick=()=>{if(noonMode==='nap')nap[k]===napWhere?dref('nap/'+k).remove():dref('nap/'+k).set(napWhere);else cur[k]?dref('coach/'+coachT+'/'+k).remove():dref('coach/'+coachT+'/'+k).set(true)}});
     $('#pkX').onclick=pkClose})}
 function openTextOnly(id,title,goFn,goLabel){
-  pkOpen(box=>{box.innerHTML=`<h2 style="margin:0 0 8px">${title}</h2>${noteRow(id)}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button>${goFn?`<button class="btn" id="pkGo">${goLabel}</button>`:''}</div>`;bindNote(id);
-    $('#pkX').onclick=pkClose;if(goFn)$('#pkGo').onclick=()=>{pkClose();goFn()}})}
+  pkOpen(box=>{box.innerHTML=`<h2 style="margin:0 0 8px">${title}</h2>${noteRow(id)}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">完成</button>${goFn?`<button class="btn" id="pkGoTo">${goLabel}</button>`:''}</div>`;bindNote(id);
+    $('#pkX').onclick=pkClose;if(goFn)$('#pkGoTo').onclick=()=>{pkClose();goFn()}})}
 let noiseMinus=false;
 function openNoise(){
   pkOpen(box=>{const nz=dayD.noise||{};
@@ -1300,6 +1341,30 @@ function adminRounds(){
   sec.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>db.ref('kiosk/settings/rounds/'+b.dataset.rs).set(+b.dataset.n));
 }
 /* ----- 老師端：抽離／免交 ----- */
+let pastD=null,pastK=null;
+function pastRec(k){return (allAtt[pastD]||{})[k]}
+function pastTxt(k){const r=pastRec(k);if(!r)return '無紀錄';if(r.st)return stLabel(r.st);return r.t+(isLate(r.t)?' 遲':'')}
+const fmtD=d=>{const x=new Date(d+'T00:00:00');return (x.getMonth()+1)+'/'+x.getDate()+'（'+WD[x.getDay()]+'）'};
+function drawPastSec(){const el=$('#pastSec');if(!el)return;
+  const days=[];{let d=todayKey();if(isOff(new Date(d+'T00:00:00')))d=prevSchoolOf(d);for(let i=0;i<7;i++){days.push(d);d=prevSchoolOf(d)}}
+  if(!pastD||!days.includes(pastD))pastD=days.includes(prevSchoolDay())?prevSchoolDay():days[0];
+  el.innerHTML=`<h3>🕘 更正過去的報到<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">選日期，點學生可補報到、改請假／公假／曠課，或清除</small></h3>
+  <div class="row" style="margin-bottom:8px">${days.map(d=>`<button class="chip ${pastD===d?'on':''}" data-pdd="${d}">${d===todayKey()?'今天':fmtD(d)}</button>`).join('')}</div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">${students.map(s=>{const r=pastRec(s.key),cl=r&&r.st==='absent'?'color:#d6336c':r&&r.st?'color:#8e5bd1':!r?'color:#aaa':'';return `<button class="tile pstb ${r&&r.st?'abs':''}" data-pk2="${s.key}"><span class="no">${s.no}</span>${esc(s.name)}<span class="tm" style="font-size:14px;${cl}">${pastTxt(s.key)}</span></button>`}).join('')}</div>`;
+  el.querySelectorAll('[data-pdd]').forEach(b=>b.onclick=()=>{pastD=b.dataset.pdd;drawPastSec()});
+  el.querySelectorAll('[data-pk2]').forEach(b=>b.onclick=()=>{pastK=b.dataset.pk2;pkOpen(drawPastOne)})}
+window.drawPastSec=drawPastSec;
+function adminPast(){const A=$('#adminBody');if(!A)return;const sec=document.createElement('div');sec.className='sec';sec.id='pastSec';A.prepend(sec);drawPastSec()}
+function drawPastOne(box){
+  const s=stuByKey(pastK);if(!s)return;const r=pastRec(pastK),ab=r&&r.st==='absent';
+  box.innerHTML=`<h2 style="margin:0 0 8px">${esc(s.name)}（${s.no}號）　${fmtD(pastD)}　<small style="color:var(--mut);font-size:16px">目前：${pastTxt(pastK)}</small></h2>
+  <div class="row" style="margin:10px 0">補報到時間：<input type="time" class="txt pkin" id="pdT" value="${r&&!r.st?r.t:'07:30'}" style="min-width:0"><button class="btn" id="pdIn">確定報到</button></div>
+  <div class="row" style="margin-top:12px"><button class="chip" data-pa="leave">${ab?'補請假':'請假'}</button><button class="chip" data-pa="public">${ab?'補公假':'公假'}</button>${ab?'':'<button class="chip" data-pa="absent" style="color:var(--bad)">曠課</button>'}${r?'<button class="chip" data-pa="clear">清除紀錄</button>':''}<button class="btn gray" id="pkX">關閉</button></div>`;
+  const ref=db.ref('kiosk/attendance/'+pastD+'/'+pastK),done=()=>{pkClose();toast(s.name+' '+fmtD(pastD)+' 已更正')};
+  $('#pdIn').onclick=()=>{const v=$('#pdT').value;if(!v)return;ref.set({t:v,ts:new Date(pastD+'T'+v+':00').getTime(),m:1,l:isLate(v)?1:0});done()};
+  box.querySelectorAll('[data-pa]').forEach(b=>b.onclick=()=>{const a=b.dataset.pa;
+    if(a==='clear'){if(r&&r.plan&&pastD===curDay)skipPlan(pastK);ref.remove()}else ref.set({st:a,ts:Date.now(),m:1});done()});
+  $('#pkX').onclick=pkClose}
 let hol=null;
 function adminHol(){
   const A=$('#adminBody');if(!A)return;
