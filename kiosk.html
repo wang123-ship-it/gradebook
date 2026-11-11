@@ -70,6 +70,7 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 #pkBox{min-width:min(900px,92vw)}table.ttadm{border-collapse:separate;border-spacing:3px}table.ttadm th{font-size:16px;padding:4px}table.ttadm td.pl{font-size:15px;font-weight:800;white-space:nowrap}table.ttadm .bellin{display:block;font-size:14px;margin-top:2px;width:132px}
 table.ttadm .ttb{min-width:84px;min-height:40px;border:2px solid var(--line);background:#fff;border-radius:8px;font-size:17px;font-weight:800}table.ttadm td.nz{text-align:center;background:#eef5ff;border-radius:8px}
 #p-corr{overflow:auto}
+.cfinbox{opacity:.92;border-top:3px dashed #bbb;padding-top:8px}.cfinbox .cc{filter:saturate(.7)}
 .cc2{border:6px solid #e8590c;background:#fff4e6;box-shadow:0 4px 14px rgba(232,89,12,.25)}
 .c2ban{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#e8590c;color:#fff;font-size:30px;font-weight:900;border-radius:10px;padding:6px 14px;margin:-2px 0 8px}.c2ban span{font-size:19px;font-weight:700;background:rgba(255,255,255,.22);border-radius:8px;padding:2px 10px}
 .cc2 .cct{font-size:28px;color:#c2410c}
@@ -163,7 +164,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-11a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-11b</span>
   <nav id="nav"></nav>
 </header>
 <main>
@@ -1228,18 +1229,19 @@ function openPeriod(pid){
     $('#pkClr').onclick=()=>{dref('todo/'+pid).remove();dref('tt/'+pid).remove();pkClose()};
     $('#pkX').onclick=pkClose})}
 /* ----- 訂正標籤（卡片）----- */
-function corrTasks(){return Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>t.type==='訂正'&&!t.closed&&!t.sealed&&!t.fin).sort((a,b)=>(a.due||'').localeCompare(b.due||'')||(a.round||1)-(b.round||1)||(a.createdAt||0)-(b.createdAt||0))}
+let corrShowFin=false;
+function corrTasks(fin){return Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>t.type==='訂正'&&!t.closed&&!t.sealed&&!!t.fin===!!fin).sort((a,b)=>(a.due||'').localeCompare(b.due||'')||(a.round||1)-(b.round||1)||(a.createdAt||0)-(b.createdAt||0))}
 function corrWhy(t,k){
   const o=t.only&&t.only[k];if(o==='n'||o==='f')return o;
-  const cg=t.cg||t.id,rd=(t.round||1)-1;const prev=Object.keys(tasks).find(id=>tasks[id].cg===cg&&(tasks[id].round||1)===rd);
+  const cg=t.cg||t.id,rd=(t.round||1)-1;const prev=Object.keys(tasks).find(id=>(id===cg||tasks[id].cg===cg)&&(tasks[id].round||1)===rd);
   const v=prev?((corr[prev]||{})[k]||{}).v:'';return v==='n'||v==='f'?v:'x'}
 function corrState(t,k){const v=(corr[t.id]||{})[k];return v&&v.v||''}
 function renderCorr(){
   if(curTab!=='corr')return;
-  const P=$('#p-corr'),T=corrTasks();
+  const P=$('#p-corr'),T=corrTasks(false),F=corrTasks(true).reverse().slice(0,12);
   if(!students.length){P.innerHTML='<div class="nodata">讀取學生名單中⋯</div>';return}
-  if(!T.length){P.innerHTML='<div class="nodata">目前沒有訂正 🎉<br><small>幹部在「幹部」標籤新增「訂正」類型，這裡就會出現卡片</small></div>';return}
-  P.innerHTML='<div style="font-size:16px;color:var(--mut);margin:0 4px 8px">沒點＝通過。點一下＝🔴未交（1點）　再點一下＝🟣未過（2點）　再點一下＝回到通過</div>'+T.map(t=>{
+  if(!T.length&&!F.length){P.innerHTML='<div class="nodata">目前沒有訂正 🎉<br><small>幹部在「幹部」標籤新增「訂正」類型，這裡就會出現卡片</small></div>';return}
+  const card=(t,isFin)=>{
     let nN=0,nF=0,wN=0,wF=0,wX=0;
     const tiles=students.map(s=>{
       const ex=exemptOf(t,s.key),on=t.only&&!t.only[s.key],lv=excused(t,s.key);
@@ -1250,10 +1252,13 @@ function renderCorr(){
     const max=t.rounds||roundsOf(t.subj),rd=t.round||1,cg=t.cg||t.id;
     const nx=Object.keys(tasks).find(id=>tasks[id].cg===cg&&tasks[id].round===rd+1);
     const r2=rd>1;
-    return `<div class="cc${r2?' cc2':''}">${r2?`<div class="c2ban">🔁 第 ${rd} 次訂正${rd>=max?'（最後一次）':''}<span>來自第 ${rd-1} 次：🔴未交 ${wN} 人　🟣未過 ${wF} 人${wX?'　其他 '+wX+' 人':''}</span></div>`:''}<div class="cch"><b class="cct">${esc((SFULL[t.subj]||t.subj)+'　訂正'+rm(t))}</b><span class="ccn">${esc(tNote(t))}</span><small>應交 ${(t.due||'').slice(5).replace('-','/')}</small><span class="ccs"><span class="n">未交 ${nN}</span><span class="f">未過 ${nF}</span></span>${rd<max?`<button class="chip" data-c2="${t.id}">${nx?'↻ 同步第 '+(rd+1)+' 次名單':'➡ 進入第 '+(rd+1)+' 次訂正'}</button>`:''}<button class="chip" data-cfin="${t.id}">✅ 完成收起</button></div><div class="cqg">${tiles}</div></div>`}).join('');
+    return `<div class="cc${r2?' cc2':''}">${r2?`<div class="c2ban">🔁 第 ${rd} 次訂正${rd>=max?'（最後一次）':''}<span>來自第 ${rd-1} 次：🔴未交 ${wN} 人　🟣未過 ${wF} 人${wX?'　其他 '+wX+' 人':''}</span></div>`:''}<div class="cch"><b class="cct">${esc((SFULL[t.subj]||t.subj)+'　訂正'+rm(t))}</b><span class="ccn">${esc(tNote(t))}</span><small>應交 ${(t.due||'').slice(5).replace('-','/')}</small><span class="ccs"><span class="n">未交 ${nN}</span><span class="f">未過 ${nF}</span></span>${rd<max?`<button class="chip" data-c2="${t.id}">${nx?'↻ 同步第 '+(rd+1)+' 次名單':'➡ 進入第 '+(rd+1)+' 次訂正'}</button>`:''}${isFin?`<button class="chip" data-cunfin="${t.id}">↩ 取消收起</button>`:`<button class="chip" data-cfin="${t.id}">✅ 完成收起</button>`}</div><div class="cqg">${tiles}</div></div>`};
+  P.innerHTML='<div style="font-size:16px;color:var(--mut);margin:0 4px 8px">沒點＝通過。點一下＝🔴未交（1點）　再點一下＝🟣未過（2點）　再點一下＝回到通過</div>'+T.map(t=>card(t,false)).join('')+(F.length?`<button class="chip" id="cfinTog" style="margin:10px 4px;font-size:20px">📁 已收起的訂正（${F.length}）${corrShowFin?'▲ 收合':'▼ 查看／更正'}</button>`+(corrShowFin?`<div class="cfinbox">`+F.map(t=>card(t,true)).join('')+`</div>`:''):'');
+  {const tg=$('#cfinTog');if(tg)tg.onclick=()=>{corrShowFin=!corrShowFin;renderCorr()}}
+  P.querySelectorAll('[data-cunfin]').forEach(b=>b.onclick=()=>db.ref('kiosk/tasks/'+b.dataset.cunfin+'/fin').remove());
   P.querySelectorAll('[data-ct]').forEach(b=>b.onclick=()=>{const id=b.dataset.ct,k=b.dataset.k,cur=((corr[id]||{})[k]||{}).v||'',nx=cur===''?'n':cur==='n'?'f':'';
     nx?db.ref('kiosk/corr/'+id+'/'+k).set({v:nx,d:todayKey()}):db.ref('kiosk/corr/'+id+'/'+k).remove()});
-  P.querySelectorAll('[data-cfin]').forEach(b=>b.onclick=()=>askYN('收起這張訂正卡片？','收起後不會再顯示在這裡，但已記的未交、未過會保留在統計。',()=>db.ref('kiosk/tasks/'+b.dataset.cfin+'/fin').set(true)));
+  P.querySelectorAll('[data-cfin]').forEach(b=>b.onclick=()=>askYN('收起這張訂正卡片？','收起後會移到最下方「已收起的訂正」，隨時可以展開查看、更正，已記的未交、未過也會保留在統計。',()=>db.ref('kiosk/tasks/'+b.dataset.cfin+'/fin').set(true)));
   P.querySelectorAll('[data-c2]').forEach(b=>b.onclick=()=>{
     const t=tasks[b.dataset.c2];if(!t)return;const T1=Object.assign({id:b.dataset.c2},t),rd=T1.round||1,cg=T1.cg||T1.id;
     const who={};students.forEach(s=>{const v=corrState(T1,s.key);if(v==='n'||v==='f')who[s.key]=v});
