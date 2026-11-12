@@ -169,7 +169,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-11g</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-12a</span>
   <nav id="nav"></nav>
 </header>
 <div id="ztBar" style="display:none"></div>
@@ -833,6 +833,11 @@ function renderLate(){
     askYN('封存「'+tLabel(t)+'」？',left?`還有 ${left} 人未處理，封存後會記為「缺交」，並從遲交名單移到歷史作業。`:'所有人都已處理，封存後移到歷史作業。',()=>sealTask(t));
   });
 }
+function sealMany(ts){
+  const td=todayKey(),up={};
+  ts.forEach(t=>{students.forEach(s=>{if(skipStu(t,s.key))return;if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key))up['status/'+t.id+'/'+s.key]={s:excused(t,s.key)?'leave':'miss',d:td,t:Date.now()}});
+    up['tasks/'+t.id+'/sealed']=true;up['tasks/'+t.id+'/sealedAt']=Date.now();up['tasks/'+t.id+'/sealedDay']=td});
+  db.ref('kiosk').update(up);toast('已封存 '+ts.length+' 項作業')}
 function sealTask(t){
   const td=todayKey(),up={};
   students.forEach(s=>{if(skipStu(t,s.key))return;if(!(checks[t.id]||{})[s.key]&&!stOf(t.id,s.key))up['status/'+t.id+'/'+s.key]={s:excused(t,s.key)?'leave':'miss',d:td,t:Date.now()}});
@@ -1080,9 +1085,11 @@ function renderAdmin(){
   if(document.activeElement&&(document.activeElement.id==='noteNew'||document.activeElement.classList.contains('bellin')))return;
   const T0=Object.keys(tasks).map(id=>Object.assign({id},tasks[id])).filter(t=>!(t.closed||t.sealed)).sort((a,b)=>b.createdAt-a.createdAt);
   const oldT=t=>!!t.fin||(noCol(t)&&t.due&&t.due<todayKey()),T=taskAll?T0:T0.filter(t=>!oldT(t)),nHid=T0.length-T.length;
+  const td0=todayKey(),sealable=T0.filter(t=>!noCol(t)&&t.due&&t.due<td0),oldNote=T0.filter(t=>noCol(t)&&t.type!=='訂正'&&t.due&&t.due<td0&&!Object.keys(status[t.id]||{}).length&&!Object.keys(corr[t.id]||{}).length);
   const inList=students.filter(s=>att[s.key]);
   $('#adminBody').innerHTML=`
-  <div class="sec"><h3>📋 項目管理（重開收作業／刪除；新增請到「幹部」，封存在「遲交」）${nHid||taskAll?`<button class="chip" id="taskAll" style="margin-left:10px">${taskAll?'只看進行中':'顯示已隱藏的 '+nHid+' 項'}</button>`:''}</h3><div class="tasklist">${collect['lj_'+todayKey()]&&!tasks['lj_'+todayKey()]?`<div class="it"><b>📔 聯絡簿（今天） <small style="color:var(--mut);font-weight:500">已收畢</small></b><button class="chip" data-reopen="lj_${todayKey()}">重開收作業</button></div>`:''}${T.length?T.map(t=>{
+  <div class="sec"><h3>📋 項目管理（重開收作業／刪除；新增請到「幹部」，封存在「遲交」）${nHid||taskAll?`<button class="chip" id="taskAll" style="margin-left:10px">${taskAll?'只看進行中':'顯示已隱藏的 '+nHid+' 項'}</button>`:''}</h3>
+  <div class="row" style="margin:2px 0 10px">${sealable.length?`<button class="btn" id="sealAll">🗂 一次封存過期作業（${sealable.length} 項）</button>`:''}${oldNote.length?`<button class="btn gray" id="clrNote">🧹 清除過期提醒／考試／寫成績（${oldNote.length} 項）</button>`:''}${(!sealable.length&&!oldNote.length)?'<span class="mut">目前沒有過期、可一鍵整理的項目 👏</span>':''}</div><div class="tasklist">${collect['lj_'+todayKey()]&&!tasks['lj_'+todayKey()]?`<div class="it"><b>📔 聯絡簿（今天） <small style="color:var(--mut);font-weight:500">已收畢</small></b><button class="chip" data-reopen="lj_${todayKey()}">重開收作業</button></div>`:''}${T.length?T.map(t=>{
     const done=students.filter(s=>(checks[t.id]||{})[s.key]).length;
     return `<div class="it"><b>${esc(t.subj)}${esc(t.type)} <small style="color:var(--mut);font-weight:500">${esc(tNote(t))} 交${(t.due||'').slice(5)}　${done}/${students.length}${collect[t.id]?'　（已收畢）':''}</small></b>
     ${collect[t.id]?`<button class="chip" data-reopen="${t.id}">重開收作業</button>`:''}<button class="chip" data-del="${t.id}" data-warn="${(Object.keys(status[t.id]||{}).length||Object.keys(corr[t.id]||{}).length)?'會連同缺交／訂正紀錄一起刪，再按一次':'再按一次刪除'}" style="color:var(--bad)">刪除${(Object.keys(status[t.id]||{}).length||Object.keys(corr[t.id]||{}).length)?'（含紀錄）':''}</button></div>`}).join(''):'<div class="nodata" style="padding:14px">尚無項目</div>'}</div></div>
@@ -1111,7 +1118,11 @@ function renderAdmin(){
     if(b.dataset.armed){db.ref('kiosk/tasks/'+b.dataset.del).remove();db.ref('kiosk/checks/'+b.dataset.del).remove();db.ref('kiosk/status/'+b.dataset.del).remove();db.ref('kiosk/corr/'+b.dataset.del).remove();db.ref('kiosk/collect/'+b.dataset.del).remove()}
     else{b.dataset.armed=1;b.textContent=b.dataset.warn||'再按一次刪除'}
   });
-  if($('#taskAll'))$('#taskAll').onclick=()=>{taskAll=!taskAll;renderAdmin()};
+  if($('#taskAll'))$('#taskAll').onclick=()=>{taskAll=!taskAll;renderAdmin();toast(taskAll?'已展開隱藏的項目（在清單下方）':'已收合，只顯示進行中');setTimeout(()=>{const h=$('#taskAll');if(h)h.scrollIntoView({block:'start'})},60)};
+  if($('#sealAll'))$('#sealAll').onclick=()=>{
+    const left=sealable.reduce((n,t)=>n+students.filter(x=>owes(t,x.key)).length,0);
+    askYN('封存 '+sealable.length+' 項過期作業？',left?`共有 ${left} 人次尚未處理，封存後會記為「缺交」（請假、免交的不算）。已打勾、已補交的都會保留，作業移到歷史作業。`:'所有人都已處理，封存後移到歷史作業。',()=>sealMany(sealable))};
+  if($('#clrNote'))$('#clrNote').onclick=()=>askYN('清除 '+oldNote.length+' 項過期提醒？','這些是提醒、考試、寫成績等沒有缺交紀錄的項目，刪除不影響任何統計。',()=>{const up={};oldNote.forEach(t=>up['tasks/'+t.id]=null);db.ref('kiosk').update(up);toast('已清除 '+oldNote.length+' 項')});
   A.querySelectorAll('[data-unin]').forEach(b=>b.onclick=()=>{
     if(b.dataset.armed){db.ref('kiosk/attendance/'+curDay+'/'+b.dataset.unin).remove()}
     else{b.dataset.armed=1;b.style.outline='4px solid var(--bad)';b.querySelector('.tm').textContent='再按取消'}
