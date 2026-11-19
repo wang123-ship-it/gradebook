@@ -111,7 +111,7 @@ table.hw tr.sq td.sqh{background:#dfe9f8;border-radius:8px;font-size:16px;font-w
 .cell.skip{background:#eee;color:#aaa;border-style:dashed;font-size:14px}
 .cell.y{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
 .cell.absent{background:#eee;color:#bbb}
-.nodata{padding:50px;text-align:center;color:var(--mut);font-size:22px}
+.bbbig{background:#fff3bf;border:3px solid #f59f00;border-radius:16px;padding:10px 18px;margin-bottom:10px}.bbbig.imp{background:#ffe3e3;border-color:#e03131}.bbbig .bbt{font-size:34px;font-weight:900;line-height:1.25}.bbbig.imp .bbt{color:#c92a2a}.bbbig .bbb{font-size:26px;font-weight:600;white-space:pre-wrap;line-height:1.4;margin-top:2px}.bbstrip{display:flex;align-items:center;gap:10px;background:#fff3bf;border:2px solid #f59f00;border-radius:12px;padding:5px 14px;margin-bottom:8px;font-size:22px;cursor:pointer;overflow:hidden;white-space:nowrap}.bbstrip.imp{background:#ffe3e3;border-color:#e03131}.bbstrip b{flex:none}.bbstrip span{overflow:hidden;text-overflow:ellipsis;color:#444;font-weight:600}.bbstrip i{flex:none;margin-left:auto;font-style:normal;font-size:16px;color:var(--mut)}.nodata{padding:50px;text-align:center;color:var(--mut);font-size:22px}
 .modal{position:fixed;inset:0;background:rgba(30,28,40,.55);display:none;align-items:center;justify-content:center;z-index:50}
 .modal.on{display:flex}
 .box{background:#fff;border-radius:24px;padding:24px;max-width:92vw;max-height:90vh;overflow:auto;min-width:420px}
@@ -170,13 +170,14 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-17a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-19a</span>
   <nav id="nav"></nav>
 </header>
 <div id="ztBar" style="display:none"></div>
 <main>
   <!-- 報到 -->
   <section class="panel on" id="p-checkin">
+    <div id="bbC"></div>
     <div class="bar">
       <div class="stat" id="stIn">已到 0<small>/ 0</small></div>
       <div class="stat" id="stLate" style="color:var(--late)"></div>
@@ -188,6 +189,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
   <!-- 收作業 -->
   <section class="panel" id="p-today"></section>
   <section class="panel" id="p-hw">
+    <div id="bbH"></div>
     <div class="bar" id="hwFilter"></div>
     <div class="hwwrap" id="hwBody"></div>
   </section>
@@ -418,7 +420,7 @@ function showTab(t){
   if(t==='tools')renderTools();
   renderBook();renderCadre();renderLate();renderStat();
 }
-function renderAll(){ztCheck();renderNav();renderToday();renderCheckin();renderHw();renderCorr();renderTools();renderBook();renderCadre();renderLate();renderStat();if(unlocked)renderAdmin()}
+function renderAll(){ztCheck();renderNav();renderBB();renderToday();renderCheckin();renderHw();renderCorr();renderTools();renderBook();renderCadre();renderLate();renderStat();if(unlocked)renderAdmin()}
 
 /* ---------- 報到 ---------- */
 function isLate(t){return t>settings.lateTime}
@@ -1172,7 +1174,7 @@ function renderAdmin(){
   $('#noteAdd').onclick=()=>{const v=$('#noteNew').value.trim();if(!v)return;const a=noteList();if(!a.includes(v))a.push(v);saveNotes(a)};
   $('#noteReset').onclick=function(){if(this.dataset.a){settings.notes=null;db.ref('kiosk/settings/notes').remove();renderAdmin()}else{this.dataset.a=1;this.textContent='再按一次確認'}};
   A.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>openMk(b.dataset.mk));
-  adminTT();adminExempt();adminRounds();adminPast();adminFin();adminHol();
+  adminTT();adminExempt();adminRounds();adminPast();adminFin();adminHol();adminBB();
   $('#histBtn').onclick=showHist;
   $('#chgPin').onclick=()=>askPin(null,'change');
   $('#lock').onclick=()=>{unlocked=false;showTab('checkin')};
@@ -1232,7 +1234,7 @@ function renderToday(){
   const card=(id,cls,h,body)=>{const nt=noteOf(id);return `<div class="tdc ${cls}" data-c="${id}"><h4>${h}</h4>${body||(nt?'':'<span class="mut">點一下設定</span>')}${nt?`<div class="cnote">✍️ ${esc(nt)}</div>`:''}</div>`};
   $('#p-today').innerHTML=`
   <div class="tdbar"><b>${(vd.getMonth()+1)}/${vd.getDate()}（週${WD[vd.getDay()]}）${isT?'今日課表':'課表預排'}</b>${viewBtns}${wk?`<span class="mut">　週末：顯示下個上學日（週${WD[g]}）的課表</span>`:''}${exams.length?`<span class="exb">📝 ${isT?'今日':'當日'}考試：${exams.map(t=>esc((SFULL[t.subj]||t.subj)+t.type)).join('、')}</span>`:''}<span class="mut" style="margin-left:auto;font-size:14px">點課表任一節＝改課／填「這節要做什麼」</span></div>
-  <div class="tdwrap"><div class="ttcol">${rows}</div><div class="tdcards">
+  ${bbStrip()}<div class="tdwrap"${bbActive().length?' style="height:calc(100vh - 220px)"':''}><div class="ttcol">${rows}</div><div class="tdcards">
    ${card('duty','','🧹 值日生',keysSorted(dayD.duty).map(k=>tchip(k)).join(''))}
    ${card('meal','','🍱 抬餐',keysSorted(dayD.meal).map(k=>tchip(k)).join(''))}
    ${card('noon','','🍱 午休',(napK.length?`<div><b class="ct">😴 缺席</b>${napK.map(k=>tchip(k,`<span class="wh">→ ${esc(nap[k])}</span>`)).join('')}</div>`:'')+(coachH?`<div><b class="ct">📖 加強</b></div>${coachH}`:''))}
@@ -1413,6 +1415,29 @@ function drawPastOne(box){
     if(a==='clear'){if(r&&r.plan&&pastD===curDay)skipPlan(pastK);ref.remove()}else ref.set({st:a,ts:Date.now(),m:1});done()});
   $('#pkX').onclick=pkClose}
 let hol=null;
+
+/* ===== 公佈欄 v11-19a ===== */
+function bbActive(){const o=settings.bulletin||{},td=todayKey();return Object.keys(o).map(id=>Object.assign({id},o[id])).filter(x=>x&&(x.t||x.b)&&(!x.until||x.until>=td)).sort((a,b)=>(b.imp?1:0)-(a.imp?1:0)||(a.ts||0)-(b.ts||0)).slice(0,3)}
+function bbBig(){return bbActive().map(x=>`<div class="bbbig${x.imp?' imp':''}"><div class="bbt">${x.imp?'🔴 ':'📢 '}${esc(x.t||'公告')}</div>${x.b?`<div class="bbb">${esc(x.b)}</div>`:''}</div>`).join('')}
+function bbStrip(){const L=bbActive();if(!L.length)return '';const x=L[0];return `<div class="bbstrip bbgo${x.imp?' imp':''}"><b>${x.imp?'🔴':'📢'} ${esc(x.t||'公告')}</b><span>${esc((x.b||'').replace(/\s*\n\s*/g,'　'))}</span><i>${L.length>1?'共 '+L.length+' 則・':''}點開全文</i></div>`}
+function renderBB(){const c=$('#bbC'),h=$('#bbH');if(c)c.innerHTML=bbBig();if(h)h.innerHTML=bbStrip()}
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('.bbgo')){pkOpen(box=>{box.innerHTML=`<h2 style="margin:0 0 10px">📢 公佈欄</h2>${bbBig()||'<div class="mut">目前沒有公告</div>'}<div class="row" style="margin-top:12px"><button class="btn gray" id="pkX">關閉</button></div>`;$('#pkX').onclick=pkClose})}});
+function adminBB(){const A=$('#adminBody');if(!A)return;const o=settings.bulletin||{},ids=Object.keys(o).sort((a,b)=>(o[a].ts||0)-(o[b].ts||0)),td=todayKey();
+  const sec=document.createElement('div');sec.className='sec';
+  sec.innerHTML=`<h3>📢 公佈欄<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">學生到校點「報到」「收作業」就會看到（最多顯示 3 則，重要的排前面）；可用手機遠端修改</small></h3>
+  <div class="row" style="margin-bottom:8px"><button class="btn" id="bbNew">＋ 新增公告</button><button class="btn gray" id="bbLeave">🧳 老師請假範本</button></div>`+
+  (ids.length?ids.map(id=>{const x=o[id],exp=x.until&&x.until<td;return `<div class="it" style="display:block;${exp?'opacity:.55':''}"><div class="row"><input class="bellin" data-bf="t" data-id="${id}" value="${esc(x.t||'')}" placeholder="標題（例：今日正皇老師請假）" style="flex:1;min-width:240px;font-size:20px"><button class="chip ${x.imp?'on':''}" data-bimp="${id}">${x.imp?'🔴 重要':'一般'}</button><button class="chip" data-bdel="${id}" style="color:var(--bad)">刪除</button></div>
+  <textarea class="bellin" data-bf="b" data-id="${id}" rows="3" placeholder="內容（可換行）" style="width:100%;font-size:20px;margin-top:6px;box-sizing:border-box">${esc(x.b||'')}</textarea>
+  <div class="row" style="margin-top:6px"><span>顯示到</span><input type="date" class="bellin" data-bf="until" data-id="${id}" value="${esc(x.until||'')}"><button class="chip" data-btd="${id}">只顯示今天</button><button class="chip" data-bnone="${id}">不設期限</button>${exp?'<b style="color:var(--bad)">已過期（學生看不到）</b>':(!x.t&&!x.b)?'<b style="color:var(--mut)">空白不顯示</b>':'<b style="color:var(--ok,#2b8a3e)">顯示中</b>'}</div></div>`}).join(''):'<div class="mut">目前沒有公告</div>');
+  A.prepend(sec);
+  const R=p=>db.ref('kiosk/settings/bulletin/'+p);
+  $('#bbNew').onclick=()=>db.ref('kiosk/settings/bulletin').push({t:'',b:'',imp:false,until:'',ts:Date.now()});
+  $('#bbLeave').onclick=()=>db.ref('kiosk/settings/bulletin').push({t:'今日正皇老師請假',b:'請依幹部指示：\n1. 早自習、課堂照課表自習\n2. 作業照常交給幹部\n3. 有急事請找隔壁班導師或行政人員',imp:true,until:td,ts:Date.now()});
+  sec.querySelectorAll('[data-bf]').forEach(el=>el.onchange=()=>R(el.dataset.id+'/'+el.dataset.bf).set(el.value));
+  sec.querySelectorAll('[data-bimp]').forEach(b=>b.onclick=()=>R(b.dataset.bimp+'/imp').set(!o[b.dataset.bimp].imp));
+  sec.querySelectorAll('[data-btd]').forEach(b=>b.onclick=()=>R(b.dataset.btd+'/until').set(td));
+  sec.querySelectorAll('[data-bnone]').forEach(b=>b.onclick=()=>R(b.dataset.bnone+'/until').set(''));
+  sec.querySelectorAll('[data-bdel]').forEach(b=>b.onclick=()=>askYN('刪除這則公告？','刪除後學生看不到，也無法復原。',()=>R(b.dataset.bdel).remove()))}
 function adminFin(){const A=$('#adminBody');if(!A)return;const af=settings.autoFin||{},on=af.on!==false;
   const sec=document.createElement('div');sec.className='sec';
   sec.innerHTML=`<h3>⏰ 自動收畢<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">到時間自動把「今天要交」的作業收畢，沒交的轉到遲交；明天以後要交的不受影響；忘了收的舊作業也會自動補收畢</small></h3><div class="row"><button class="chip ${on?'on':''}" id="afOn">${on?'✔ 已開啟':'已關閉（點一下開啟）'}</button><span>每天</span><input type="time" class="bellin" id="afT" value="${af.t||'13:00'}" style="display:inline-block;width:140px"><span>自動收畢</span></div>`;
