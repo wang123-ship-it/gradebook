@@ -170,7 +170,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-19a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-19b</span>
   <nav id="nav"></nav>
 </header>
 <div id="ztBar" style="display:none"></div>
@@ -875,8 +875,8 @@ function statRange(){
   if(statMode==='all')return ['0000-00-00','9999-12-31'];
   return [settings.statFrom||'0000-00-00',td];
 }
-function statCompute(){
-  const [from,to]=statRange(),td=todayKey(),c={};
+function statCompute(F,T){
+  const [from,to]=F?[F,T]:statRange(),td=todayKey(),c={};
   students.forEach(s=>c[s.key]={arr:0,late:0,leave:0,pub:0,none:0,hl:0,hm:0,hv:0,pend:0,cp:0,cm:0,cf:0,pts:0,abs:0,dAbs:[],cw:[],dLate:[],dNone:[],dLeave:[],hw:[]});
   const days=Object.keys(allAtt).filter(d=>d>=from&&d<=to&&Object.values(allAtt[d]||{}).filter(r=>r&&!r.st).length>=3).sort();
   days.forEach(d=>students.forEach(s=>{
@@ -922,8 +922,8 @@ function renderStat(){
     <div class="sec" style="margin:0;padding:10px 16px;background:#eef5ff;border:2px solid #cfe3fa"><div style="font-size:15px;color:var(--mut)">🕖 到校日數</div><b style="font-size:26px">${days.length}</b></div>
     <div class="sec" style="margin:0;padding:10px 16px;background:#eef5ff;border:2px solid #cfe3fa"><div style="font-size:15px;color:var(--mut)">🕖 遲到人次</div><b style="font-size:26px;color:var(--late)">${sum(x=>x.late)}</b></div>
     <div class="sec" style="margin:0;padding:10px 16px;background:#eef5ff;border:2px solid #cfe3fa"><div style="font-size:15px;color:var(--mut)">🕖 無紀錄人次</div><b style="font-size:26px;color:var(--bad)">${sum(x=>x.none)}</b></div>
-    <div class="sec" style="margin:0;padding:10px 16px;flex:1;min-width:220px"><div style="font-size:15px;color:var(--mut)">🏅 全勤守時（零遲到、零缺交、零遲交、零無紀錄）${perfect.length}人</div><div style="font-size:18px;font-weight:700">${perfect.map(s=>esc(s.name)).join('、')||'—'}</div></div>
   </div>
+  ${honorHtml()}
   <div class="bar"><span style="font-size:20px;color:var(--mut)">排序：</span>
     ${[['no','座號'],['pts','記點多→少'],['miss','缺交多→少'],['hl','遲交多→少'],['late','遲到多→少'],['none','無紀錄多→少']].map(x=>`<button class="chip ${statSort===x[0]?'on':''}" data-so="${x[0]}">${x[1]}</button>`).join('')}
     <span style="font-size:15px;color:var(--mut)">點任一列看明細</span><button class="btn gray" id="stCsv" style="margin-left:auto">匯出 CSV</button></div>
@@ -1174,7 +1174,7 @@ function renderAdmin(){
   $('#noteAdd').onclick=()=>{const v=$('#noteNew').value.trim();if(!v)return;const a=noteList();if(!a.includes(v))a.push(v);saveNotes(a)};
   $('#noteReset').onclick=function(){if(this.dataset.a){settings.notes=null;db.ref('kiosk/settings/notes').remove();renderAdmin()}else{this.dataset.a=1;this.textContent='再按一次確認'}};
   A.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>openMk(b.dataset.mk));
-  adminTT();adminExempt();adminRounds();adminPast();adminFin();adminHol();adminBB();
+  adminTT();adminExempt();adminRounds();adminPast();adminFin();adminHol();adminBB();adminHonor();
   $('#histBtn').onclick=showHist;
   $('#chgPin').onclick=()=>askPin(null,'change');
   $('#lock').onclick=()=>{unlocked=false;showTab('checkin')};
@@ -1438,6 +1438,45 @@ function adminBB(){const A=$('#adminBody');if(!A)return;const o=settings.bulleti
   sec.querySelectorAll('[data-btd]').forEach(b=>b.onclick=()=>R(b.dataset.btd+'/until').set(td));
   sec.querySelectorAll('[data-bnone]').forEach(b=>b.onclick=()=>R(b.dataset.bnone+'/until').set(''));
   sec.querySelectorAll('[data-bdel]').forEach(b=>b.onclick=()=>askYN('刪除這則公告？','刪除後學生看不到，也無法復原。',()=>R(b.dataset.bdel).remove()))}
+
+/* ===== 榮譽榜 v11-19b ===== */
+const HMODES=[['week','本週'],['two','近兩週'],['since','從上次結算日起'],['month','本月'],['term','本學期'],['custom','自訂']];
+function honorRange(){const h=settings.honor||{},td=todayKey(),m=h.mode||'two',now=new Date();
+  const mon=(w)=>{const x=new Date(now);x.setDate(x.getDate()-((x.getDay()+6)%7)-(w||0));return x};
+  let f,t=td;
+  if(m==='week')f=ymd(mon(0));
+  else if(m==='month')f=td.slice(0,8)+'01';
+  else if(m==='term')f=h.term||'2026-08-31';
+  else if(m==='since'&&h.last){const x=new Date(h.last+'T00:00:00');x.setDate(x.getDate()+1);f=ymd(x)}
+  else if(m==='custom'&&h.cf){f=h.cf;if(h.ct)t=h.ct}
+  else f=ymd(mon(7));
+  return [f,t]}
+function honorCompute(){const [f,t]=honorRange(),td=todayKey(),R=statCompute(f,t),c=R.c,od=openTasks().filter(x=>x.due&&x.due<td),A=[],H=[];
+  students.forEach(s=>{const x=c[s.key];let lv=x.leave,nn=0;
+    x.dNone.forEach(d=>{if(plannedLv(d,s.key))lv++;else if(d!==td)nn++});
+    if(x.arr>0&&x.late===0&&lv===0&&x.abs===0&&nn===0)A.push(s.key);
+    if(x.arr>0&&x.hm===0&&x.hl===0&&x.cm===0&&x.cf===0&&!od.some(tk=>owes(tk,s.key)))H.push(s.key)});
+  return {f,t,days:R.days.length,A,H}}
+function honorHtml(){const h=settings.honor||{},{f,t,days,A,H}=honorCompute(),both=new Set(A.filter(k=>H.includes(k))),fm=d=>d.slice(5).replace('-','/');
+  const nm=L=>L.length?students.filter(s=>L.includes(s.key)).map(s=>(both.has(s.key)?'⭐':'')+esc(s.name)).join('、'):(days?'本區間暫無':'此區間尚無上課紀錄');
+  const od=h.last&&(Date.parse(todayKey())-Date.parse(h.last))/864e5>14;
+  const card=(ic,ti,L,bg,bd)=>`<div class="sec" style="margin:0;padding:10px 16px;flex:1;min-width:280px;background:${bg};border:2px solid ${bd}"><div style="font-size:16px;color:var(--mut)">${ic} <b style="font-size:20px;color:#333">${ti}</b>　${L.length} 人</div><div style="font-size:20px;font-weight:800;margin-top:4px;line-height:1.5">${nm(L)}</div></div>`;
+  return `<div class="bar" style="gap:10px;align-items:stretch">${card('🏅','全勤守時',A,'#fff9db','#ffe066')}${card('📚','作業勤勉',H,'#ebfbee','#8ce99a')}</div>
+  <div style="margin:-4px 4px 10px;font-size:15px;color:var(--mut)">榮譽榜區間：${fm(f)}～${fm(t)}（${days} 個上課日）${both.size?'　⭐＝兩榜皆入':''}${h.last?'　上次結算：'+fm(h.last):''}${od?'　<b style="color:var(--late)">⚠ 超過 14 天沒結算</b>':''}　<small>區間在「老師」頁設定</small></div>
+  <div style="margin:-6px 4px 10px;font-size:14px;color:var(--mut)">全勤守時＝零遲到、零請假（公假不扣）、零曠課、零無紀錄；作業勤勉＝零缺交、零遲交、零訂正未交、零訂正未過。今天的無紀錄與尚未收畢的作業不計。</div>`}
+function adminHonor(){const A=$('#adminBody');if(!A)return;const h=settings.honor||{},m=h.mode||'two',[f,t]=honorRange(),fm=d=>d.slice(5).replace('-','/');
+  const sec=document.createElement('div');sec.className='sec';
+  sec.innerHTML=`<h3>🏆 榮譽榜區間<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">決定統計頁「全勤守時」「作業勤勉」要算哪一段（不影響統計表的起算日）</small></h3>
+  <div class="row">${HMODES.map(x=>`<button class="chip ${m===x[0]?'on':''}" data-hm="${x[0]}">${x[1]}</button>`).join('')}</div>
+  <div class="row" style="margin-top:8px"><span>自訂</span><input type="date" class="bellin" id="hCF" value="${esc(h.cf||'')}"><span>～</span><input type="date" class="bellin" id="hCT" value="${esc(h.ct||'')}"><small class="mut">訖日留空＝到今天</small></div>
+  <div class="row" style="margin-top:6px"><span>學期起日</span><input type="date" class="bellin" id="hTM" value="${esc(h.term||'2026-08-31')}"><small class="mut">「本學期」從這天算</small></div>
+  <div class="row" style="margin-top:10px"><b>目前：${fm(f)}～${fm(t)}</b><span class="mut">上次結算：${h.last?fm(h.last):'尚未結算'}</span><button class="btn" id="hDone">✅ 榮譽榜結算</button></div>
+  <div class="mut" style="font-size:14px;margin-top:4px">按「榮譽榜結算」只會記下今天，下次選「從上次結算日起」就從明天接著算；不會動任何原始紀錄。</div>`;
+  A.prepend(sec);
+  const R=p=>db.ref('kiosk/settings/honor/'+p);
+  sec.querySelectorAll('[data-hm]').forEach(b=>b.onclick=()=>R('mode').set(b.dataset.hm));
+  $('#hCF').onchange=e=>R('cf').set(e.target.value);$('#hCT').onchange=e=>R('ct').set(e.target.value);$('#hTM').onchange=e=>R('term').set(e.target.value);
+  $('#hDone').onclick=()=>askYN('榮譽榜結算（'+todayKey().slice(5).replace('-','/')+'）？','記下今天為上次結算日。下次選「從上次結算日起」會從明天開始計算；原始紀錄不受影響。',()=>R('last').set(todayKey()))}
 function adminFin(){const A=$('#adminBody');if(!A)return;const af=settings.autoFin||{},on=af.on!==false;
   const sec=document.createElement('div');sec.className='sec';
   sec.innerHTML=`<h3>⏰ 自動收畢<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">到時間自動把「今天要交」的作業收畢，沒交的轉到遲交；明天以後要交的不受影響；忘了收的舊作業也會自動補收畢</small></h3><div class="row"><button class="chip ${on?'on':''}" id="afOn">${on?'✔ 已開啟':'已關閉（點一下開啟）'}</button><span>每天</span><input type="time" class="bellin" id="afT" value="${af.t||'13:00'}" style="display:inline-block;width:140px"><span>自動收畢</span></div>`;
