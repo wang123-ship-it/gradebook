@@ -245,6 +245,20 @@
   .fp-bars .st-rank{ font-size:17px; font-weight:800; padding:2px 6px; color:#6b4f0a; }
   @media print{ .cm-off, .cm-allOff, .fp-cmr.cm-off{ display:none !important; } }
 
+  /* 6 張精簡版 */
+  .card4-page.p6{ grid-auto-rows:var(--card-h6,92mm); }
+  .card4.c6{ padding:2mm 3mm; }
+  .card4.c6 .st-table td{ font-size:11px; line-height:1.3; }
+  .card4.c6 .st-table th{ font-size:9.5px; }
+  .card4.c6 .st-total{ font-size:13px; margin-top:1mm; }
+  .card4.c6 .st-total b{ font-size:16px; }
+  .card4.c6 .st-rank{ font-size:16px !important; padding:1px 5px !important; margin-top:.8mm !important; }
+  .card4.c6 .st-cm{ font-size:9.5px; line-height:1.3; padding:1mm 1.6mm; margin-top:1mm; }
+  .card4.c6 .cm-row{ margin-bottom:.6mm; }
+  .card4.c6 .st-praise{ font-size:9px; }
+  .card4.c6 .sp-blk{ font-size:9px; padding:.8mm 1.6mm; margin-top:.8mm; }
+  .card4.c6 .st-progline{ font-size:9px; }
+
   .teacher-item{
     display:flex; justify-content:space-between; align-items:center;
     border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin-bottom:6px; font-size:13px;
@@ -661,6 +675,7 @@
             </div>
             <div class="row" style="margin-bottom:6px;padding:6px;background:#eef2f0;border-radius:6px;">
               <b style="font-size:12px;width:100%;">🖨️ 列印版面微調（條子跑掉時調這裡，會記住）</b>
+              <label>6張版高度（一頁6張） <input id="layCardH6" type="number" min="80" max="96" step="1" value="92" style="width:60px;" onchange="saveLayout()"> mm</label>
               <label>成績單高度（一頁4張） <input id="layCardH" type="number" min="100" max="142" step="1" value="140" style="width:60px;" onchange="saveLayout()"> mm</label>
               <label style="display:none;">成績條高度 <input id="layStripH" type="number" min="55" max="74" step="1" value="68" style="width:60px;" onchange="saveLayout()"> mm</label>
               <label>字級 <input id="layStripFs" type="number" min="70" max="130" step="5" value="100" style="width:60px;" onchange="saveLayout()"> %</label>
@@ -679,6 +694,7 @@
               <label><input type="checkbox" id="cmShowImp" style="width:auto;" checked> 🌱可以更好</label>
               <label><input type="checkbox" id="cmShowAct" style="width:auto;" checked> 🎯下期小行動</label>
               <label>🔥段考衝刺策略：<select id="optSprint" style="width:auto;"><option value="">不印</option><option value="1">全班 1 週衝刺</option><option value="2">全班 2 週衝刺</option></select></label>
+              <label>每頁張數：<select id="optPerPage" style="width:auto;" onchange="try{localStorage.setItem('perPage',this.value)}catch(e){}"><option value="4">4 張（完整版）</option><option value="6">6 張（精簡版）</option></select></label>
               <button class="ghost" onclick="resetCardMarks()" title="清除成績單上手動按的 ✕ 取消與衝刺選擇">🔄 清除個別調整</button>
               <div class="msg" style="width:100%;">成績單上每一行右側的 ✕ 可單獨取消（再點恢復，印出時不會顯示 ✕）；每張下方有「1週衝刺／2週衝刺」按鈕可個別開關。個別調整記在這台電腦，下次考試前請按「清除個別調整」。</div>
             </div>
@@ -2657,12 +2673,12 @@ function toggleCm(el){const row=el.closest("[data-cmk]"),card=el.closest("[data-
 function cmRow(stuKey,f,lab,txt,fp){const off=(lsGet("cmOff")[stuKey]||{})[f];
   return fp?`<div class="fp-cmr${off?' cm-off':''}" data-cmk="${f}">${lab}<span class="fp-cmt">${txt}</span><button class="cm-x no-print" onclick="toggleCm(this)" title="取消／恢復這一行">✕</button></div>`
           :`<div class="cm-row${off?' cm-off':''}" data-cmk="${f}"><span class="cm-lab">${lab}</span><span class="cm-txt">${txt}</span><button class="cm-x no-print" onclick="toggleCm(this)" title="取消／恢復這一行">✕</button></div>`}
-function cmBoxHtml(r,cm,fp){if(!cm)return "";const o=readCmOpts();let rows="";
-  const act=cm.act.map(t=>fp?`<div class="fp-act">• ${t}</div>`:`<div class="cm-act"><span class="cm-dot">•</span><span>${t}</span></div>`).join("");
+function cmBoxHtml(r,cm,fp,short){if(!cm)return "";const o=readCmOpts();let rows="";
+  const act=(short?cm.actS:cm.act).map(t=>fp?`<div class="fp-act">• ${t}</div>`:`<div class="cm-act"><span class="cm-dot">•</span><span>${t}</span></div>`).join("");
   if(fp){ if(o.hl)rows+=cmRow(r.stuKey,"hl","🌟 <b>本期亮點</b>　",cm.hl,true); if(o.imp)rows+=cmRow(r.stuKey,"imp","🌱 <b>可以更好</b>　",cm.imp,true); if(o.act)rows+=cmRow(r.stuKey,"act","🎯 <b>下期小行動</b>",act,true); }
-  else { if(o.hl)rows+=cmRow(r.stuKey,"hl","🌟 <b>亮點</b>",cm.hl); if(o.imp)rows+=cmRow(r.stuKey,"imp","🌱 <b>可以更好</b>",cm.imp); if(o.act)rows+=cmRow(r.stuKey,"act","🎯 <b>下期小行動</b>",act); }
+  else { if(o.hl)rows+=cmRow(r.stuKey,"hl","🌟 <b>亮點</b>",short?cm.hlS:cm.hl); if(o.imp&&!short)rows+=cmRow(r.stuKey,"imp","🌱 <b>可以更好</b>",cm.imp); if(o.act)rows+=cmRow(r.stuKey,"act","🎯 <b>下期小行動</b>",act); }
   if(!rows)return "";
-  const offs=lsGet("cmOff")[r.stuKey]||{},all=["hl","imp","act"].filter(f=>o[f]).every(f=>offs[f]);
+  const offs=lsGet("cmOff")[r.stuKey]||{},all=["hl","imp","act"].filter(f=>o[f]&&!(short&&f==="imp")).every(f=>offs[f]);
   return `<div class="${fp?'fp-cm':'st-cm'}${all?' cm-allOff':''}">${rows}</div>`}
 /* 衝刺策略：依各科平均由低到高挑重點科目 */
 const SPR={
@@ -2674,7 +2690,7 @@ const SPR={
  "歷史":{fix:"依時序重讀事件",org:"整理時間軸與因果關係",test:"口述事件因果，再做題"},
  "公民":{fix:"重讀概念，補齊名詞",org:"每個概念配一個生活例子",test:"做案例判斷題並說出理由"}
 };
-function sprintHtml(r){
+function sprintHtml(r,short){
   const subs=Object.keys(r.per).filter(s=>r.per[s].avg!==null&&SPR[s]).sort((a,b)=>r.per[a].avg-r.per[b].avg);
   if(!subs.length)return "";
   const weak=subs.filter(s=>scoreTier(r.per[s].avg)<=2);
@@ -2687,6 +2703,8 @@ function sprintHtml(r){
   if(F1.length===1){const a=F1[0];d1=[t(a,"fix"),t(a,"org"),t(a,"test"),`${a}：把錯的題目再看一次`,"各科快速回顧一遍，早點睡"]}
   else{const [a,b]=F1;d1=[t(a,"fix"),t(b,"fix"),t(a,"org"),t(b,"org"),`${a}、${b}：自我小考並訂正`]}
   const D=["一","二","三","四","五"];
+  if(short){const f2s=keep?subs.slice(0,1):weak.slice(0,3);
+    return `<div class="sp-blk" data-sp="1"><b>🔥 1 週衝刺</b>（${keep?'維持型，':''}重點：${all(F1)}）週一二補基礎、週三四整理重點、週五自我小考並訂正；週末再看一次錯題。</div><div class="sp-blk" data-sp="2"><b>🔥 2 週衝刺</b>（${keep?'維持型，':''}重點：${all(f2s)}）第 1 週補基礎、重做錯題；第 2 週整理重點、自我小考並訂正，最後一天全科快速回顧。</div>`}
   const b1=`<div class="sp-blk" data-sp="1"><b>🔥 1 週衝刺</b>（${keep?'維持型，重點：':'重點科目：'}${all(F1)}）<div class="sp-w">${d1.map((x,i)=>`週${D[i]} ${x}`).join("；")}。週末：把這週的錯題再看一次。</div></div>`;
   // 2 週
   const f2=F2.length?F2:F1;
@@ -2697,7 +2715,7 @@ function sprintHtml(r){
   return b1+b2;
 }
 function sprintSel(stuKey){const m=lsGet("sprintSel");if(m[stuKey]!==undefined)return m[stuKey];const e=document.getElementById("optSprint");return e?e.value:""}
-function sprintBlock(r){const h=sprintHtml(r);if(!h)return {attr:"",html:""};const v=sprintSel(r.stuKey);
+function sprintBlock(r,short){const h=sprintHtml(r,short);if(!h)return {attr:"",html:""};const v=sprintSel(r.stuKey);
   return {attr:` data-sprint="${v||''}"`,html:h+`<div class="sp-bar no-print"><button class="sp-b${v==='1'?' on':''}" data-spb="1" onclick="setSprint(this,'1')">🔥 1週衝刺</button><button class="sp-b${v==='2'?' on':''}" data-spb="2" onclick="setSprint(this,'2')">🔥 2週衝刺</button></div>`}}
 function setSprint(btn,v){const card=btn.closest("[data-stu]");if(!card)return;const cur=card.dataset.sprint||"",nv=(cur===v)?"":v,m=lsGet("sprintSel");
   m[card.dataset.stu]=nv===""?"0":nv;lsSet("sprintSel",m);card.dataset.sprint=nv==="0"?"":nv;
@@ -2774,7 +2792,8 @@ function generateStudentReports(){
     const opt = readPersonalOpts();
     const selRows = pickRows(data, opt);
     if (selRows.length===0){ showMsg("reportMsg","找不到這個座號", true); return; }
-    const ct = opt.classTable ? buildClassTable(ctx) : null;
+    const per = readPerPage(), six = per===6;
+    const ct = (opt.classTable && !six) ? buildClassTable(ctx) : null;
     const ctHtml = classTableHtml(ct, data.subjects.map(x=>x.subj), false);
     const cards = selRows.map(r=>{
       const ex = personalExtras(r, ctx);
@@ -2794,18 +2813,18 @@ function generateStudentReports(){
         }
       }
       if (ex.cm && ex.cm.ups.length) progHtml += `<span class="st-prog up">👏 進步：${ex.cm.ups.join("、")}</span>`;
-      const radar = (opt.band && ex.cm && ex.subjList.length>=3) ? `<div class="st-radar">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 120)}<div class="rd-leg">━ 這次　<span style="color:#9aa5a0;">┅ 上次段考</span></div></div>` : "";
-      const cmHtml = cmBoxHtml(r, ex.cm, false); const spb = sprintBlock(r);
+      const radar = (!six && opt.band && ex.cm && ex.subjList.length>=3) ? `<div class="st-radar">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 120)}<div class="rd-leg">━ 這次　<span style="color:#9aa5a0;">┅ 上次段考</span></div></div>` : "";
+      const cmHtml = cmBoxHtml(r, ex.cm, false, six); const spb = sprintBlock(r, six);
       const overall = r.rank===null ? "-" : bandBadgeHtml(r.rank, r.rankTotal);
-      return `<div class="card4" data-stu="${r.stuKey}"${spb.attr}><div class="st-head"><span style="font-size:13px;"><b>${r.name}</b>（${r.no}號）</span><span class="st-range">703班　${start.slice(5)}～${end.slice(5)}</span></div>
+      return `<div class="card4${six?' c6':''}" data-stu="${r.stuKey}"${spb.attr}><div class="st-head"><span style="font-size:13px;"><b>${r.name}</b>（${r.no}號）</span><span class="st-range">703班　${start.slice(5)}～${end.slice(5)}</span></div>
         <div class="st-mid">${radar}<table class="st-table"><thead><tr><th>科目</th><th>範圍／成績</th><th>${opt.band?'位置':''}</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
         <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${(opt.band && rankOptInCache[r.stuKey])?'　整體 '+overall:''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}${praiseHtml(r,opt).strip}
         <div class="st-progline">${progHtml}</div>${ctHtml}${cmHtml}${spb.html}
         <div class="c4-foot"><div class="c4-note">位置色塊為班內大致區間，▲▼＝與上次段考相比。</div><div style="text-align:right;margin-top:1mm;">家長簽名：＿＿＿＿＿＿＿＿＿　日期：＿＿／＿＿</div></div></div>`;
     });
-    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」，並勾選「背景圖形」。每頁 4 張（2×2），沿虛線剪開。雷達圖：實線＝這次，虛線＝上次段考。${ct && !ct.hasRank ? '<br>ℹ️ 這次段考的各班名次還沒輸入，成績單只印「本班各科平均」，名次到了可用 ⑥ 補發小條。' : ''}</div>` + praiseMissingNote(data.rows, opt);
-    for (let i=0;i<cards.length;i+=4){
-      html += `<div class="card4-page" style="${layoutStyle()}${i+4>=cards.length?'page-break-after:auto;':''}">${cards.slice(i,i+4).join("")}</div>`;
+    let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」，並勾選「背景圖形」。每頁 ${per} 張（2×${per/2}），沿虛線剪開。${six?'精簡版：不印雷達圖與全班對照表，評語用短版。':'雷達圖：實線＝這次，虛線＝上次段考。'}${ct && !ct.hasRank ? '<br>ℹ️ 這次段考的各班名次還沒輸入，成績單只印「本班各科平均」，名次到了可用 ⑥ 補發小條。' : ''}</div>` + praiseMissingNote(data.rows, opt);
+    for (let i=0;i<cards.length;i+=per){
+      html += `<div class="card4-page${six?' p6':''}" style="${layoutStyle()}${i+per>=cards.length?'page-break-after:auto;':''}">${cards.slice(i,i+per).join("")}</div>`;
     }
     html += `<div class="row no-print" style="margin-top:10px;"><button onclick="printReport()">🖨️ 列印全班個人成績單</button></div>`;
     document.getElementById("reportOutput").innerHTML = html;
@@ -3149,7 +3168,7 @@ window.addEventListener("beforeprint", ()=>{
   if (tab && out && tab.classList.contains("active") && out.children.length > 0) document.body.classList.add("print-report");
 });
 window.addEventListener("afterprint", ()=> document.body.classList.remove("print-report"));
-const LAYOUT_IDS = ["layStripH","layCardH","layStripFs","laySlipH","layTop"];
+const LAYOUT_IDS = ["layStripH","layCardH","layCardH6","layStripFs","laySlipH","layTop"];
 function saveLayout(){
   LAYOUT_IDS.forEach(id=>{ const e=document.getElementById(id); if (e) try{ localStorage.setItem("layout_"+id, e.value); }catch(x){} });
 }
@@ -3157,10 +3176,12 @@ function loadLayout(){
   LAYOUT_IDS.forEach(id=>{ const e=document.getElementById(id); if (!e) return; try{ const v=localStorage.getItem("layout_"+id); if (v!==null && v!=="") e.value=v; }catch(x){} });
 }
 window.addEventListener("load", loadLayout);
+window.addEventListener("load", ()=>{try{const v=localStorage.getItem("perPage"),e=document.getElementById("optPerPage");if(e&&v)e.value=v}catch(x){}});
+function readPerPage(){const e=document.getElementById("optPerPage");return e&&e.value==="6"?6:4}
 function layoutStyle(){
   const g=(id,d)=>{ const e=document.getElementById(id); const v=e?Number(e.value):NaN; return isFinite(v)&&v>0 ? v : d; };
   const top = (()=>{ const e=document.getElementById("layTop"); const v=e?Number(e.value):0; return isFinite(v)&&v>=0?v:0; })();
-  return `--strip-h:${g("layStripH",68)}mm;--card-h:${g("layCardH",140)}mm;--strip-fs:${g("layStripFs",100)/100};--slip-h:${g("laySlipH",34)}mm;--page-top:${top}mm;`;
+  return `--strip-h:${g("layStripH",68)}mm;--card-h:${g("layCardH",140)}mm;--card-h6:${g("layCardH6",92)}mm;--strip-fs:${g("layStripFs",100)/100};--slip-h:${g("laySlipH",34)}mm;--page-top:${top}mm;`;
 }
 
 /* ---- 完整資料備份（唯讀，不會動到任何既有資料）---- */
