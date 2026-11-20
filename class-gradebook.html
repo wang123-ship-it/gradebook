@@ -223,6 +223,28 @@
     .strip-page, .card4-page{ margin:0; }
   }
 
+
+  /* v11-20a：取消／衝刺／照實列 */
+  .cm-x{ flex:none; border:1px solid #d4b86a; background:#fff; color:#a07a1c; border-radius:50%; width:18px; height:18px; line-height:15px; padding:0; font-size:11px; cursor:pointer; margin-left:3px; }
+  .cm-row.cm-off, .fp-cmr.cm-off{ opacity:.35; }
+  .cm-row.cm-off .cm-txt, .fp-cmr.cm-off .fp-cmt{ text-decoration:line-through; }
+  .cm-allOff{ opacity:.35; }
+  .sp-bar{ display:flex; gap:6px; margin-top:1mm; }
+  .sp-b{ border:1px solid #d9822b; background:#fff; color:#c25e00; border-radius:12px; padding:1px 8px; font-size:11px; cursor:pointer; }
+  .sp-b.on{ background:#d9822b; color:#fff; }
+  .sp-blk{ display:none; background:#fff2e0; border-left:3px solid #d9822b; border-radius:2px; padding:1mm 2mm; margin-top:1.2mm; font-size:10px; line-height:1.35; }
+  [data-sprint="1"] .sp-blk[data-sp="1"], [data-sprint="2"] .sp-blk[data-sp="2"]{ display:block; }
+  .sp-blk b{ color:#b45309; }
+  .full-page .sp-blk{ font-size:12px; padding:2mm 3mm; margin-top:3mm; }
+  .full-page .sp-b{ font-size:12px; }
+  .sp-blk .sp-w{ margin-top:.5mm; }
+  .st-rg{ font-size:9px; color:#6b7a73; margin-right:4px; }
+  .fp-table .st-rg{ font-size:11px; }
+  .st-rk-note{ font-size:9px; font-weight:400; }
+  .card4 .st-rank{ font-size:18px !important; font-weight:800; color:#6b4f0a; padding:2px 6px !important; margin-top:1.2mm !important; line-height:1.25; }
+  .fp-bars .st-rank{ font-size:17px; font-weight:800; padding:2px 6px; color:#6b4f0a; }
+  @media print{ .cm-off, .cm-allOff, .fp-cmr.cm-off{ display:none !important; } }
+
   .teacher-item{
     display:flex; justify-content:space-between; align-items:center;
     border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin-bottom:6px; font-size:13px;
@@ -650,6 +672,15 @@
               <label><input type="checkbox" id="reportIncludeQuiz" style="width:auto;" checked> 包含大卷（小老師登記）</label>
               <label><input type="checkbox" id="reportShowProgress" style="width:auto;" checked> 附進步／退步提示</label>
               <label><input type="checkbox" id="reportShowComment" style="width:auto;" checked> 附雷達圖與學習描述</label>
+            </div>
+            <div class="row" style="margin-bottom:6px;">
+              <span style="font-size:13px;color:var(--muted);">個人成績單顯示：</span>
+              <label><input type="checkbox" id="cmShowHl" style="width:auto;" checked> 🌟亮點</label>
+              <label><input type="checkbox" id="cmShowImp" style="width:auto;" checked> 🌱可以更好</label>
+              <label><input type="checkbox" id="cmShowAct" style="width:auto;" checked> 🎯下期小行動</label>
+              <label>🔥段考衝刺策略：<select id="optSprint" style="width:auto;"><option value="">不印</option><option value="1">全班 1 週衝刺</option><option value="2">全班 2 週衝刺</option></select></label>
+              <button class="ghost" onclick="resetCardMarks()" title="清除成績單上手動按的 ✕ 取消與衝刺選擇">🔄 清除個別調整</button>
+              <div class="msg" style="width:100%;">成績單上每一行右側的 ✕ 可單獨取消（再點恢復，印出時不會顯示 ✕）；每張下方有「1週衝刺／2週衝刺」按鈕可個別開關。個別調整記在這台電腦，下次考試前請按「清除個別調整」。</div>
             </div>
             <div class="row"><button onclick="generateTeacherReport()">📋 ① 產生全班合併成績單</button></div>
             <div class="row" style="margin-top:8px;"><button onclick="exportClassReportExcel()">📊 ② 匯出 Excel（全班合併）</button> <button onclick="exportClassReportWord()">📄 匯出 Word</button></div>
@@ -2598,7 +2629,7 @@ function rankLineHtml(r, stuKey, opt, schoolRankData, start, end){
   const parts = [];
   if (opt.classRank && r.rank!==null) parts.push(`班排 ${r.rank}／${r.rankTotal}`);
   if (opt.schoolRank){ const t = schoolRankText(stuKey, schoolRankData, start, end); if (t) parts.push(t); }
-  return parts.length ? `<div class="st-rank">🔒 ${parts.join("　")}（依家長同意提供）</div>` : "";
+  return parts.length ? `<div class="st-rank">🔒 ${parts.join("　")}<span class="st-rk-note">（依家長同意提供）</span></div>` : "";
 }
 function prepPersonalReports(){
   return Promise.all([ getMergedReport(), db.ref("schoolRank").once("value"), db.ref("scores").once("value"), db.ref("classRank").once("value") ]).then(([{data,start,end}, rankSnap, scoreSnap, crSnap])=>{
@@ -2613,6 +2644,71 @@ function personalExtras(r, ctx){
   const prevVals = prev ? subjList.map(s=> prev.vals[s]||0) : null;
   return { subjList, prev, cm, cur, prevVals };
 }
+
+/* ===== 個人成績單：取消／衝刺策略／照實列大卷 (v11-20a) ===== */
+function _e(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||'{}')}catch(e){return {}}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function readCmOpts(){const g=id=>{const e=document.getElementById(id);return e?e.checked:true};return {hl:g("cmShowHl"),imp:g("cmShowImp"),act:g("cmShowAct")}}
+function cmBoxState(card){const box=card.querySelector(".st-cm,.fp-cm");if(!box)return;const rows=box.querySelectorAll("[data-cmk]");box.classList.toggle("cm-allOff",rows.length>0&&Array.from(rows).every(r=>r.classList.contains("cm-off")))}
+function toggleCm(el){const row=el.closest("[data-cmk]"),card=el.closest("[data-stu]");if(!row||!card)return;
+  const k=card.dataset.stu,f=row.dataset.cmk,m=lsGet("cmOff");m[k]=m[k]||{};if(m[k][f])delete m[k][f];else m[k][f]=1;
+  const on=!!m[k][f];if(!Object.keys(m[k]).length)delete m[k];lsSet("cmOff",m);row.classList.toggle("cm-off",on);cmBoxState(card)}
+function cmRow(stuKey,f,lab,txt,fp){const off=(lsGet("cmOff")[stuKey]||{})[f];
+  return fp?`<div class="fp-cmr${off?' cm-off':''}" data-cmk="${f}">${lab}<span class="fp-cmt">${txt}</span><button class="cm-x no-print" onclick="toggleCm(this)" title="取消／恢復這一行">✕</button></div>`
+          :`<div class="cm-row${off?' cm-off':''}" data-cmk="${f}"><span class="cm-lab">${lab}</span><span class="cm-txt">${txt}</span><button class="cm-x no-print" onclick="toggleCm(this)" title="取消／恢復這一行">✕</button></div>`}
+function cmBoxHtml(r,cm,fp){if(!cm)return "";const o=readCmOpts();let rows="";
+  const act=cm.act.map(t=>fp?`<div class="fp-act">• ${t}</div>`:`<div class="cm-act"><span class="cm-dot">•</span><span>${t}</span></div>`).join("");
+  if(fp){ if(o.hl)rows+=cmRow(r.stuKey,"hl","🌟 <b>本期亮點</b>　",cm.hl,true); if(o.imp)rows+=cmRow(r.stuKey,"imp","🌱 <b>可以更好</b>　",cm.imp,true); if(o.act)rows+=cmRow(r.stuKey,"act","🎯 <b>下期小行動</b>",act,true); }
+  else { if(o.hl)rows+=cmRow(r.stuKey,"hl","🌟 <b>亮點</b>",cm.hl); if(o.imp)rows+=cmRow(r.stuKey,"imp","🌱 <b>可以更好</b>",cm.imp); if(o.act)rows+=cmRow(r.stuKey,"act","🎯 <b>下期小行動</b>",act); }
+  if(!rows)return "";
+  const offs=lsGet("cmOff")[r.stuKey]||{},all=["hl","imp","act"].filter(f=>o[f]).every(f=>offs[f]);
+  return `<div class="${fp?'fp-cm':'st-cm'}${all?' cm-allOff':''}">${rows}</div>`}
+/* 衝刺策略：依各科平均由低到高挑重點科目 */
+const SPR={
+ "國文":{fix:"重讀課文，圈出不會的字詞並查清楚",org:"每課寫一句主旨，整理生字詞表",test:"默寫生字詞，做一篇閱讀題並說出依據"},
+ "英文":{fix:"單字念＋寫、課文句型再讀一遍",org:"整理文法重點與常錯單字",test:"單字自我默寫，做一篇閱讀測驗"},
+ "數學":{fix:"重做課本例題與錯題",org:"整理公式與易錯題型",test:"限時做一回題目並訂正"},
+ "自然":{fix:"重讀課本，補齊核心名詞",org:"畫重點卡或概念圖",test:"對著重點卡自問「為什麼」，再做題"},
+ "地理":{fix:"重看圖表與地圖，補名詞",org:"整理各區域特色比較表",test:"空白地圖默寫，再做題"},
+ "歷史":{fix:"依時序重讀事件",org:"整理時間軸與因果關係",test:"口述事件因果，再做題"},
+ "公民":{fix:"重讀概念，補齊名詞",org:"每個概念配一個生活例子",test:"做案例判斷題並說出理由"}
+};
+function sprintHtml(r){
+  const subs=Object.keys(r.per).filter(s=>r.per[s].avg!==null&&SPR[s]).sort((a,b)=>r.per[a].avg-r.per[b].avg);
+  if(!subs.length)return "";
+  const weak=subs.filter(s=>scoreTier(r.per[s].avg)<=2);
+  const keep=!weak.length;
+  const F1=(keep?subs.slice(0,1):weak.slice(0,2)),F2=(keep?subs.slice(0,1):weak.slice(0,3));
+  const pick=(F,i)=>F[i%F.length],all=F=>F.join("、");
+  const t=(s,k)=>`<b>${s}</b>：${SPR[s][k]}`;
+  // 1 週
+  let d1;
+  if(F1.length===1){const a=F1[0];d1=[t(a,"fix"),t(a,"org"),t(a,"test"),`${a}：把錯的題目再看一次`,"各科快速回顧一遍，早點睡"]}
+  else{const [a,b]=F1;d1=[t(a,"fix"),t(b,"fix"),t(a,"org"),t(b,"org"),`${a}、${b}：自我小考並訂正`]}
+  const D=["一","二","三","四","五"];
+  const b1=`<div class="sp-blk" data-sp="1"><b>🔥 1 週衝刺</b>（${keep?'維持型，重點：':'重點科目：'}${all(F1)}）<div class="sp-w">${d1.map((x,i)=>`週${D[i]} ${x}`).join("；")}。週末：把這週的錯題再看一次。</div></div>`;
+  // 2 週
+  const f2=F2.length?F2:F1;
+  const few=f2.length<3;
+  const w1=[t(pick(f2,0),"fix"),few&&f2.length===1?`${f2[0]}：重做課本習題`:t(pick(f2,1),"fix"),few?`${all(f2)}：課本重點再讀一遍`:t(pick(f2,2),"fix"),`${all(f2)}：把錯題重做一次`,"輕鬆複習這週最弱的地方"];
+  const w2=[t(pick(f2,0),"org"),few&&f2.length===1?`${f2[0]}：${SPR[f2[0]].test}`:t(pick(f2,1),"org"),few?`${all(f2)}：把易錯題型再練一次`:t(pick(f2,2),"org"),`${all(f2)}：自我小考並訂正`,"各科快速回顧，早點睡"];
+  const b2=`<div class="sp-blk" data-sp="2"><b>🔥 2 週衝刺</b>（${keep?'維持型，重點：':'重點科目：'}${all(f2)}）<div class="sp-w"><b>第 1 週・補基礎</b>　${w1.map((x,i)=>`週${D[i]} ${x}`).join("；")}。</div><div class="sp-w"><b>第 2 週・整理＋自測</b>　${w2.map((x,i)=>`週${D[i]} ${x}`).join("；")}。</div></div>`;
+  return b1+b2;
+}
+function sprintSel(stuKey){const m=lsGet("sprintSel");if(m[stuKey]!==undefined)return m[stuKey];const e=document.getElementById("optSprint");return e?e.value:""}
+function sprintBlock(r){const h=sprintHtml(r);if(!h)return {attr:"",html:""};const v=sprintSel(r.stuKey);
+  return {attr:` data-sprint="${v||''}"`,html:h+`<div class="sp-bar no-print"><button class="sp-b${v==='1'?' on':''}" data-spb="1" onclick="setSprint(this,'1')">🔥 1週衝刺</button><button class="sp-b${v==='2'?' on':''}" data-spb="2" onclick="setSprint(this,'2')">🔥 2週衝刺</button></div>`}}
+function setSprint(btn,v){const card=btn.closest("[data-stu]");if(!card)return;const cur=card.dataset.sprint||"",nv=(cur===v)?"":v,m=lsGet("sprintSel");
+  m[card.dataset.stu]=nv===""?"0":nv;lsSet("sprintSel",m);card.dataset.sprint=nv==="0"?"":nv;
+  card.querySelectorAll(".sp-b").forEach(b=>b.classList.toggle("on",b.dataset.spb===nv));
+  if(typeof fitCards==="function"&&card.classList.contains("card4")){card.style.zoom="";fitCards()}}
+function resetCardMarks(){try{localStorage.removeItem("cmOff");localStorage.removeItem("sprintSel")}catch(e){}showMsg("reportMsg","已清除個別調整，請重新按一次產生成績單")}
+/* 成績列：每一次大卷各列一行並標範圍 */
+function scoreRowsHtml(subj,items,pr,badge,extraTd){
+  const n=Math.max(1,items.length);
+  const sub=(items.length>1&&pr.avg!==null)?`<br><small style="font-weight:400;color:#6b7a73;">均 ${pr.avg.toFixed(1)}</small>`:"";
+  return items.map((it,i)=>`<tr>${i===0?`<td class="st-subj" rowspan="${n}">${subj}${sub}</td>`:""}<td class="st-score"><span class="st-rg">${_e(shortItemName(it))}</span>${fmtScore(pr.vals[i])}</td>${i===0?`<td class="st-badge" rowspan="${n}">${badge}</td>`:""}</tr>`).join("")}
 function generateStrips8(){
   showMsg("reportMsg","產生中...");
   prepPersonalReports().then(ctx=>{
@@ -2687,7 +2783,7 @@ function generateStudentReports(){
         const pr = r.per[subj];
         const pb = ex.prev && ex.prev.bands ? ex.prev.bands[subj] : null, cb = subjBandOf(pr);
         const arrow = (opt.band && pb!==null && pb!==undefined && cb!==null) ? (cb<pb ? '<span class="pos-up">▲</span>' : (cb>pb ? '<span class="pos-down">▼</span>' : '')) : '';
-        rowsHtml += `<tr><td class="st-subj">${subj}</td><td class="st-score">${pr.vals.map(fmtScore).join(" / ")}</td><td class="st-badge">${(!opt.band||pr.avg===null)?'':bandBadgeHtml(pr.rank, pr.rankTotal)}${arrow}</td></tr>`;
+        rowsHtml += scoreRowsHtml(subj, data.subjects.find(x=>x.subj===subj).items, pr, `${(!opt.band||pr.avg===null)?'':bandBadgeHtml(pr.rank, pr.rankTotal)}${arrow}`);
       });
       let progHtml = "";
       if (showProg){
@@ -2699,12 +2795,12 @@ function generateStudentReports(){
       }
       if (ex.cm && ex.cm.ups.length) progHtml += `<span class="st-prog up">👏 進步：${ex.cm.ups.join("、")}</span>`;
       const radar = (opt.band && ex.cm && ex.subjList.length>=3) ? `<div class="st-radar">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 120)}<div class="rd-leg">━ 這次　<span style="color:#9aa5a0;">┅ 上次段考</span></div></div>` : "";
-      const cmHtml = ex.cm ? `<div class="st-cm"><div class="cm-row"><span class="cm-lab">🌟 <b>亮點</b></span><span class="cm-txt">${ex.cm.hl}</span></div><div class="cm-row"><span class="cm-lab">🌱 <b>可以更好</b></span><span class="cm-txt">${ex.cm.imp}</span></div><div class="cm-row"><span class="cm-lab">🎯 <b>下期小行動</b></span><span class="cm-txt">${ex.cm.act.map(t=>`<div class="cm-act"><span class="cm-dot">•</span><span>${t}</span></div>`).join("")}</span></div></div>` : "";
+      const cmHtml = cmBoxHtml(r, ex.cm, false); const spb = sprintBlock(r);
       const overall = r.rank===null ? "-" : bandBadgeHtml(r.rank, r.rankTotal);
-      return `<div class="card4"><div class="st-head"><span style="font-size:13px;"><b>${r.name}</b>（${r.no}號）</span><span class="st-range">703班　${start.slice(5)}～${end.slice(5)}</span></div>
-        <div class="st-mid">${radar}<table class="st-table"><thead><tr><th>科目</th><th>成績</th><th>${opt.band?'位置':''}</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
+      return `<div class="card4" data-stu="${r.stuKey}"${spb.attr}><div class="st-head"><span style="font-size:13px;"><b>${r.name}</b>（${r.no}號）</span><span class="st-range">703班　${start.slice(5)}～${end.slice(5)}</span></div>
+        <div class="st-mid">${radar}<table class="st-table"><thead><tr><th>科目</th><th>範圍／成績</th><th>${opt.band?'位置':''}</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
         <div class="st-total">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${(opt.band && rankOptInCache[r.stuKey])?'　整體 '+overall:''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}${praiseHtml(r,opt).strip}
-        <div class="st-progline">${progHtml}</div>${ctHtml}${cmHtml}
+        <div class="st-progline">${progHtml}</div>${ctHtml}${cmHtml}${spb.html}
         <div class="c4-foot"><div class="c4-note">位置色塊為班內大致區間，▲▼＝與上次段考相比。</div><div style="text-align:right;margin-top:1mm;">家長簽名：＿＿＿＿＿＿＿＿＿　日期：＿＿／＿＿</div></div></div>`;
     });
     let html = `<div class="no-print" style="font-size:12px;color:var(--muted);margin-bottom:8px;">列印提示：A4 直向、邊界選「無／最小」，並勾選「背景圖形」。每頁 4 張（2×2），沿虛線剪開。雷達圖：實線＝這次，虛線＝上次段考。${ct && !ct.hasRank ? '<br>ℹ️ 這次段考的各班名次還沒輸入，成績單只印「本班各科平均」，名次到了可用 ⑥ 補發小條。' : ''}</div>` + praiseMissingNote(data.rows, opt);
@@ -2737,7 +2833,8 @@ function generateFullReports(){
         const b = subjBandOf(pr), v = subjPR(pr);
         if (opt.band) bars += `<div class="fp-bar"><span class="fp-bl">${subj}</span><span class="fp-track"><span class="fp-fill" style="width:${v}%;background:${b===null?'#ccc':bandColor[b]};"></span></span><span class="fp-bv">${pr.avg===null?'-':bandBadgeHtml(pr.rank,pr.rankTotal)}</span></div>`;
         const line = ex.cm && ex.cm.lines[subj] ? ex.cm.lines[subj] : "";
-        tbl += `<tr><td class="fp-s">${subj}</td><td>${pr.vals.map(fmtScore).join(" / ")}</td><td>${pr.avg===null?'-':pr.avg.toFixed(1)}</td><td style="text-align:left;">${line}</td></tr>`;
+        {const its=data.subjects.find(x=>x.subj===subj).items,n=Math.max(1,its.length);
+         tbl += its.map((it,ii)=>`<tr>${ii===0?`<td class="fp-s" rowspan="${n}">${subj}</td>`:""}<td><span class="st-rg">${_e(shortItemName(it))}</span>${fmtScore(pr.vals[ii])}</td>${ii===0?`<td rowspan="${n}">${pr.avg===null?'-':pr.avg.toFixed(1)}</td><td rowspan="${n}" style="text-align:left;">${line}</td>`:""}</tr>`).join("");}
       });
       let progHtml = "";
       if (showProg){
@@ -2746,16 +2843,16 @@ function generateFullReports(){
       }
       if (ex.cm && ex.cm.ups.length) progHtml += `<span class="st-prog up">👏 進步科目：${ex.cm.ups.join("、")}</span>`;
       const radar = (opt.band && ex.subjList.length>=3) ? `<div style="text-align:center;">${radarSvg(ex.subjList, ex.cur, ex.prevVals, 260)}<div style="font-size:11px;color:#555;">━ 這次　<span style="color:#9aa5a0;">┅ 上次段考</span></div></div>` : "";
-      const cmBox = ex.cm ? `<div class="fp-cm"><div>🌟 <b>本期亮點</b>　${ex.cm.hl}</div><div>🌱 <b>可以更好</b>　${ex.cm.imp}</div><div>🎯 <b>下期小行動</b>${ex.cm.act.map(t=>`<div class="fp-act">• ${t}</div>`).join("")}</div></div>` : "";
-      html += `<div class="full-page"${idx===selRows.length-1?' style="page-break-after:auto;"':""}>
+      const cmBox = cmBoxHtml(r, ex.cm, true); const spb = sprintBlock(r);
+      html += `<div class="full-page" data-stu="${r.stuKey}"${spb.attr}${idx===selRows.length-1?' style="page-break-after:auto;"':""}>
         <div class="fp-head"><h3>703班 個人學習報告</h3><div><b style="font-size:18px;">${r.name}</b>（座號 ${r.no}）<span class="st-range">　區間 ${start} ～ ${end}</span></div></div>
         <div class="fp-top">${radar}<div class="fp-bars">${opt.band?'<div style="font-size:12px;font-weight:700;margin-bottom:4px;">各科班級內位置</div>':''}${bars}
           <div style="margin-top:8px;font-size:13px;">總分 <b>${r.total===null?'-':r.total.toFixed(0)}</b>　平均 <b>${r.avg===null?'-':r.avg.toFixed(1)}</b>${(opt.band && rankOptInCache[r.stuKey])?'　整體 '+(r.rank===null?'-':bandBadgeHtml(r.rank,r.rankTotal)):''}</div>${rankLineHtml(r, r.stuKey, opt, schoolRankData, start, end)}
           <div style="margin-top:4px;">${progHtml}</div></div></div>
         ${praiseHtml(r,opt).full}
         ${opt.classTable ? classTableHtml(buildClassTable(ctx), ex.subjList, false) : ""}
-        <table class="fp-table"><thead><tr><th>科目</th><th>成績</th><th>平均</th><th>學習描述</th></tr></thead><tbody>${tbl}</tbody></table>
-        ${cmBox}
+        <table class="fp-table"><thead><tr><th>科目</th><th>範圍／成績</th><th>平均</th><th>學習描述</th></tr></thead><tbody>${tbl}</tbody></table>
+        ${cmBox}${spb.html}
         <div class="fp-foot"><div>老師的話：＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</div><div style="margin-top:6mm;">＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</div><div style="margin-top:6mm;text-align:right;">家長簽名：＿＿＿＿＿＿＿＿＿＿＿</div></div>
       </div>`;
     });
