@@ -111,7 +111,9 @@ table.hw tr.sq td.sqh{background:#dfe9f8;border-radius:8px;font-size:16px;font-w
 .cell.skip{background:#eee;color:#aaa;border-style:dashed;font-size:14px}
 .cell.y{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
 .cell.absent{background:#eee;color:#bbb}
-.bbbig{background:#fff3bf;border:3px solid #f59f00;border-radius:16px;padding:10px 18px;margin-bottom:10px}.bbbig.imp{background:#ffe3e3;border-color:#e03131}.bbbig .bbt{font-size:34px;font-weight:900;line-height:1.25}.bbbig.imp .bbt{color:#c92a2a}.bbbig .bbb{font-size:26px;font-weight:600;white-space:pre-wrap;line-height:1.4;margin-top:2px}.bbstrip{display:flex;align-items:center;gap:10px;background:#fff3bf;border:2px solid #f59f00;border-radius:12px;padding:5px 14px;margin-bottom:8px;font-size:22px;cursor:pointer;overflow:hidden;white-space:nowrap}.bbstrip.imp{background:#ffe3e3;border-color:#e03131}.bbstrip b{flex:none}.bbstrip span{overflow:hidden;text-overflow:ellipsis;color:#444;font-weight:600}.bbstrip i{flex:none;margin-left:auto;font-style:normal;font-size:16px;color:var(--mut)}.nodata{padding:50px;text-align:center;color:var(--mut);font-size:22px}
+.bbbig{background:#fff3bf;border:3px solid #f59f00;border-radius:16px;padding:10px 18px;margin-bottom:10px}.bbbig.imp{background:#ffe3e3;border-color:#e03131}.bbbig .bbt{font-size:34px;font-weight:900;line-height:1.25}.bbbig.imp .bbt{color:#c92a2a}.bbbig .bbb{font-size:26px;font-weight:600;white-space:pre-wrap;line-height:1.4;margin-top:2px}.bbstrip{display:flex;align-items:center;gap:10px;background:#fff3bf;border:2px solid #f59f00;border-radius:12px;padding:5px 14px;margin-bottom:8px;font-size:22px;cursor:pointer;overflow:hidden;white-space:nowrap}.bbstrip.imp{background:#ffe3e3;border-color:#e03131}.bbstrip b{flex:none}.bbstrip span{overflow:hidden;text-overflow:ellipsis;color:#444;font-weight:600}.bbstrip i{flex:none;margin-left:auto;font-style:normal;font-size:16px;color:var(--mut)}.modal.mood{z-index:70}.mdbox{background:#fff;border-radius:22px;padding:14px 18px 12px;width:min(96vw,1020px);max-height:96vh;overflow:auto;box-sizing:border-box}.mdh{text-align:center;margin-bottom:8px}.mdh b{font-size:28px}.mdh small{display:block;font-size:16px;color:var(--mut);margin-top:2px}.mdg{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mdq{border-radius:16px;padding:8px;border:3px solid transparent}.mdq h4{margin:0 0 6px;font-size:17px;text-align:center;color:#333}.mdq .mdw3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.mdw{border:0;border-radius:12px;background:rgba(255,255,255,.85);font-size:23px;font-weight:800;padding:12px 4px;min-height:54px;cursor:pointer;font-family:inherit}.mdw:active{transform:scale(.95)}.mdf{display:flex;align-items:center;gap:14px;margin-top:10px}.mdskip{border:2px solid #ccc;background:#fff;border-radius:14px;font-size:18px;padding:8px 18px;cursor:pointer;font-family:inherit}.mdbar{flex:1;height:8px;border-radius:4px;background:#eee;overflow:hidden}.mdbar i{display:block;height:100%;background:#8fb8e8;animation:mdb 15s linear forwards}@keyframes mdb{from{width:100%}to{width:0}}.mdthx{text-align:center;padding:50px 30px;font-size:40px;font-weight:900;width:auto;min-width:420px}
+.mdot{display:inline-block;width:20px;height:20px;border-radius:50%;vertical-align:middle}.mtb td,.mtb th{padding:2px 3px;text-align:center;font-size:14px}.mtb th{color:var(--mut);font-weight:600}.mtb td.n{text-align:left;white-space:nowrap;font-size:16px;font-weight:700}
+.nodata{padding:50px;text-align:center;color:var(--mut);font-size:22px}
 .modal{position:fixed;inset:0;background:rgba(30,28,40,.55);display:none;align-items:center;justify-content:center;z-index:50}
 .modal.on{display:flex}
 .box{background:#fff;border-radius:24px;padding:24px;max-width:92vw;max-height:90vh;overflow:auto;min-width:420px}
@@ -170,7 +172,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-19b</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-20a</span>
   <nav id="nav"></nav>
 </header>
 <div id="ztBar" style="display:none"></div>
@@ -298,7 +300,7 @@ function prevSchoolOf(day){const d=new Date(day+'T00:00:00');let n=0;do{d.setDat
 function prevSchoolDay(){return prevSchoolOf(todayKey())}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-let status={},collect={},absn={},hwFocus=null,allAtt={},corr={};
+let mood={},status={},collect={},absn={},hwFocus=null,allAtt={},corr={};
 let students=[],settings={lateTime:'07:40',squadCount:6},squads={},att={},tasks={},checks={};
 let hwSquad='all',hwMode='all',picked=new Set(),pickIn=true,pickNoRep=false;
 let unlocked=false,curDay=todayKey();
@@ -313,6 +315,7 @@ db.ref('kiosk/settings').on('value',s=>{_ld.s=1;settings=Object.assign({lateTime
 db.ref('kiosk/squads').on('value',s=>{squads=s.val()||{};renderAll()});
 db.ref('kiosk/tasks').on('value',s=>{_ld.t=1;tasks=s.val()||{};renderAll();setTimeout(pubSync,800)});
 db.ref('kiosk/attendance').on('value',s=>{allAtt=s.val()||{};ztCheck();if(window.drawPastSec)drawPastSec();renderStat();renderLate();renderToday();renderCorr()});
+db.ref('kiosk/mood').on('value',s=>{mood=s.val()||{};if(unlocked&&curTab==='admin')renderAdmin()});
 db.ref('kiosk/status').on('value',s=>{status=s.val()||{};renderLate();renderStat();if(unlocked&&curTab==='admin')renderAdmin()});
 db.ref('kiosk/collect').on('value',s=>{_ld.c=1;collect=s.val()||{};renderHw();renderLate();renderStat();setTimeout(pubSync,800)});
 /* ===== 家長頁同步：只把「聯絡簿文字」複製到 public/diary（不含任何學生資料）===== */
@@ -515,6 +518,7 @@ $('#cfYes').onclick=()=>{
   const late=isLate(t);
   toast((late?'⏰ ':'✅ ')+s.name+' '+t+(late?'（遲到）':' 報到成功'));
   setTimeout(()=>{if(Object.keys(att).length>=students.length&&students.length)boom()},400);
+  setTimeout(()=>openMood(k),700);
 };
 let tt;function toast(m){
   $('#toastTxt').textContent=m;
@@ -1174,7 +1178,7 @@ function renderAdmin(){
   $('#noteAdd').onclick=()=>{const v=$('#noteNew').value.trim();if(!v)return;const a=noteList();if(!a.includes(v))a.push(v);saveNotes(a)};
   $('#noteReset').onclick=function(){if(this.dataset.a){settings.notes=null;db.ref('kiosk/settings/notes').remove();renderAdmin()}else{this.dataset.a=1;this.textContent='再按一次確認'}};
   A.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>openMk(b.dataset.mk));
-  adminTT();adminExempt();adminRounds();adminPast();adminFin();adminHol();adminBB();adminHonor();
+  adminTT();adminExempt();adminRounds();adminPast();adminFin();adminHol();adminMood();adminBB();adminHonor();
   $('#histBtn').onclick=showHist;
   $('#chgPin').onclick=()=>askPin(null,'change');
   $('#lock').onclick=()=>{unlocked=false;showTab('checkin')};
@@ -1477,6 +1481,50 @@ function adminHonor(){const A=$('#adminBody');if(!A)return;const h=settings.hono
   sec.querySelectorAll('[data-hm]').forEach(b=>b.onclick=()=>R('mode').set(b.dataset.hm));
   $('#hCF').onchange=e=>R('cf').set(e.target.value);$('#hCT').onchange=e=>R('ct').set(e.target.value);$('#hTM').onchange=e=>R('term').set(e.target.value);
   $('#hDone').onclick=()=>askYN('榮譽榜結算（'+todayKey().slice(5).replace('-','/')+'）？','記下今天為上次結算日。下次選「從上次結算日起」會從明天開始計算；原始紀錄不受影響。',()=>R('last').set(todayKey()))}
+
+/* ===== 報到後心情表 v11-20a（Russell 情感環狀模型／心情儀表，每格 9 詞）===== */
+const MOODQ={
+ A:{t:'有點緊繃・煩躁',bg:'#f1d3c8',dot:'#c0765d',w:['憤怒','生氣','被惹惱','壓力很大','緊張不安','焦慮','擔心','驚慌失措','不太高興']},
+ B:{t:'充滿活力・開心',bg:'#fbe9a8',dot:'#e0aa00',w:['開心','快樂','興奮','驚喜','有動力','樂觀','好玩','幸福','集中']},
+ C:{t:'沒什麼力氣・低落',bg:'#cfd6ee',dot:'#5b6fb5',w:['疲累','無聊','提不起勁','洩氣','失望','難過','低落','孤單','無望']},
+ D:{t:'平靜・放鬆',bg:'#cfe6dc',dot:'#4a8f7a',w:['平靜','放鬆','自在','安全','滿意','舒服','知足','冷靜','昏昏欲睡']}};
+let moodTm=null;
+function closeMood(){clearTimeout(moodTm);moodTm=null;const m=$('#mMood');if(m)m.classList.remove('on')}
+function openMood(k){
+  if(settings.moodOn===false)return;
+  const td=curDay;if((mood[td]||{})[k]||!att[k])return;
+  const s=students.find(x=>x.key===k);if(!s)return;
+  let m=$('#mMood');if(!m){m=document.createElement('div');m.className='modal mood';m.id='mMood';document.body.appendChild(m)}
+  m.innerHTML=`<div class="mdbox"><div class="mdh"><b>${esc(s.name)}，今天的心情是哪一個？</b><small>點最像的一個詞就好，只有老師看得到</small></div>
+  <div class="mdg">${['A','B','C','D'].map(q=>`<div class="mdq" style="background:${MOODQ[q].bg}"><h4>${MOODQ[q].t}</h4><div class="mdw3">${MOODQ[q].w.map(w=>`<button class="mdw" data-q="${q}" data-w="${w}">${w}</button>`).join('')}</div></div>`).join('')}</div>
+  <div class="mdf"><button class="mdskip" id="mdSkip">今天不想選</button><div class="mdbar"><i></i></div></div></div>`;
+  m.classList.add('on');
+  const save=v=>{db.ref('kiosk/mood/'+td+'/'+k).set(Object.assign({ts:Date.now()},v));clearTimeout(moodTm);m.innerHTML='<div class="mdbox mdthx">謝謝你 💛<br><span style="font-size:26px;font-weight:600">今天也一起加油！</span></div>';moodTm=setTimeout(closeMood,1300)};
+  m.querySelectorAll('.mdw').forEach(b=>b.onclick=()=>save({q:b.dataset.q,w:b.dataset.w}));
+  $('#mdSkip').onclick=()=>save({q:'x'});
+  clearTimeout(moodTm);moodTm=setTimeout(closeMood,15000)}
+function adminMood(){const A=$('#adminBody');if(!A)return;const on=settings.moodOn!==false,td=todayKey();
+  const days=[];{const d=new Date();while(days.length<14){if(!isOff(d))days.push(ymd(d));d.setDate(d.getDate()-1)}}days.reverse();
+  const fm=d=>+d.slice(5,7)+'/'+(+d.slice(8));
+  const today=mood[td]||{},here=students.filter(x=>att[x.key]).length,filled=students.filter(x=>today[x.key]&&today[x.key].q&&today[x.key].q!=='x');
+  const byQ={A:[],B:[],C:[],D:[]};filled.forEach(x=>{const v=today[x.key];if(byQ[v.q])byQ[v.q].push({s:x,w:v.w})});
+  const skip=students.filter(x=>today[x.key]&&today[x.key].q==='x').length;
+  // 值得關心：最近三次有填的紀錄都在「沒力氣・低落」，或最新一次選了無望／孤單
+  const care=[];students.forEach(x=>{const rec=days.filter(d=>mood[d]&&mood[d][x.key]&&mood[d][x.key].q&&mood[d][x.key].q!=='x').map(d=>mood[d][x.key]);
+    if(!rec.length)return;const last=rec[rec.length-1];let why='';
+    if(['無望','孤單'].includes(last.w))why='最近一次選了「'+last.w+'」';
+    else if(rec.length>=3&&rec.slice(-3).every(v=>v.q==='C'))why='連續 3 次在「沒力氣・低落」';
+    if(why)care.push({x,why})});
+  const sec=document.createElement('div');sec.className='sec';
+  sec.innerHTML=`<h3>🌈 今日心情表<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">學生報到後會跳出，只有老師密碼進來才看得到；僅供關心參考，不是診斷，也不計入記點、全勤或任何成績</small></h3>
+  <div class="row"><button class="chip ${on?'on':''}" id="moodOn">${on?'✔ 已開啟':'已關閉（點一下開啟）'}</button><span class="mut">今天已填 ${filled.length}／已到 ${here}${skip?'　今天不想選 '+skip:''}</span></div>
+  ${care.length?`<div style="margin:8px 0;padding:8px 12px;background:#fff3cd;border:2px solid #f0c36d;border-radius:12px;font-size:17px"><b>🔔 值得關心一下：</b>${care.map(c=>`${c.x.no} ${esc(c.x.name)}（${c.why}）`).join('；')}</div>`:''}
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0">${['A','B','C','D'].map(q=>`<div style="background:${MOODQ[q].bg};border-radius:12px;padding:8px 12px"><b>${MOODQ[q].t}　${byQ[q].length} 人</b><div style="font-size:16px;margin-top:3px;line-height:1.6">${byQ[q].length?byQ[q].map(v=>`${v.s.no} ${esc(v.s.name)}<small style="color:#555">（${v.w}）</small>`).join('、'):'<span class="mut">—</span>'}</div></div>`).join('')}</div>
+  <details><summary style="cursor:pointer;font-size:17px;font-weight:700;margin:6px 0">📈 近 14 個上課日心情軌跡（點開）</summary><div style="overflow:auto"><table class="mtb"><thead><tr><th></th>${days.map(d=>`<th>${fm(d)}</th>`).join('')}</tr></thead><tbody>
+  ${students.map(x=>`<tr><td class="n">${x.no} ${esc(x.name)}</td>${days.map(d=>{const v=(mood[d]||{})[x.key];const c=v&&MOODQ[v.q]?MOODQ[v.q].dot:(v&&v.q==='x'?'#ccc':'#fff');return `<td><span class="mdot" style="background:${c};${v?'':'border:2px solid #ddd;box-sizing:border-box'}" title="${v&&v.w?esc(v.w):(v?'今天不想選':'沒有紀錄')}"></span></td>`}).join('')}</tr>`).join('')}
+  </tbody></table></div><div class="mut" style="font-size:14px;margin-top:4px">🟠緊繃煩躁　🟡活力開心　🔵低落沒力氣　🟢平靜放鬆　灰＝不想選　空心＝沒紀錄；把滑鼠停在圓點上可看選的詞</div></details>`;
+  A.prepend(sec);
+  $('#moodOn').onclick=()=>db.ref('kiosk/settings/moodOn').set(!on)}
 function adminFin(){const A=$('#adminBody');if(!A)return;const af=settings.autoFin||{},on=af.on!==false;
   const sec=document.createElement('div');sec.className='sec';
   sec.innerHTML=`<h3>⏰ 自動收畢<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">到時間自動把「今天要交」的作業收畢，沒交的轉到遲交；明天以後要交的不受影響；忘了收的舊作業也會自動補收畢</small></h3><div class="row"><button class="chip ${on?'on':''}" id="afOn">${on?'✔ 已開啟':'已關閉（點一下開啟）'}</button><span>每天</span><input type="time" class="bellin" id="afT" value="${af.t||'13:00'}" style="display:inline-block;width:140px"><span>自動收畢</span></div>`;
