@@ -58,7 +58,7 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 .ttr.cur{background:#fff3c4;border-color:#e0a800}.ttr.past{opacity:.45}.ttr.noon{background:#eef5ff}
 .ttr .ttl1{width:92px;font-weight:800;font-size:16px;line-height:1.1}.ttl1 small{display:block;font-size:12px;color:var(--mut);font-weight:600}
 .ttr .tts{width:78px;font-size:24px;font-weight:900}.ttr .ttd{flex:1;font-size:22px;font-weight:900;color:#b02a2a;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.tdcards{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:.8fr .8fr 1.8fr;gap:8px;min-height:0}.tdc.wide{grid-column:1/-1}.tdc.hw .tc{font-size:27px;padding:3px 12px;margin:3px 5px 3px 0;vertical-align:top}.tdc.hw .tc .cn{font-size:21px}.tdc.hw .owl{font-size:15px;color:#7a6a58;font-weight:700}
+.tdcards{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:.6fr 2.1fr .8fr;gap:8px;min-height:0}.tdc.wide{grid-column:1/-1}.tdc.hw .tc{font-size:21px;padding:2px 9px;margin:2px 4px 2px 0;vertical-align:top}.tdc.hw .tc .cn{font-size:16px}.tdc.hw .owl{font-size:13px;color:#7a6a58;font-weight:700}.tdc.noon .tc{font-size:21px;padding:1px 8px;margin:2px 5px 2px 0}.tdc.noon .tc .wh{font-size:14px}.tdc.noon .ct{font-size:17px}
 .tdc{background:#fff;border-radius:14px;padding:6px 10px;border:3px solid var(--line);cursor:pointer;overflow:auto;min-height:0}
 .tdc.red{border-color:#e8b4b4}.tdc.hw{border-color:#f0c9a0}
 .cnote{margin-top:4px;font-size:18px;font-weight:800;color:#2b6cb0;line-height:1.25}
@@ -172,7 +172,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-20a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-25a</span>
   <nav id="nav"></nav>
 </header>
 <div id="ztBar" style="display:none"></div>
@@ -1241,9 +1241,9 @@ function renderToday(){
   ${bbStrip()}<div class="tdwrap"${bbActive().length?' style="height:calc(100vh - 220px)"':''}><div class="ttcol">${rows}</div><div class="tdcards">
    ${card('duty','','🧹 值日生',keysSorted(dayD.duty).map(k=>tchip(k)).join(''))}
    ${card('meal','','🍱 抬餐',keysSorted(dayD.meal).map(k=>tchip(k)).join(''))}
-   ${card('noon','','🍱 午休',(napK.length?`<div><b class="ct">😴 缺席</b>${napK.map(k=>tchip(k,`<span class="wh">→ ${esc(nap[k])}</span>`)).join('')}</div>`:'')+(coachH?`<div><b class="ct">📖 加強</b></div>${coachH}`:''))}
+   ${card('noon','wide noon','🍱 午休',(napK.length?`<div><b class="ct">😴 缺席</b>${napK.map(k=>tchip(k,`<span class="wh">→ ${esc(nap[k])}</span>`)).join('')}</div>`:'')+(coachH?`<div><b class="ct">📖 加強</b></div>${coachH}`:''))}
    ${card('leave','','🤒 今日請假',leaveH)}
-   ${!isT?`<div class="tdc hw wide" data-c="bk"><h4>📒 這天要交／要考（來自聯絡簿）</h4>${dueList.length?dueList.map(t=>`<span class="tc">${esc((SFULL[t.subj]||t.subj)+tyLabel(t))}${tNote(t)?`<small style="margin-left:4px">${esc(tNote(t))}</small>`:''}</span>`).join(''):'<span class="mut">這天還沒有登記項目</span>'}${noteOf('bk')?`<div class="cnote">✍️ ${esc(noteOf('bk'))}</div>`:''}</div>`:`<div class="tdc hw wide" data-c="hw"><h4 style="font-size:24px">⚠️ 作業未交（連動遲交）<small style="font-size:15px;color:var(--mut);font-weight:600;margin-left:8px">點同學看缺哪些</small></h4>${pk.length?pk.slice(0,36).map(k=>{const s=stuByKey(k),ol=owedAll.filter(t=>owes(t,k)).map(shortL),txt=ol.slice(0,4).join('、')+(ol.length>4?'…':'');return `<span class="tc hwc" data-hk="${k}"><small>${s.no}</small>${esc(s.name)}${per[k]?`<span class="cn">缺${per[k]}</span>`:''}${nwp[k]?`<span class="cn">📔×${nwp[k]}</span>`:''}${txt?`<br><span class="owl">${esc(txt)}</span>`:''}</span>`}).join('')+(pk.length>36?'<span class="mut"> …共 '+pk.length+' 人</span>':''):'<span class="mut">目前沒有人欠交 👏</span>'}${noteOf('hw')?`<div class="cnote">✍️ ${esc(noteOf('hw'))}</div>`:''}</div>`}
+   ${!isT?`<div class="tdc hw" data-c="bk"><h4>📒 這天要交／要考（來自聯絡簿）</h4>${dueList.length?dueList.map(t=>`<span class="tc">${esc((SFULL[t.subj]||t.subj)+tyLabel(t))}${tNote(t)?`<small style="margin-left:4px">${esc(tNote(t))}</small>`:''}</span>`).join(''):'<span class="mut">這天還沒有登記項目</span>'}${noteOf('bk')?`<div class="cnote">✍️ ${esc(noteOf('bk'))}</div>`:''}</div>`:`<div class="tdc hw" data-c="hw"><h4 style="font-size:19px">⚠️ 作業未交（連動遲交）<small style="font-size:13px;color:var(--mut);font-weight:600;margin-left:6px">點同學看缺哪些</small></h4>${pk.length?pk.slice(0,36).map(k=>{const s=stuByKey(k),ol=owedAll.filter(t=>owes(t,k)).map(shortL),txt=ol.slice(0,4).join('、')+(ol.length>4?'…':'');return `<span class="tc hwc" data-hk="${k}"><small>${s.no}</small>${esc(s.name)}${per[k]?`<span class="cn">缺${per[k]}</span>`:''}${nwp[k]?`<span class="cn">📔×${nwp[k]}</span>`:''}${txt?`<br><span class="owl">${esc(txt)}</span>`:''}</span>`}).join('')+(pk.length>36?'<span class="mut"> …共 '+pk.length+' 人</span>':''):'<span class="mut">目前沒有人欠交 👏</span>'}${noteOf('hw')?`<div class="cnote">✍️ ${esc(noteOf('hw'))}</div>`:''}</div>`}
   </div></div>`;
   const A=$('#p-today');
   A.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>openPeriod(b.dataset.p));
