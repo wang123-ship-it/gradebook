@@ -58,7 +58,7 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 .ttr.cur{background:#fff3c4;border-color:#e0a800}.ttr.past{opacity:.45}.ttr.noon{background:#eef5ff}
 .ttr .ttl1{width:92px;font-weight:800;font-size:16px;line-height:1.1}.ttl1 small{display:block;font-size:12px;color:var(--mut);font-weight:600}
 .ttr .tts{width:78px;font-size:24px;font-weight:900}.ttr .ttd{flex:1;font-size:22px;font-weight:900;color:#b02a2a;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.tdcards{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:.6fr 2.1fr .8fr;gap:8px;min-height:0}.tdc.wide{grid-column:1/-1}.tdc.hw .tc{font-size:21px;padding:2px 9px;margin:2px 4px 2px 0;vertical-align:top}.tdc.hw .tc .cn{font-size:16px}.tdc.hw .owl{font-size:13px;color:#7a6a58;font-weight:700}.tdc.noon .tc{font-size:21px;padding:1px 8px;margin:2px 5px 2px 0}.tdc.noon .tc .wh{font-size:14px}.tdc.noon .ct{font-size:17px}
+.tdc.noon{display:flex;flex-direction:column}.nzh{margin-top:auto;position:sticky;bottom:-4px;flex:none;height:22px;display:flex;justify-content:center;align-items:flex-end;touch-action:none;cursor:ns-resize}.nzh i{width:90px;height:7px;border-radius:4px;background:#cfc8b8}.tdcards{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:.6fr 2.1fr .8fr;gap:8px;min-height:0}.tdc.wide{grid-column:1/-1}.tdc.hw .tc{font-size:21px;padding:2px 9px;margin:2px 4px 2px 0;vertical-align:top}.tdc.hw .tc .cn{font-size:16px}.tdc.hw .owl{font-size:13px;color:#7a6a58;font-weight:700}.tdc.noon .tc{font-size:21px;padding:1px 8px;margin:2px 5px 2px 0}.tdc.noon .tc .wh{font-size:14px}.tdc.noon .ct{font-size:17px}
 .tdc{background:#fff;border-radius:14px;padding:6px 10px;border:3px solid var(--line);cursor:pointer;overflow:auto;min-height:0}
 .tdc.red{border-color:#e8b4b4}.tdc.hw{border-color:#f0c9a0}
 .cnote{margin-top:4px;font-size:18px;font-weight:800;color:#2b6cb0;line-height:1.25}
@@ -173,7 +173,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-27a</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-27b</span>
   <nav id="nav"></nav>
 </header>
 <div id="ztBar" style="display:none"></div>
@@ -302,7 +302,7 @@ function prevSchoolOf(day){const d=new Date(day+'T00:00:00');let n=0;do{d.setDat
 function prevSchoolDay(){return prevSchoolOf(todayKey())}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-let mood={},status={},collect={},absn={},hwFocus=null,allAtt={},corr={};
+let status={},collect={},absn={},hwFocus=null,allAtt={},corr={};
 let students=[],settings={lateTime:'07:40',squadCount:6},squads={},att={},tasks={},checks={};
 let hwSquad='all',hwMode='all',picked=new Set(),pickIn=true,pickNoRep=false;
 let unlocked=false,curDay=todayKey();
@@ -317,7 +317,6 @@ db.ref('kiosk/settings').on('value',s=>{_ld.s=1;settings=Object.assign({lateTime
 db.ref('kiosk/squads').on('value',s=>{squads=s.val()||{};renderAll()});
 db.ref('kiosk/tasks').on('value',s=>{_ld.t=1;tasks=s.val()||{};renderAll();setTimeout(pubSync,800)});
 db.ref('kiosk/attendance').on('value',s=>{allAtt=s.val()||{};ztCheck();if(window.drawPastSec)drawPastSec();renderStat();renderLate();renderToday();renderCorr()});
-db.ref('kiosk/mood').on('value',s=>{mood=s.val()||{};if(unlocked&&curTab==='admin')renderAdmin()});
 db.ref('kiosk/status').on('value',s=>{status=s.val()||{};renderLate();renderStat();if(unlocked&&curTab==='admin')renderAdmin()});
 db.ref('kiosk/collect').on('value',s=>{_ld.c=1;collect=s.val()||{};renderHw();renderLate();renderStat();setTimeout(pubSync,800)});
 /* ===== 家長頁同步：只把「聯絡簿文字」複製到 public/diary（不含任何學生資料）===== */
@@ -520,7 +519,6 @@ $('#cfYes').onclick=()=>{
   const late=isLate(t);
   toast((late?'⏰ ':'✅ ')+s.name+' '+t+(late?'（遲到）':' 報到成功'));
   setTimeout(()=>{if(Object.keys(att).length>=students.length&&students.length)boom()},400);
-  setTimeout(()=>openMood(k),700);
 };
 let tt;function toast(m){
   $('#toastTxt').textContent=m;
@@ -1180,7 +1178,7 @@ function renderAdmin(){
   $('#noteAdd').onclick=()=>{const v=$('#noteNew').value.trim();if(!v)return;const a=noteList();if(!a.includes(v))a.push(v);saveNotes(a)};
   $('#noteReset').onclick=function(){if(this.dataset.a){settings.notes=null;db.ref('kiosk/settings/notes').remove();renderAdmin()}else{this.dataset.a=1;this.textContent='再按一次確認'}};
   A.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>openMk(b.dataset.mk));
-  adminTT();adminExempt();adminRounds();adminPast();adminFin();adminHol();adminMood();adminExam();adminBB();adminHonor();
+  adminTT();adminExempt();adminRounds();adminPast();adminFin();adminHol();adminExam();adminBB();adminHonor();
   $('#histBtn').onclick=showHist;
   $('#chgPin').onclick=()=>askPin(null,'change');
   $('#lock').onclick=()=>{unlocked=false;showTab('checkin')};
@@ -1237,13 +1235,13 @@ function renderToday(){
   const vdays=[todayKey()];{let d=todayKey();for(let i=0;i<5;i++){d=nextSchoolDay(d+'T00:00:00');vdays.push(d)}}
   const viewBtns='<span class="vds">'+vdays.map((d,i)=>{const x=new Date(d+'T00:00:00');return `<button class="vd ${vdate()===d?'on':''}" data-vd="${d}">${i===0?'今天':i===1?'明天':(x.getMonth()+1)+'/'+x.getDate()+'(週'+WD[x.getDay()]+')'}</button>`}).join('')+'</span>';
   const dueList=Object.keys(tasks).map(id=>tasks[id]).filter(t=>!(t.closed||t.sealed)&&t.due===vdate());
-  const card=(id,cls,h,body)=>{const nt=noteOf(id);return `<div class="tdc ${cls}" data-c="${id}"><h4>${h}</h4>${body||(nt?'':'<span class="mut">點一下設定</span>')}${nt?`<div class="cnote">✍️ ${esc(nt)}</div>`:''}</div>`};
+  const card=(id,cls,h,body,extra)=>{const nt=noteOf(id);return `<div class="tdc ${cls}" data-c="${id}"><h4>${h}</h4>${body||(nt?'':'<span class="mut">點一下設定</span>')}${nt?`<div class="cnote">✍️ ${esc(nt)}</div>`:''}${extra||''}</div>`};
   $('#p-today').innerHTML=`
   <div class="tdbar"><b>${(vd.getMonth()+1)}/${vd.getDate()}（週${WD[vd.getDay()]}）${isT?'今日課表':'課表預排'}</b>${viewBtns}${wk?`<span class="mut">　週末：顯示下個上學日（週${WD[g]}）的課表</span>`:''}${exams.length?`<span class="exb">📝 ${isT?'今日':'當日'}考試：${exams.map(t=>esc((SFULL[t.subj]||t.subj)+t.type)).join('、')}</span>`:''}<span class="mut" style="margin-left:auto;font-size:14px">點課表任一節＝改課／填「這節要做什麼」</span></div>
-  ${examStrip()}${bbStrip()}<div class="tdwrap"${(bbActive().length||examToday())?` style="height:calc(100vh - ${170+50*((bbActive().length?1:0)+(examToday()?1:0))}px)"`:''}><div class="ttcol">${rows}</div><div class="tdcards">
+  ${examStrip()}${bbStrip()}<div class="tdwrap"${(bbActive().length||examToday())?` style="height:calc(100vh - ${170+50*((bbActive().length?1:0)+(examToday()?1:0))}px)"`:''}><div class="ttcol">${rows}</div><div class="tdcards" style="grid-template-rows:.6fr ${Math.max(.8,Math.min(6,+settings.tdNoon||2.1))}fr .8fr">
    ${card('duty','','🧹 值日生',keysSorted(dayD.duty).map(k=>tchip(k)).join(''))}
    ${card('meal','','🍱 抬餐',keysSorted(dayD.meal).map(k=>tchip(k)).join(''))}
-   ${card('noon','wide noon','🍱 午休',(napK.length?`<div><b class="ct">😴 缺席</b>${napK.map(k=>tchip(k,`<span class="wh">→ ${esc(nap[k])}</span>`)).join('')}</div>`:'')+(coachH?`<div><b class="ct">📖 加強</b></div>${coachH}`:''))}
+   ${card('noon','wide noon','🍱 午休',(napK.length?`<div><b class="ct">😴 缺席</b>${napK.map(k=>tchip(k,`<span class="wh">→ ${esc(nap[k])}</span>`)).join('')}</div>`:'')+(coachH?`<div><b class="ct">📖 加強</b></div>${coachH}`:''),'<div class="nzh" title="拖曳調整午休區高度（需輸入密碼；連點兩下還原）"><i></i></div>')}
    ${card('leave','','🤒 今日請假',leaveH)}
    ${!isT?`<div class="tdc hw" data-c="bk"><h4>📒 這天要交／要考（來自聯絡簿）</h4>${dueList.length?dueList.map(t=>`<span class="tc">${esc((SFULL[t.subj]||t.subj)+tyLabel(t))}${tNote(t)?`<small style="margin-left:4px">${esc(tNote(t))}</small>`:''}</span>`).join(''):'<span class="mut">這天還沒有登記項目</span>'}${noteOf('bk')?`<div class="cnote">✍️ ${esc(noteOf('bk'))}</div>`:''}</div>`:`<div class="tdc hw" data-c="hw"><h4 style="font-size:19px">⚠️ 作業未交（連動遲交）<small style="font-size:13px;color:var(--mut);font-weight:600;margin-left:6px">點同學看缺哪些</small></h4>${pk.length?pk.slice(0,36).map(k=>{const s=stuByKey(k),ol=owedAll.filter(t=>owes(t,k)).map(shortL),txt=ol.slice(0,4).join('、')+(ol.length>4?'…':'');return `<span class="tc hwc" data-hk="${k}"><small>${s.no}</small>${esc(s.name)}${per[k]?`<span class="cn">缺${per[k]}</span>`:''}${nwp[k]?`<span class="cn">📔×${nwp[k]}</span>`:''}${txt?`<br><span class="owl">${esc(txt)}</span>`:''}</span>`}).join('')+(pk.length>36?'<span class="mut"> …共 '+pk.length+' 人</span>':''):'<span class="mut">目前沒有人欠交 👏</span>'}${noteOf('hw')?`<div class="cnote">✍️ ${esc(noteOf('hw'))}</div>`:''}</div>`}
   </div></div>`;
@@ -1253,6 +1251,15 @@ function renderToday(){
     if(c==='leave'){unlocked?openPlan():askPin(openPlan)}else if(c==='duty')openStuPick('🧹 值日生','duty');else if(c==='meal')openStuPick('🍱 抬餐','meal');
     else if(c==='noon')openNoon();else if(c==='noise')openNoise();else if(c==='bk')openTextOnly('bk','📒 這天要交／要考　補充文字',()=>showTab('book'),'前往聯絡簿');else openTextOnly('hw','⚠️ 作業未交　補充文字',()=>showTab('late'),'前往遲交')});
   A.querySelectorAll('[data-hk]').forEach(b=>b.onclick=e=>{e.stopPropagation();openStuOwe(b.dataset.hk)});
+  const nz=A.querySelector('.nzh');
+  if(nz){nz.onclick=e=>e.stopPropagation();
+    nz.ondblclick=e=>{e.stopPropagation();if(!unlocked)return askPin(()=>toast('已解鎖'));db.ref('kiosk/settings/tdNoon').remove()};
+    nz.onpointerdown=e=>{e.preventDefault();e.stopPropagation();
+      if(!unlocked){askPin(()=>toast('已解鎖，請再拖曳一次'));return}
+      const grid=A.querySelector('.tdcards'),card=A.querySelector('.tdc.noon'),H=grid.clientHeight,y0=e.clientY,h0=card.getBoundingClientRect().height;let w=null;
+      try{nz.setPointerCapture(e.pointerId)}catch(x){}
+      nz.onpointermove=ev=>{const f=Math.max(.2,Math.min(.78,(h0+ev.clientY-y0)/H));w=Math.round(1.4*f/(1-f)*100)/100;grid.style.gridTemplateRows='.6fr '+w+'fr .8fr'};
+      nz.onpointerup=()=>{nz.onpointermove=null;nz.onpointerup=null;if(w!=null)db.ref('kiosk/settings/tdNoon').set(w)}}}
   A.querySelectorAll('[data-vd]').forEach(b=>b.onclick=e=>{e.stopPropagation();const d=b.dataset.vd;viewDate=d===todayKey()?null:d;watchDay();renderToday()});
 }
 function openStuOwe(k){pkOpen(box=>{const s=stuByKey(k),td=todayKey();if(!s)return;
@@ -1484,63 +1491,20 @@ function adminHonor(){const A=$('#adminBody');if(!A)return;const h=settings.hono
   $('#hCF').onchange=e=>R('cf').set(e.target.value);$('#hCT').onchange=e=>R('ct').set(e.target.value);$('#hTM').onchange=e=>R('term').set(e.target.value);
   $('#hDone').onclick=()=>askYN('榮譽榜結算（'+todayKey().slice(5).replace('-','/')+'）？','記下今天為上次結算日。下次選「從上次結算日起」會從明天開始計算；原始紀錄不受影響。',()=>R('last').set(todayKey()))}
 
-/* ===== 報到後心情表 v11-20a（Russell 情感環狀模型／心情儀表，每格 9 詞）===== */
-const MOODQ={
- A:{t:'有點緊繃・煩躁',bg:'#f1d3c8',dot:'#c0765d',w:['憤怒','生氣','被惹惱','壓力很大','緊張不安','焦慮','擔心','驚慌失措','不太高興']},
- B:{t:'充滿活力・開心',bg:'#fbe9a8',dot:'#e0aa00',w:['開心','快樂','興奮','驚喜','有動力','樂觀','好玩','幸福','集中']},
- C:{t:'沒什麼力氣・低落',bg:'#cfd6ee',dot:'#5b6fb5',w:['疲累','無聊','提不起勁','洩氣','失望','難過','低落','孤單','無望']},
- D:{t:'平靜・放鬆',bg:'#cfe6dc',dot:'#4a8f7a',w:['平靜','放鬆','自在','安全','滿意','舒服','知足','冷靜','昏昏欲睡']}};
-let moodTm=null;
-function closeMood(){clearTimeout(moodTm);moodTm=null;const m=$('#mMood');if(m)m.classList.remove('on')}
-function openMood(k){
-  if(settings.moodOn===false)return;
-  const td=curDay;if((mood[td]||{})[k]||!att[k])return;
-  const s=students.find(x=>x.key===k);if(!s)return;
-  let m=$('#mMood');if(!m){m=document.createElement('div');m.className='modal mood';m.id='mMood';document.body.appendChild(m)}
-  m.innerHTML=`<div class="mdbox"><div class="mdh"><b>${esc(s.name)}，今天的心情是哪一個？</b><small>點最像的一個詞就好，只有老師看得到</small></div>
-  <div class="mdg">${['A','B','C','D'].map(q=>`<div class="mdq" style="background:${MOODQ[q].bg}"><h4>${MOODQ[q].t}</h4><div class="mdw3">${MOODQ[q].w.map(w=>`<button class="mdw" data-q="${q}" data-w="${w}">${w}</button>`).join('')}</div></div>`).join('')}</div>
-  <div class="mdf"><button class="mdskip" id="mdSkip">今天不想選</button><div class="mdbar"><i></i></div></div></div>`;
-  m.classList.add('on');
-  const save=v=>{db.ref('kiosk/mood/'+td+'/'+k).set(Object.assign({ts:Date.now()},v));clearTimeout(moodTm);m.innerHTML='<div class="mdbox mdthx">謝謝你 💛<br><span style="font-size:26px;font-weight:600">今天也一起加油！</span></div>';moodTm=setTimeout(closeMood,1300)};
-  m.querySelectorAll('.mdw').forEach(b=>b.onclick=()=>save({q:b.dataset.q,w:b.dataset.w}));
-  $('#mdSkip').onclick=()=>save({q:'x'});
-  clearTimeout(moodTm);moodTm=setTimeout(closeMood,15000)}
-function adminMood(){const A=$('#adminBody');if(!A)return;const on=settings.moodOn!==false,td=todayKey();
-  const days=[];{const d=new Date();while(days.length<14){if(!isOff(d))days.push(ymd(d));d.setDate(d.getDate()-1)}}days.reverse();
-  const fm=d=>+d.slice(5,7)+'/'+(+d.slice(8));
-  const today=mood[td]||{},here=students.filter(x=>att[x.key]).length,filled=students.filter(x=>today[x.key]&&today[x.key].q&&today[x.key].q!=='x');
-  const byQ={A:[],B:[],C:[],D:[]};filled.forEach(x=>{const v=today[x.key];if(byQ[v.q])byQ[v.q].push({s:x,w:v.w})});
-  const skip=students.filter(x=>today[x.key]&&today[x.key].q==='x').length;
-  // 值得關心：最近三次有填的紀錄都在「沒力氣・低落」，或最新一次選了無望／孤單
-  const care=[];students.forEach(x=>{const rec=days.filter(d=>mood[d]&&mood[d][x.key]&&mood[d][x.key].q&&mood[d][x.key].q!=='x').map(d=>mood[d][x.key]);
-    if(!rec.length)return;const last=rec[rec.length-1];let why='';
-    if(['無望','孤單'].includes(last.w))why='最近一次選了「'+last.w+'」';
-    else if(rec.length>=3&&rec.slice(-3).every(v=>v.q==='C'))why='連續 3 次在「沒力氣・低落」';
-    if(why)care.push({x,why})});
-  const sec=document.createElement('div');sec.className='sec';
-  sec.innerHTML=`<h3>🌈 今日心情表<small style="font-size:16px;color:var(--mut);font-weight:600;margin-left:8px">學生報到後會跳出，只有老師密碼進來才看得到；僅供關心參考，不是診斷，也不計入記點、全勤或任何成績</small></h3>
-  <div class="row"><button class="chip ${on?'on':''}" id="moodOn">${on?'✔ 已開啟':'已關閉（點一下開啟）'}</button><span class="mut">今天已填 ${filled.length}／已到 ${here}${skip?'　今天不想選 '+skip:''}</span></div>
-  ${care.length?`<div style="margin:8px 0;padding:8px 12px;background:#fff3cd;border:2px solid #f0c36d;border-radius:12px;font-size:17px"><b>🔔 值得關心一下：</b>${care.map(c=>`${c.x.no} ${esc(c.x.name)}（${c.why}）`).join('；')}</div>`:''}
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0">${['A','B','C','D'].map(q=>`<div style="background:${MOODQ[q].bg};border-radius:12px;padding:8px 12px"><b>${MOODQ[q].t}　${byQ[q].length} 人</b><div style="font-size:16px;margin-top:3px;line-height:1.6">${byQ[q].length?byQ[q].map(v=>`${v.s.no} ${esc(v.s.name)}<small style="color:#555">（${v.w}）</small>`).join('、'):'<span class="mut">—</span>'}</div></div>`).join('')}</div>
-  <details><summary style="cursor:pointer;font-size:17px;font-weight:700;margin:6px 0">📈 近 14 個上課日心情軌跡（點開）</summary><div style="overflow:auto"><table class="mtb"><thead><tr><th></th>${days.map(d=>`<th>${fm(d)}</th>`).join('')}</tr></thead><tbody>
-  ${students.map(x=>`<tr><td class="n">${x.no} ${esc(x.name)}</td>${days.map(d=>{const v=(mood[d]||{})[x.key];const c=v&&MOODQ[v.q]?MOODQ[v.q].dot:(v&&v.q==='x'?'#ccc':'#fff');return `<td><span class="mdot" style="background:${c};${v?'':'border:2px solid #ddd;box-sizing:border-box'}" title="${v&&v.w?esc(v.w):(v?'今天不想選':'沒有紀錄')}"></span></td>`}).join('')}</tr>`).join('')}
-  </tbody></table></div><div class="mut" style="font-size:14px;margin-top:4px">🟠緊繃煩躁　🟡活力開心　🔵低落沒力氣　🟢平靜放鬆　灰＝不想選　空心＝沒紀錄；把滑鼠停在圓點上可看選的詞</div></details>`;
-  A.prepend(sec);
-  $('#moodOn').onclick=()=>db.ref('kiosk/settings/moodOn').set(!on)}
-
 /* ===== 段考考程標籤＋大時鐘＋考場模式 v11-27a ===== */
 const EXC={'國文':'#e03131','英文':'#f08c00','數學':'#1971c2','自然':'#2f9e44','地理':'#8d6e63','歷史':'#7048e8','公民':'#0c8599'};
 const EX_SUBJ=['國文','英文','數學','自然','地理','歷史','公民','其他'];
-function exToday(){const e=settings.exam;if(!e||!e.days)return null;const d=e.days[todayKey()];if(!d||!d.items)return null;
-  const items=Object.keys(d.items).map(id=>Object.assign({id},d.items[id])).filter(x=>x.s&&x.t1&&x.t2).sort((a,b)=>a.t1<b.t1?-1:1);
-  return items.length?{items,note:d.note||'',name:e.name||'段考',n:Object.keys(e.days).filter(x=>x<=todayKey()&&e.days[x]&&e.days[x].items).length}:null}
+function exDay(d){const e=settings.exam;if(!e||!e.days)return null;const D=e.days[d];if(!D||!D.items)return null;
+  const items=Object.keys(D.items).map(id=>Object.assign({id},D.items[id])).filter(x=>x.s&&x.t1&&x.t2).sort((a,b)=>a.t1<b.t1?-1:1);
+  return items.length?{items,note:D.note||'',name:e.name||'段考',n:Object.keys(e.days).filter(x=>x<=d&&e.days[x]&&e.days[x].items).length}:null}
+function exToday(){return exDay(todayKey())}
 function examToday(){return !!exToday()}
 const hmOf=d=>('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
 const mOf=t=>{const a=t.split(':');return (+a[0])*60+(+a[1])};
-function exState(){const E=exToday();if(!E)return null;const n=new Date(),now=n.getHours()*60+n.getMinutes()+n.getSeconds()/60;
+function exState(d,sim){const E=exDay(d||todayKey());if(!E)return null;const n=new Date(),now=sim!=null?sim:n.getHours()*60+n.getMinutes()+n.getSeconds()/60;
   let cur=null,next=null;E.items.forEach(x=>{const a=mOf(x.t1),b=mOf(x.t2);if(now>=a&&now<b)cur=x;else if(now<a&&!next)next=x});
   const st=x=>{const b=mOf(x.t2),a=mOf(x.t1);return now>=b?'done':(now>=a?'now':'')};
-  return {E,cur,next,st,now,left:cur?Math.ceil(mOf(cur.t2)-now):0,sig:E.items.map(x=>x.id+st(x)).join()}}
+  return {E,cur,next,st,now,sim:sim!=null,left:cur?Math.ceil(mOf(cur.t2)-now):0,sig:E.items.map(x=>x.id+st(x)).join()}}
 function exLabel(x){return (x.p?PLAB(x.p):'')+' '+(x.s==='其他'?(x.r||'其他'):x.s)}
 function PLAB(p){const f=PERIODS.find(q=>q[0]===p);return f?f[1]:''}
 function exLeftHtml(S){const n=new Date();if(S.cur)return [`本節剩 ${S.left} 分`,S.left<=5?'r':S.left<=10?'o':''];
@@ -1548,17 +1512,18 @@ function exLeftHtml(S){const n=new Date();if(S.cur)return [`本節剩 ${S.left} 
   return ['今天的考試結束了 👏','']}
 function examStripText(){const S=exState();if(!S)return '';const [l]=exLeftHtml(S);return S.cur?`📝 現在：${esc(exLabel(S.cur))}${S.cur.s!=='其他'&&S.cur.r?'　'+esc(S.cur.r):''}　${l}`:`📝 ${esc(S.E.name)}　${l}`}
 function examStrip(){const S=exState();if(!S)return '';return `<div class="exstrip exgo"><b data-exclk>${hmOf(new Date())}</b><span data-exs>${examStripText()}</span></div>`}
-function renderExam(){const c=$('#exC');if(!c)return;const S=exState();if(!S){c.innerHTML='';return}
-  const E=S.E,n=new Date(),d=n.getDate(),wd=WD[n.getDay()],[l,lc]=exLeftHtml(S);
-  c.innerHTML=`<div class="exb2"><div class="excl"><div class="hm"><span data-exclk>${hmOf(n)}</span><small data-exsec>${('0'+n.getSeconds()).slice(-2)}</small></div><div class="left ${lc}" data-exleft>${l}</div></div>
-  <div class="exr"><h3>📝 ${esc(E.name)}・第 ${E.n} 天<small style="font-size:17px;color:#555">${n.getMonth()+1}/${d}（週${wd}）</small><button class="exgo">🖥 考場模式</button></h3>
+function exBoxHtml(S,date){const E=S.E,[l,lc]=exLeftHtml(S),clk=pad2(Math.floor(S.now/60)%24)+':'+pad2(Math.floor(S.now%60)),sec=S.sim?'00':pad2(new Date().getSeconds());
+  return `<div class="exb2"><div class="excl"><div class="hm"><span data-exclk>${clk}</span>${S.sim?'':`<small data-exsec>${sec}</small>`}</div><div class="left ${lc}" data-exleft>${l}</div></div>
+  <div class="exr"><h3>📝 ${esc(E.name)}・第 ${E.n} 天<small style="font-size:17px;color:#555">${date.getMonth()+1}/${date.getDate()}（週${WD[date.getDay()]}）</small><button class="${S.sim?'exgs':'exgo'}">🖥 考場模式</button></h3>
   <div class="exi">${E.items.map(x=>{const st=S.st(x);return `<div class="exc ${st}" style="--sc:${EXC[x.s]||'#555'}"><div class="p">${st==='done'?'✓ ':st==='now'?'▶ ':''}${PLAB(x.p)}</div><div class="s">${esc(x.s==='其他'?(x.r||'其他'):x.s)}</div>${x.s!=='其他'&&x.r?`<div class="r">${esc(x.r)}</div>`:''}<div class="t">${esc(x.t1)}～${esc(x.t2)}</div></div>`}).join('')}</div>
-  ${E.note?`<div class="exn">📌 ${esc(E.note)}</div>`:''}</div></div>`;
-  c._sig=S.sig}
+  ${E.note?`<div class="exn">📌 ${esc(E.note)}</div>`:''}</div></div>`}
+function renderExam(){const c=$('#exC');if(!c)return;const S=exState();if(!S){c.innerHTML='';return}
+  c.innerHTML=exBoxHtml(S,new Date());c._sig=S.sig}
 function fullHtml(S){const n=new Date(),[l]=exLeftHtml(S),x=S.cur||S.next;
-  return `<div class="fh">${hmOf(n)}</div>${x?`<div class="fs" style="color:${S.cur?'#ffd166':'#9ec1ff'}">${S.cur?'':'下一節　'}${esc(x.s==='其他'?(x.r||'其他'):x.s)}${x.s!=='其他'&&x.r?'　'+esc(x.r):''}</div>`:''}<div class="fl" style="color:${S.cur&&S.left<=5?'#ff6b6b':S.cur&&S.left<=10?'#ffb347':'#fff'}">${l}</div>${S.cur&&S.next?`<div class="fn">下一節：${esc(exLabel(S.next))}　${esc(S.next.t1)}</div>`:''}<small>點一下螢幕回到原畫面</small>`}
-function openExFull(){const S=exState();if(!S)return;let f=$('#exFull');if(!f){f=document.createElement('div');f.id='exFull';f.onclick=()=>f.classList.remove('on');document.body.appendChild(f)}f.innerHTML=fullHtml(S);f.classList.add('on')}
-document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('.exgo')){e.stopPropagation();openExFull()}});
+  return `<div class="fh">${S.sim?pad2(Math.floor(S.now/60)%24)+':'+pad2(Math.floor(S.now%60)):hmOf(n)}</div>${x?`<div class="fs" style="color:${S.cur?'#ffd166':'#9ec1ff'}">${S.cur?'':'下一節　'}${esc(x.s==='其他'?(x.r||'其他'):x.s)}${x.s!=='其他'&&x.r?'　'+esc(x.r):''}</div>`:''}<div class="fl" style="color:${S.cur&&S.left<=5?'#ff6b6b':S.cur&&S.left<=10?'#ffb347':'#fff'}">${l}</div>${S.cur&&S.next?`<div class="fn">下一節：${esc(exLabel(S.next))}　${esc(S.next.t1)}</div>`:''}<small>點一下螢幕回到原畫面</small>`}
+function openExFull(S0){const S=S0||exState();if(!S)return;let f=$('#exFull');if(!f){f=document.createElement('div');f.id='exFull';f.onclick=()=>{f.classList.remove('on');f._sim=false};document.body.appendChild(f)}f._sim=!!S0;f.innerHTML=fullHtml(S);f.classList.add('on')}
+let exPv=null;
+document.addEventListener('click',e=>{if(!e.target.closest)return;if(e.target.closest('.exgo')){e.stopPropagation();openExFull()}else if(e.target.closest('.exgs')&&exPv){e.stopPropagation();openExFull(exState(exPv.d,exPv.m))}});
 function examTick(){const S=exState(),c=$('#exC');
   if(!S){if(c&&c.innerHTML)c.innerHTML='';const f=$('#exFull');if(f)f.classList.remove('on');document.querySelectorAll('.exstrip').forEach(x=>x.remove());return}
   if(c&&(c._sig!==S.sig||!c.innerHTML))renderExam();
@@ -1567,9 +1532,23 @@ function examTick(){const S=exState(),c=$('#exC');
   document.querySelectorAll('[data-exsec]').forEach(e=>e.textContent=('0'+n.getSeconds()).slice(-2));
   const [l,lc]=exLeftHtml(S);document.querySelectorAll('[data-exleft]').forEach(e=>{e.textContent=l;e.className='left '+lc});
   const t=examStripText();document.querySelectorAll('[data-exs]').forEach(e=>e.textContent=t);
-  const f=$('#exFull');if(f&&f.classList.contains('on'))f.innerHTML=fullHtml(S);
+  const f=$('#exFull');if(f&&f.classList.contains('on')&&!f._sim)f.innerHTML=fullHtml(S);
 }
 setInterval(()=>{try{examTick()}catch(e){}},1000);
+
+function previewExam(d){const E0=exDay(d);if(!E0)return toast('這天還沒有排任何一節');
+  const dt=new Date(d+'T00:00:00'),t0=mOf(E0.items[0].t1)+3;exPv={d,m:t0};
+  pkOpen(box=>{box.innerHTML=`<h2 style="margin:0 0 6px">👁 預覽　${d.slice(5).replace('-','/')}（週${WD[dt.getDay()]}）<small style="font-size:15px;color:var(--mut);margin-left:8px">這是學生那天會看到的畫面，不會影響真正的畫面</small></h2>
+  <div id="pvBox"></div>
+  <div class="row" style="margin:8px 0;align-items:center"><b>模擬時間</b><input type="range" id="pvR" min="420" max="1080" step="1" value="${t0}" style="flex:1;min-width:260px"><b id="pvT" style="font-size:24px;min-width:70px"></b></div>
+  <div class="row" id="pvQ" style="margin-bottom:8px">${E0.items.map(x=>`<button class="chip" data-m="${mOf(x.t1)+3}">▶ ${esc(exLabel(x))} 進行中</button><button class="chip" data-m="${mOf(x.t2)-4}">⏰ ${esc(exLabel(x))} 剩 4 分</button>`).join('')}<button class="chip" data-m="${mOf(E0.items[E0.items.length-1].t2)+5}">🏁 全部考完</button></div>
+  <div class="row"><button class="btn green" id="pvF">🖥 預覽考場模式</button><button class="btn gray" id="pvX">關閉</button></div>`;
+  const draw=()=>{const S=exState(d,exPv.m);$('#pvBox').innerHTML=S?exBoxHtml(S,dt):'';$('#pvT').textContent=pad2(Math.floor(exPv.m/60))+':'+pad2(exPv.m%60);$('#pvR').value=exPv.m};
+  draw();
+  $('#pvR').oninput=ev=>{exPv.m=+ev.target.value;draw()};
+  box.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{exPv.m=Math.max(420,Math.min(1080,+b.dataset.m));draw()});
+  $('#pvF').onclick=()=>openExFull(exState(d,exPv.m));
+  $('#pvX').onclick=()=>{exPv=null;pkClose()}})}
 function adminExam(){const A=$('#adminBody');if(!A)return;const e=settings.exam||{},days=Object.keys(e.days||{}).sort(),td=todayKey();
   const sec=document.createElement('div');sec.className='sec';
   const opt=(a,v)=>a.map(x=>`<option value="${x[0]}" ${String(x[0])===String(v)?'selected':''}>${x[1]}</option>`).join('');
@@ -1578,7 +1557,7 @@ function adminExam(){const A=$('#adminBody');if(!A)return;const e=settings.exam|
   <div class="row"><span>段考名稱</span><input class="bellin" id="exName" value="${esc(e.name||'')}" placeholder="例：第三次段考" style="width:220px"></div>
   <div class="row" style="margin:8px 0"><input type="date" class="bellin" id="exNewD" value="${days.length?nextSchoolDay(days[days.length-1]):td}"><button class="btn" id="exAddD">＋新增這一天</button>${days.length?'<button class="btn gray" id="exCopy">📋 複製最後一天到這個日期</button>':''}</div>
   ${days.map((d,i)=>{const D=e.days[d],its=Object.keys(D.items||{}).map(id=>Object.assign({id},D.items[id])).sort((a,b)=>(a.t1||'')<(b.t1||'')?-1:1);
-   return `<div class="it" style="display:block;margin-bottom:8px;${d<td?'opacity:.6':''}"><div class="row"><b style="font-size:20px">第 ${i+1} 天　${d.slice(5).replace('-','/')}（週${WD[new Date(d+'T00:00:00').getDay()]}）${d===td?' <span style="color:#e8590c">今天</span>':''}</b><button class="chip" data-xaddi="${d}">＋加一節</button><button class="chip" data-xdd="${d}" style="color:var(--bad)">刪除這天</button></div>
+   return `<div class="it" style="display:block;margin-bottom:8px;${d<td?'opacity:.6':''}"><div class="row"><b style="font-size:20px">第 ${i+1} 天　${d.slice(5).replace('-','/')}（週${WD[new Date(d+'T00:00:00').getDay()]}）${d===td?' <span style="color:#e8590c">今天</span>':''}</b><button class="chip" data-xaddi="${d}">＋加一節</button><button class="chip" data-xpv="${d}">👁 預覽</button><button class="chip" data-xdd="${d}" style="color:var(--bad)">刪除這天</button></div>
    ${its.map(x=>`<div class="row" style="margin-top:6px"><select class="bellin" data-xi="${d}|${x.id}|p">${opt(PO,x.p)}</select><select class="bellin" data-xi="${d}|${x.id}|s">${opt(EX_SUBJ.map(v=>[v,v]),x.s)}</select><input class="bellin" data-xi="${d}|${x.id}|r" value="${esc(x.r||'')}" placeholder="範圍 例：L1～L3" style="width:150px"><input type="time" class="bellin" data-xi="${d}|${x.id}|t1" value="${esc(x.t1||'')}"><span>～</span><input type="time" class="bellin" data-xi="${d}|${x.id}|t2" value="${esc(x.t2||'')}"><button class="chip" data-xdi="${d}|${x.id}" style="color:var(--bad)">✕</button></div>`).join('')||'<div class="mut" style="margin-top:4px">還沒有科目，按「＋加一節」</div>'}
    <div class="row" style="margin-top:6px"><span>📌 提醒</span><input class="bellin" data-xnote="${d}" value="${esc(D.note||'')}" placeholder="例：帶 2B 鉛筆、橡皮擦、計算機；手機關機" style="flex:1;min-width:260px"></div></div>`}).join('')}
   <div class="mut" style="font-size:14px">時間預設照課鐘，可逐筆修改；科目選「其他」時，範圍欄會當成名稱顯示（例：英聽）。</div>`;
@@ -1588,6 +1567,7 @@ function adminExam(){const A=$('#adminBody');if(!A)return;const e=settings.exam|
   $('#exAddD').onclick=()=>{const d=$('#exNewD').value;if(!d)return;if(!(e.days||{})[d])R('days/'+d+'/items').push({p:'1',s:'國文',r:'',t1:bellOf('1')||'08:10',t2:addMin(bellOf('1')||'08:10',50)});else toast('這天已經有了')};
   if($('#exCopy'))$('#exCopy').onclick=()=>{const d=$('#exNewD').value,last=days[days.length-1];if(!d||(e.days||{})[d])return toast('這天已經有了，請選新的日期');const src=e.days[last];R('days/'+d).set(JSON.parse(JSON.stringify(src)))};
   sec.querySelectorAll('[data-xaddi]').forEach(b=>b.onclick=()=>{const d=b.dataset.xaddi,used=Object.values((e.days[d]||{}).items||{}).map(x=>x.p),nx=PERIODS.map(p=>p[0]).find(p=>p!=='noon'&&p!=='m'&&!used.includes(p))||'1';R('days/'+d+'/items').push({p:nx,s:'國文',r:'',t1:bellOf(nx)||'08:10',t2:addMin(bellOf(nx)||'08:10',50)})});
+  sec.querySelectorAll('[data-xpv]').forEach(b=>b.onclick=()=>previewExam(b.dataset.xpv));
   sec.querySelectorAll('[data-xdd]').forEach(b=>b.onclick=()=>askYN('刪除這一天的考程？',b.dataset.xdd+' 整天的排程會移除。',()=>R('days/'+b.dataset.xdd).remove()));
   sec.querySelectorAll('[data-xdi]').forEach(b=>b.onclick=()=>{const [d,id]=b.dataset.xdi.split('|');R('days/'+d+'/items/'+id).remove()});
   sec.querySelectorAll('[data-xi]').forEach(el=>el.onchange=()=>{const [d,id,f]=el.dataset.xi.split('|');R('days/'+d+'/items/'+id+'/'+f).set(el.value);
