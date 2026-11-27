@@ -58,7 +58,7 @@ main{flex:1;overflow:auto;padding:14px 18px;-webkit-overflow-scrolling:touch}
 .ttr.cur{background:#fff3c4;border-color:#e0a800}.ttr.past{opacity:.45}.ttr.noon{background:#eef5ff}
 .ttr .ttl1{width:92px;font-weight:800;font-size:16px;line-height:1.1}.ttl1 small{display:block;font-size:12px;color:var(--mut);font-weight:600}
 .ttr .tts{width:78px;font-size:24px;font-weight:900}.ttr .ttd{flex:1;font-size:22px;font-weight:900;color:#b02a2a;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.tdc.noon{display:flex;flex-direction:column}.nzh{margin-top:auto;position:sticky;bottom:-4px;flex:none;height:22px;display:flex;justify-content:center;align-items:flex-end;touch-action:none;cursor:ns-resize}.nzh i{width:90px;height:7px;border-radius:4px;background:#cfc8b8}.tdcards{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:.6fr 2.1fr .8fr;gap:8px;min-height:0}.tdc.wide{grid-column:1/-1}.tdc.hw .tc{font-size:21px;padding:2px 9px;margin:2px 4px 2px 0;vertical-align:top}.tdc.hw .tc .cn{font-size:16px}.tdc.hw .owl{font-size:13px;color:#7a6a58;font-weight:700}.tdc.noon .tc{font-size:21px;padding:1px 8px;margin:2px 5px 2px 0}.tdc.noon .tc .wh{font-size:14px}.tdc.noon .ct{font-size:17px}
+.tdc[data-c=duty],.tdc[data-c=meal]{padding:3px 9px}.tdc[data-c=duty] h4,.tdc[data-c=meal] h4{font-size:14px;margin:0 0 1px}.tdc[data-c=duty] .tc,.tdc[data-c=meal] .tc{font-size:18px;padding:0 7px;margin:1px 4px 1px 0}.tdc[data-c=duty] .mut,.tdc[data-c=meal] .mut{font-size:14px}.tdc.noon{display:flex;flex-direction:column}.nzh{margin-top:auto;position:sticky;bottom:-4px;flex:none;height:22px;display:flex;justify-content:center;align-items:flex-end;touch-action:none;cursor:ns-resize}.nzh i{width:90px;height:7px;border-radius:4px;background:#cfc8b8}.tdcards{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:.6fr 2.1fr .8fr;gap:8px;min-height:0}.tdc.wide{grid-column:1/-1}.tdc.hw .tc{font-size:21px;padding:2px 9px;margin:2px 4px 2px 0;vertical-align:top}.tdc.hw .tc .cn{font-size:16px}.tdc.hw .owl{font-size:13px;color:#7a6a58;font-weight:700}.tdc.noon .tc{font-size:21px;padding:1px 8px;margin:2px 5px 2px 0}.tdc.noon .tc .wh{font-size:14px}.tdc.noon .ct{font-size:17px}
 .tdc{background:#fff;border-radius:14px;padding:6px 10px;border:3px solid var(--line);cursor:pointer;overflow:auto;min-height:0}
 .tdc.red{border-color:#e8b4b4}.tdc.hw{border-color:#f0c9a0}
 .cnote{margin-top:4px;font-size:18px;font-weight:800;color:#2b6cb0;line-height:1.25}
@@ -173,7 +173,7 @@ table.st td.n{text-align:left;font-weight:800;white-space:nowrap}table.st td.z{c
 <header>
   <div id="clock">--:--</div>
   <div id="dateTxt"></div>
-  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-27b</span>
+  <span id="sync" title="連線狀態"></span><span id="ver" style="font-size:12px;color:var(--mut);writing-mode:horizontal-tb">v11-27c</span>
   <nav id="nav"></nav>
 </header>
 <div id="ztBar" style="display:none"></div>
@@ -1238,7 +1238,7 @@ function renderToday(){
   const card=(id,cls,h,body,extra)=>{const nt=noteOf(id);return `<div class="tdc ${cls}" data-c="${id}"><h4>${h}</h4>${body||(nt?'':'<span class="mut">點一下設定</span>')}${nt?`<div class="cnote">✍️ ${esc(nt)}</div>`:''}${extra||''}</div>`};
   $('#p-today').innerHTML=`
   <div class="tdbar"><b>${(vd.getMonth()+1)}/${vd.getDate()}（週${WD[vd.getDay()]}）${isT?'今日課表':'課表預排'}</b>${viewBtns}${wk?`<span class="mut">　週末：顯示下個上學日（週${WD[g]}）的課表</span>`:''}${exams.length?`<span class="exb">📝 ${isT?'今日':'當日'}考試：${exams.map(t=>esc((SFULL[t.subj]||t.subj)+t.type)).join('、')}</span>`:''}<span class="mut" style="margin-left:auto;font-size:14px">點課表任一節＝改課／填「這節要做什麼」</span></div>
-  ${examStrip()}${bbStrip()}<div class="tdwrap"${(bbActive().length||examToday())?` style="height:calc(100vh - ${170+50*((bbActive().length?1:0)+(examToday()?1:0))}px)"`:''}><div class="ttcol">${rows}</div><div class="tdcards" style="grid-template-rows:.6fr ${Math.max(.8,Math.min(6,+settings.tdNoon||2.1))}fr .8fr">
+  ${examStrip()}${bbStrip()}<div class="tdwrap"${(bbActive().length||examToday())?` style="height:calc(100vh - ${170+50*((bbActive().length?1:0)+(examToday()?1:0))}px)"`:''}><div class="ttcol">${rows}</div><div class="tdcards" style="grid-template-rows:auto ${Math.round(Math.max(.2,Math.min(.85,+settings.tdNoonF||.65))*1000)}fr ${Math.round((1-Math.max(.2,Math.min(.85,+settings.tdNoonF||.65)))*1000)}fr">
    ${card('duty','','🧹 值日生',keysSorted(dayD.duty).map(k=>tchip(k)).join(''))}
    ${card('meal','','🍱 抬餐',keysSorted(dayD.meal).map(k=>tchip(k)).join(''))}
    ${card('noon','wide noon','🍱 午休',(napK.length?`<div><b class="ct">😴 缺席</b>${napK.map(k=>tchip(k,`<span class="wh">→ ${esc(nap[k])}</span>`)).join('')}</div>`:'')+(coachH?`<div><b class="ct">📖 加強</b></div>${coachH}`:''),'<div class="nzh" title="拖曳調整午休區高度（需輸入密碼；連點兩下還原）"><i></i></div>')}
@@ -1253,13 +1253,13 @@ function renderToday(){
   A.querySelectorAll('[data-hk]').forEach(b=>b.onclick=e=>{e.stopPropagation();openStuOwe(b.dataset.hk)});
   const nz=A.querySelector('.nzh');
   if(nz){nz.onclick=e=>e.stopPropagation();
-    nz.ondblclick=e=>{e.stopPropagation();if(!unlocked)return askPin(()=>toast('已解鎖'));db.ref('kiosk/settings/tdNoon').remove()};
+    nz.ondblclick=e=>{e.stopPropagation();if(!unlocked)return askPin(()=>toast('已解鎖'));db.ref('kiosk/settings/tdNoonF').remove()};
     nz.onpointerdown=e=>{e.preventDefault();e.stopPropagation();
       if(!unlocked){askPin(()=>toast('已解鎖，請再拖曳一次'));return}
-      const grid=A.querySelector('.tdcards'),card=A.querySelector('.tdc.noon'),H=grid.clientHeight,y0=e.clientY,h0=card.getBoundingClientRect().height;let w=null;
+      const grid=A.querySelector('.tdcards'),card=A.querySelector('.tdc.noon'),topH=A.querySelector('.tdc[data-c=duty]').getBoundingClientRect().height,L=grid.clientHeight-topH-16,y0=e.clientY,h0=card.getBoundingClientRect().height;let w=null;
       try{nz.setPointerCapture(e.pointerId)}catch(x){}
-      nz.onpointermove=ev=>{const f=Math.max(.2,Math.min(.78,(h0+ev.clientY-y0)/H));w=Math.round(1.4*f/(1-f)*100)/100;grid.style.gridTemplateRows='.6fr '+w+'fr .8fr'};
-      nz.onpointerup=()=>{nz.onpointermove=null;nz.onpointerup=null;if(w!=null)db.ref('kiosk/settings/tdNoon').set(w)}}}
+      nz.onpointermove=ev=>{const f=Math.max(.2,Math.min(.85,(h0+ev.clientY-y0)/L));w=Math.round(f*1000)/1000;grid.style.gridTemplateRows='auto '+Math.round(w*1000)+'fr '+Math.round((1-w)*1000)+'fr'};
+      nz.onpointerup=()=>{nz.onpointermove=null;nz.onpointerup=null;if(w!=null)db.ref('kiosk/settings/tdNoonF').set(w)}}}
   A.querySelectorAll('[data-vd]').forEach(b=>b.onclick=e=>{e.stopPropagation();const d=b.dataset.vd;viewDate=d===todayKey()?null:d;watchDay();renderToday()});
 }
 function openStuOwe(k){pkOpen(box=>{const s=stuByKey(k),td=todayKey();if(!s)return;
